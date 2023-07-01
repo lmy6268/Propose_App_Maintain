@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.camera.core
+package com.example.camera.core.camera
 
 import android.content.Context
 import android.util.AttributeSet
@@ -52,25 +52,27 @@ class AutoFitSurfaceView @JvmOverloads constructor(
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val height = MeasureSpec.getSize(heightMeasureSpec)
-        if (aspectRatio == 0f) {
-            setMeasuredDimension(width, height)
-        } else {
-
-            // Performs center-crop transformation of the camera frames
-            val newWidth: Int
-            val newHeight: Int
-            val actualRatio = if (width > height) aspectRatio else 1f / aspectRatio
-            if (width < height * actualRatio) {
-                newHeight = height
-                newWidth = (height * actualRatio).roundToInt()
-            } else {
-                newWidth = width
-                newHeight = (width / actualRatio).roundToInt()
-            }
-
-            Log.d(TAG, "Measured dimensions set: $newWidth x $newHeight")
-            setMeasuredDimension(newWidth, newHeight)
-        }
+        Log.d(TAG, "dimensions set: $width x $height")
+        setMeasuredDimension(width, height)
+//        if (aspectRatio == 0f) {
+//            setMeasuredDimension(width, height)
+//        } else {
+//
+//            // Performs center-crop transformation of the camera frames
+//            val newWidth: Int
+//            val newHeight: Int
+//            val actualRatio = if (width > height) aspectRatio else 1f / aspectRatio
+//            if (width < height * actualRatio) {
+//                newHeight = height
+//                newWidth = (height * actualRatio).roundToInt()
+//            } else {
+//                newWidth = width
+//                newHeight = (width / actualRatio).roundToInt()
+//            }
+//
+//            Log.d(TAG, "Measured dimensions set: $newWidth x $newHeight")
+//            setMeasuredDimension(newWidth, newHeight)
+//        }
     }
 
     companion object {
