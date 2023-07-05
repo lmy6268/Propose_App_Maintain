@@ -101,60 +101,54 @@ class CameraFragment : Fragment() {
             this,
             CameraViewModelFactory(
                 cameraList[0].cameraId,
-                cameraManager
-
+                cameraManager, requireActivity().application
             )
         ).get(CameraViewModel::class.java)
 
 
         // Used to rotate the output media to match device orientation
         relativeOrientation = OrientationLiveData(requireContext(), characteristics).apply {
-            observe(viewLifecycleOwner, Observer { orientation ->
+            observe(viewLifecycleOwner) { orientation ->
                 Log.d(TAG, "Orientation changed: $orientation")
-            })
+            }
         }
     }
 
     private fun setUI() {
         //버튼 별 설정
         fragmentCameraViewBinding.apply {
-            captureButton.setOnClickListener {
-//                    captureBtn ->
-//                Log.d("ImageCaptured!: ","이미지가 촬영됨.")
-//                captureBtn.isEnabled = false //버튼을 잠시 클릭 못하게 함.
-//                Log.d("Image On process!: ","이미지가 처리중임.")
-//                lifecycleScope.launch(Dispatchers.IO) {
-//                    val image = cameraViewModel.takePhoto(relativeOrientation)
-//                    requireView().post {
-//                        ivResult.setImageBitmap(image)
-//                        Log.d("Image On processed!: ","이미지가 처리됨.")
-//                        captureBtn.isEnabled = true
-//                    }
-//                }
+            captureButton.setOnClickListener { captureBtn ->
+                Log.d("ImageCaptured!: ", "이미지가 촬영됨.")
+                captureBtn.isEnabled = false //버튼을 잠시 클릭 못하게 함.
+                Log.d("Image On process!: ", "이미지가 처리중임.")
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val image = cameraViewModel.takePhoto(relativeOrientation)
+                    requireView().post {
+                        ivResult.setImageBitmap(image)
+                        Log.d("Image On processed!: ", "이미지가 처리됨.")
+                        captureBtn.isEnabled = true
+                    }
+                }
             }
-            lockInBtn.setOnClickListener { captureBtn ->
+            lockInBtn.setOnClickListener {
                 Log.d("ImageCaptured!: ", "이미지가 촬영됨.")
                 lockButtons(false)
                 Log.d("Image On process!: ", "이미지가 처리중임.")
-                lifecycleScope.launch(Dispatchers.IO) {
 
-                    lifecycleScope.launch(Dispatchers.Main) {
-                        ivOverlay.apply {
-                            setImageBitmap(cameraViewModel.setLockIn(viewFinder))
-                            alpha = 0.5F
-                        }
-                        closeOverlay.apply {
-                            this.isVisible = true
-                            setOnClickListener {
-                                ivOverlay.setImageResource(0)
-                                it.isVisible = false
-                            }
-
-                        }
-                        Log.d("Image On processed!: ", "이미지가 처리됨.")
-                        lockButtons(true)
+                lifecycleScope.launch(Dispatchers.Main) {
+                    ivOverlay.apply {
+                        Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder)).into(this)
+                        alpha = 0.5F
                     }
-
+                    closeOverlay.apply {
+                        this.isVisible = true
+                        setOnClickListener {
+                            ivOverlay.setImageResource(0)
+                            it.isVisible = false
+                        }
+                    }
+                    Log.d("Image On processed!: ", "이미지가 처리됨.")
+                    lockButtons(true)
                 }
             }
             //버튼 레이어를 네비바 위로 옮겨주기 위함.
@@ -189,17 +183,6 @@ class CameraFragment : Fragment() {
                         characteristics,
                         SurfaceHolder::class.java
                     )
-
-                    Log.d(
-                        TAG,
-                        "View finder size: ${fragmentCameraViewBinding.viewFinder.width} " +
-                                "x ${fragmentCameraViewBinding.viewFinder.height}"
-                    )
-                    Log.d(TAG, "Selected preview size: $previewSize")
-                    fragmentCameraViewBinding.viewFinder.setAspectRatio(
-                        previewSize.width, previewSize.height
-                    )
-
 
                 }
             })
@@ -262,20 +245,7 @@ class CameraFragment : Fragment() {
     }
 
     //
-//    private suspend fun saveResult(result: CombinedCaptureResult): File =
-//        suspendCoroutine { cont ->
-//            val buffer = result.image.planes[0].buffer
-//            val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
-//            try {
-//                val output = createFile(requireContext(), "jpg")
-//                FileOutputStream(output).use { it.write(bytes) }
-//                cont.resume(output)
-//            } catch (exc: IOException) {
-//                Log.e(TAG, "Unable to write JPEG image to file", exc)
-//                cont.resumeWithException(exc)
-//            }
-//        }
-//
+
 
     override fun onStop() {
         super.onStop()
@@ -304,18 +274,5 @@ class CameraFragment : Fragment() {
     companion object {
         private val TAG = CameraFragment::class.java.simpleName
         private const val CURRENT_CAMERA_NUMBER: Int = 0
-
-        data class CombinedCaptureResult(
-            val image: Image, val metadata: CaptureResult, val orientation: Int, val format: Int
-        ) : Closeable {
-            override fun close() = image.close()
-        }
-
-        private const val IMAGE_CAPTURE_TIMEOUT_MILLIS: Long = 5000L
-        private const val IMAGE_BUFFER_SIZE: Int = 3
-        private fun createFile(context: Context, extension: String): File {
-            val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.KOREA)
-            return File(context.filesDir, "IMG_${sdf.format(Date())}.$extension")
-        }
     }
 }

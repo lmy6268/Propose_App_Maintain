@@ -1,13 +1,12 @@
 package com.example.propose_application
 
 import android.annotation.SuppressLint
+import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 
 import android.graphics.ImageFormat
-import android.graphics.ImageFormat.YUV_420_888
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -28,13 +27,13 @@ import android.view.PixelCopy
 import android.view.Surface
 import android.view.SurfaceView
 import android.view.View
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.camera.core.camera.AutoFitSurfaceView
+
 import com.example.camera.core.camera.OrientationLiveData
-import com.example.camera.core.camera.SmartSize
 import com.example.camera.core.camera.computeExifOrientation
 import kotlinx.coroutines.Dispatchers
 
@@ -42,9 +41,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import java.io.Closeable
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.nio.ByteBuffer
+import java.text.SimpleDateFormat
 import java.util.Arrays
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeoutException
@@ -68,6 +73,7 @@ enum class CameraState {
 class CameraViewModelFactory(
     private var cameraId: String,
     private var cameraManager: CameraManager,
+    private val application: Application
 //    private val cameraCaptureUseCase: CameraCaptureUseCase
 ) : ViewModelProvider.Factory {
 
@@ -75,7 +81,8 @@ class CameraViewModelFactory(
         if (modelClass.isAssignableFrom(CameraViewModel::class.java)) {
             return CameraViewModel(
                 cameraId,
-                cameraManager
+                cameraManager,
+                application
 //                ,cameraCaptureUseCase
             ) as T
         }
@@ -87,13 +94,15 @@ class CameraViewModel(
     private var cameraId: String,
     private var cameraManager: CameraManager,
 //    private val cameraCaptureUseCase: CameraCaptureUseCase
-) : ViewModel() {
+application: Application
+) : AndroidViewModel(application){
     private var camera: CameraDevice? = null
     var session: CameraCaptureSession? = null
     private lateinit var characteristics: CameraCharacteristics
     private val IMAGE_BUFFER_SIZE = 3
     val cameraStateLiveData: MutableLiveData<CameraState> =
         MutableLiveData(CameraState.DO_NOTHING) //기본값
+
     //
     lateinit var capturedImageReader: ImageReader
 
@@ -135,7 +144,6 @@ class CameraViewModel(
                 override fun onDisconnected(camera: CameraDevice) {
                     Log.w("CameraFragment.TAG", "Camera $cameraId has been disconnected")
                     closeApp()
-//                        requireActivity().finish()
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -149,7 +157,8 @@ class CameraViewModel(
                     }
                     val exc = RuntimeException("Camera $cameraId error: ($error) $msg")
                     Log.e("CameraFragment.TAG", exc.message, exc)
-                    if (cont.isActive) cont.resumeWithException(exc)
+                    if (cont.isActive) {cont.resumeWithException(exc)
+                    }
                 }
             }, cameraHandler)
         }
@@ -205,18 +214,20 @@ class CameraViewModel(
     //카메라를 촬영하는 메소드
     suspend fun takePhoto(relativeOrientation: OrientationLiveData) =
         getCapturedImage(relativeOrientation).use { result ->
+//            saveResult(result)
             convertBufferToBitmap(result.image.planes[0].buffer, result.orientation)
         }
 
-    suspend fun setLockIn(viewFinder:SurfaceView) =
+    suspend fun setLockIn(viewFinder: SurfaceView) =
         //미리보기 화면 캡쳐를 통해 락인 기능 활성화
-        suspendCancellableCoroutine<Bitmap?> {
-                cont->
-            val bitmap = Bitmap.createBitmap(viewFinder.width, viewFinder.height, Bitmap.Config.ARGB_8888)
-            PixelCopy.request(viewFinder,
+        suspendCancellableCoroutine<Bitmap?> { cont ->
+            val bitmap =
+                Bitmap.createBitmap(viewFinder.width, viewFinder.height, Bitmap.Config.ARGB_8888)
+            PixelCopy.request(
+                viewFinder,
                 bitmap,
-                {res->
-                    if(res== PixelCopy.SUCCESS) cont.resume(bitmap)
+                { res ->
+                    if (res == PixelCopy.SUCCESS) cont.resume(bitmap)
                     else cont.resume(null)
 
                 }, Handler(Looper.getMainLooper())
@@ -228,13 +239,13 @@ class CameraViewModel(
         suspendCoroutine { cont ->
             // Flush any images left in the image reader
             @Suppress("ControlFlowWithEmptyBody")
-          while (capturedImageReader.acquireNextImage() != null) {
+            while (capturedImageReader.acquireNextImage() != null) {
             }
 
 
             // Start a new image queue
             val imageQueue = ArrayBlockingQueue<Image>(IMAGE_BUFFER_SIZE)
-           capturedImageReader.setOnImageAvailableListener({ reader ->
+            capturedImageReader.setOnImageAvailableListener({ reader ->
                 val image = reader.acquireNextImage()
                 Log.d("TAG", "Image available in queue: ${image.timestamp}")
                 imageQueue.add(image)
@@ -242,7 +253,7 @@ class CameraViewModel(
 
             val captureRequest = session!!.device.createCaptureRequest(
                 CameraDevice.TEMPLATE_STILL_CAPTURE
-            ).apply {addTarget(capturedImageReader.surface)}
+            ).apply { addTarget(capturedImageReader.surface) }
 
             session!!.capture(
                 captureRequest.build(),
@@ -287,12 +298,13 @@ class CameraViewModel(
                                     }
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                                     && image.format != ImageFormat.DEPTH_JPEG
-                                    && image.timestamp != resultTimestamp) continue
+                                    && image.timestamp != resultTimestamp
+                                ) continue
 
 
                                 // Unset the image reader listener
                                 imageReaderHandler.removeCallbacks(timeoutRunnable)
-                         capturedImageReader.setOnImageAvailableListener(null,null)
+                                capturedImageReader.setOnImageAvailableListener(null, null)
 
 
                                 // Clear the queue of images, if there are left
@@ -311,9 +323,9 @@ class CameraViewModel(
 
                                 // Build the result and resume progress
                                 cont.resume(
-                                    CameraFragment.Companion.CombinedCaptureResult(
+                                    CombinedCaptureResult(
                                         image, result, exifOrientation,
-                                  capturedImageReader.imageFormat
+                                        capturedImageReader.imageFormat
 
                                     )
                                 )
@@ -335,14 +347,17 @@ class CameraViewModel(
             val size = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
             )!!.getOutputSizes(ImageFormat.JPEG).maxByOrNull { it.height * it.width }!!
-                //가장 고해상도의 화면을 가져온다.
+            //가장 고해상도의 화면을 가져온다.
             capturedImageReader = ImageReader.newInstance(
                 size.width, size.height, ImageFormat.JPEG,
                 IMAGE_BUFFER_SIZE
             )
-            Log.d("사용 가능한 사이즈", Arrays.toString(characteristics.get(
-            CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
-        )!!.getOutputSizes(ImageFormat.JPEG))
+            Log.d(
+                "사용 가능한 사이즈", Arrays.toString(
+                    characteristics.get(
+                        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
+                    )!!.getOutputSizes(ImageFormat.JPEG)
+                )
             )
             val targets = listOf(viewSurface, capturedImageReader.surface)
             session = getCameraSession(camera!!, targets)
@@ -360,4 +375,27 @@ class CameraViewModel(
             BitmapFactory.decodeByteArray(it, 0, it.size)
         }
 
+        private suspend fun saveResult(result: CombinedCaptureResult): File =
+        suspendCoroutine { cont ->
+            val buffer = result.image.planes[0].buffer
+            val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
+            try {
+                val output = createFile(getApplication<Application>().applicationContext,"jpg")
+                FileOutputStream(output).use { it.write(bytes) }
+                cont.resume(output)
+            } catch (exc: IOException) {
+                Log.e("TAG", "Unable to write JPEG image to file", exc)
+                cont.resumeWithException(exc)
+            }
+        }
+
+    private fun createFile(context: Context, extension: String): File {
+        val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.US)
+        return File(context.filesDir, "IMG_${sdf.format(Date())}.$extension")
+    }
+}
+data class CombinedCaptureResult(
+    val image: Image, val metadata: CaptureResult, val orientation: Int, val format: Int
+) : Closeable {
+    override fun close() = image.close()
 }

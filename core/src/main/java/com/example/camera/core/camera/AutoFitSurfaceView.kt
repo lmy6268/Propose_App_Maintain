@@ -54,25 +54,25 @@ class AutoFitSurfaceView @JvmOverloads constructor(
         val height = MeasureSpec.getSize(heightMeasureSpec)
         Log.d(TAG, "dimensions set: $width x $height")
         setMeasuredDimension(width, height)
-//        if (aspectRatio == 0f) {
-//            setMeasuredDimension(width, height)
-//        } else {
-//
-//            // Performs center-crop transformation of the camera frames
-//            val newWidth: Int
-//            val newHeight: Int
-//            val actualRatio = if (width > height) aspectRatio else 1f / aspectRatio
-//            if (width < height * actualRatio) {
-//                newHeight = height
-//                newWidth = (height * actualRatio).roundToInt()
-//            } else {
-//                newWidth = width
-//                newHeight = (width / actualRatio).roundToInt()
-//            }
-//
-//            Log.d(TAG, "Measured dimensions set: $newWidth x $newHeight")
-//            setMeasuredDimension(newWidth, newHeight)
-//        }
+        if (aspectRatio == 0f) {
+            setMeasuredDimension(width, height)
+        } else {
+
+            // Performs center-crop transformation of the camera frames
+            val newWidth: Int
+            val newHeight: Int
+            val actualRatio = if (width > height) aspectRatio else 1f / aspectRatio
+            if (width < height * actualRatio) {
+                newHeight = height
+                newWidth = (height * actualRatio).roundToInt()
+            } else {
+                newWidth = width
+                newHeight = (width / actualRatio).roundToInt()
+            }
+
+            Log.d(TAG, "Measured dimensions set: $newWidth x $newHeight")
+            setMeasuredDimension(newWidth, newHeight)
+        }
     }
 
     companion object {
