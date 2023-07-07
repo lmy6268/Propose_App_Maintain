@@ -26,9 +26,16 @@
         android:layout_width="match_parent"
         android:layout_height="160dp" >
         <Button
-            android:layout_width="50dp"
+            android:text="카메라 전환"
+            android:id="@+id/btnChangeFB"
+            android:layout_width="100dp"
             android:layout_gravity="end"
-            android:layout_height="50dp"/>
+            android:layout_height="100dp"/>
+        <Button
+            android:text="1:1"
+            android:layout_width="100dp"
+            android:layout_gravity="end"
+            android:layout_height="100dp"/>
     </LinearLayout>
     <ImageButton
         android:visibility="gone"

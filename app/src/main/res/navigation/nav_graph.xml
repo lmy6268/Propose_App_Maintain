@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
   ~ Copyright 2020 The Android Open Source Project
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +21,7 @@
 
     <fragment
         android:id="@+id/permission_fragment"
-        tools:layout="@layout/fragment_camera"
+
         android:name="com.example.propose_application.PermissionFragment"
         android:label="Permission">
 
@@ -37,13 +36,14 @@
     <fragment
         android:id="@+id/camera_fragment"
         android:name="com.example.propose_application.CameraFragment"
-        android:label="Camera" >
+        android:label="Camera"
+        tools:layout="@layout/fragment_camera">
 
         <action
             android:id="@+id/action_camera_to_permissions"
             app:destination="@id/permission_fragment"
             app:popUpTo="@id/camera_fragment"
-            app:popUpToInclusive="true"/>
+            app:popUpToInclusive="true" />
 
 
     </fragment>

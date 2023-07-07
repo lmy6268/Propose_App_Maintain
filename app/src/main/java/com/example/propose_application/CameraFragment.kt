@@ -1,68 +1,29 @@
 package com.example.propose_application
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
-import android.graphics.Matrix
-import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraMetadata
-import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.CaptureResult
-import android.hardware.camera2.TotalCaptureResult
-import android.hardware.camera2.params.OutputConfiguration
-import android.hardware.camera2.params.SessionConfiguration
-import android.media.ExifInterface
-import android.media.Image
-import android.media.ImageReader
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.HandlerThread
-import android.os.Looper
 import android.util.Log
-import android.view.Gravity
 import android.view.LayoutInflater
-import android.view.PixelCopy
-import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
-import com.bumptech.glide.GlideBuilder
-import com.bumptech.glide.load.Transformation
 import com.example.camera.core.camera.FormatItem
 import com.example.camera.core.camera.OrientationLiveData
-import com.example.camera.core.camera.computeExifOrientation
 import com.example.camera.core.camera.getPreviewOutputSize
-import com.example.camera.domain.CameraCaptureUseCase
-import com.example.camera.domain.CameraCaptureUseCaseImpl
 import com.example.propose_application.databinding.FragmentCameraBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import java.io.Closeable
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
-import kotlin.math.roundToInt
 
 
 class CameraFragment : Fragment() {
@@ -82,7 +43,6 @@ class CameraFragment : Fragment() {
 
     private lateinit var relativeOrientation: OrientationLiveData
     private lateinit var cameraViewModel: CameraViewModel
-    private var aspectRatio: Float = 0F
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -99,11 +59,11 @@ class CameraFragment : Fragment() {
         detectCameras() //이용할 카메라를 선택하기 위함.
         cameraViewModel = ViewModelProvider(
             this,
-            CameraViewModelFactory(
+            CameraViewModel.Companion.CameraViewModelFactory(
                 cameraList[0].cameraId,
                 cameraManager, requireActivity().application
             )
-        ).get(CameraViewModel::class.java)
+        )[CameraViewModel::class.java]
 
 
         // Used to rotate the output media to match device orientation
@@ -114,42 +74,15 @@ class CameraFragment : Fragment() {
         }
     }
 
+
     private fun setUI() {
         //버튼 별 설정
         fragmentCameraViewBinding.apply {
-            captureButton.setOnClickListener { captureBtn ->
-                Log.d("ImageCaptured!: ", "이미지가 촬영됨.")
-                captureBtn.isEnabled = false //버튼을 잠시 클릭 못하게 함.
-                Log.d("Image On process!: ", "이미지가 처리중임.")
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val image = cameraViewModel.takePhoto(relativeOrientation)
-                    requireView().post {
-                        ivResult.setImageBitmap(image)
-                        Log.d("Image On processed!: ", "이미지가 처리됨.")
-                        captureBtn.isEnabled = true
-                    }
-                }
+            captureButton.setOnClickListener {
+                executeCapture()
             }
             lockInBtn.setOnClickListener {
-                Log.d("ImageCaptured!: ", "이미지가 촬영됨.")
-                lockButtons(false)
-                Log.d("Image On process!: ", "이미지가 처리중임.")
-
-                lifecycleScope.launch(Dispatchers.Main) {
-                    ivOverlay.apply {
-                        Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder)).into(this)
-                        alpha = 0.5F
-                    }
-                    closeOverlay.apply {
-                        this.isVisible = true
-                        setOnClickListener {
-                            ivOverlay.setImageResource(0)
-                            it.isVisible = false
-                        }
-                    }
-                    Log.d("Image On processed!: ", "이미지가 처리됨.")
-                    lockButtons(true)
-                }
+                executeLockIn()
             }
             //버튼 레이어를 네비바 위로 옮겨주기 위함.
             lowerBox.setOnApplyWindowInsetsListener { v, insets ->
@@ -176,14 +109,15 @@ class CameraFragment : Fragment() {
 
                 override fun surfaceCreated(holder: SurfaceHolder) {
                     // Selects appropriate preview size and configures view finder
-
-                    //적절한 미리보기 사이즈를 정해주는 곳 -> 한번 유심히 들여다
-                    val previewSize = getPreviewOutputSize(
-                        fragmentCameraViewBinding.viewFinder.display,
-                        characteristics,
-                        SurfaceHolder::class.java
-                    )
-
+                    fragmentCameraViewBinding.viewFinder.apply {
+                        //적절한 미리보기 사이즈를 정해주는 곳 -> 한번 유심히 들여다 봐야할듯
+                        val previewSize = getPreviewOutputSize(
+                            this.display,
+                            characteristics,
+                            SurfaceHolder::class.java
+                        )
+                        this.setAspectRatio(previewSize.width, previewSize.height)
+                    }
                 }
             })
         }
@@ -202,18 +136,58 @@ class CameraFragment : Fragment() {
         cameraViewModel.initCamera(fragmentCameraViewBinding.viewFinder.holder.surface) //뷰에서 표시할 surf
         cameraViewModel.cameraStateLiveData.observe(requireActivity()) {
             when (it) {
-                CameraState.READY_TO_PREVIEW
+                //미리보기 준비 완료 시
+                CameraViewModel.Companion.CameraState.READY_TO_PREVIEW
                 -> requireView().post {
                     cameraViewModel.getPreview(fragmentCameraViewBinding.viewFinder.holder.surface)
-                    cameraViewModel.cameraStateLiveData.postValue(CameraState.READY_TO_TAKE)
+                    cameraViewModel.cameraStateLiveData.postValue(CameraViewModel.Companion.CameraState.READY_TO_TAKE)
                 }
-
 
                 else -> {}
             }
         }
     }
 
+    private fun executeLockIn() {
+        fragmentCameraViewBinding.apply {
+            Log.d("ImageCaptured!: ", "이미지가 촬영됨.")
+            lockButtons(false)
+            Log.d("Image On process!: ", "이미지가 처리중임.")
+
+            lifecycleScope.launch(Dispatchers.Main) {
+                ivOverlay.apply {
+                    Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder))
+                        .sizeMultiplier(0.5f).into(this)
+                    alpha = 0.5F
+                }
+                closeOverlay.apply {
+                    this.isVisible = true
+                    setOnClickListener {
+                        ivOverlay.setImageResource(0)
+                        it.isVisible = false
+                    }
+                }
+                Log.d("Image On processed!: ", "이미지가 처리됨.")
+                lockButtons(true)
+            }
+        }
+    }
+
+    private fun executeCapture() {
+        fragmentCameraViewBinding.apply {
+            Log.d("ImageCaptured!: ", "이미지가 촬영됨.")
+            captureButton.isEnabled = false //버튼을 잠시 클릭 못하게 함.
+            Log.d("Image On process!: ", "이미지가 처리중임.")
+            lifecycleScope.launch(Dispatchers.IO) {
+                val image = cameraViewModel.takePhoto(relativeOrientation)
+                requireView().post {
+                    ivResult.setImageBitmap(image)
+                    Log.d("Image On processed!: ", "이미지가 처리됨.")
+                    captureButton.isEnabled = true
+                }
+            }
+        }
+    }
 
     //카메라 인식하기
     private fun detectCameras() {
@@ -244,13 +218,11 @@ class CameraFragment : Fragment() {
 
     }
 
-    //
-
 
     override fun onStop() {
         super.onStop()
         try {
-            cameraViewModel.closeApp()
+            cameraViewModel.closeCamera()
         } catch (exc: Throwable) {
             Log.e(TAG, "Error closing camera", exc)
         }

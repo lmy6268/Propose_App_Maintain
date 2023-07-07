@@ -1,11 +1,11 @@
 package com.example.propose_application
 
+
 import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
@@ -20,24 +20,20 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Build
 import android.os.Handler
-import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
 import android.view.PixelCopy
 import android.view.Surface
 import android.view.SurfaceView
-import android.view.View
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-
+import com.example.camera.core.background.CustomThreadManager
 import com.example.camera.core.camera.OrientationLiveData
 import com.example.camera.core.camera.computeExifOrientation
 import kotlinx.coroutines.Dispatchers
-
-
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -52,50 +48,23 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
-
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 //UI 레이어와 도메인 레이어를 연결하는 인터페이스
 // 이지만,,, 현재는 도메인과 데이터 레이어 분리가 안되어있는 상태,, -> 의존성 주입을 몷라서 고민된다.
-enum class CameraState {
-    DO_NOTHING,
-    INIT_CAMERA_START,
-    INIT_CAMERA_ERROR,
-    READY_TO_PREVIEW,
-    READY_TO_TAKE,
-    TAKE_COMPLETE, TAKE_ERROR
-}
 
-
-class CameraViewModelFactory(
-    private var cameraId: String,
-    private var cameraManager: CameraManager,
-    private val application: Application
-//    private val cameraCaptureUseCase: CameraCaptureUseCase
-) : ViewModelProvider.Factory {
-
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(CameraViewModel::class.java)) {
-            return CameraViewModel(
-                cameraId,
-                cameraManager,
-                application
-//                ,cameraCaptureUseCase
-            ) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
 
 class CameraViewModel(
     private var cameraId: String,
     private var cameraManager: CameraManager,
 //    private val cameraCaptureUseCase: CameraCaptureUseCase
-application: Application
-) : AndroidViewModel(application){
+    application: Application
+) : AndroidViewModel(application) {
     private var camera: CameraDevice? = null
     var session: CameraCaptureSession? = null
     private lateinit var characteristics: CameraCharacteristics
@@ -106,18 +75,25 @@ application: Application
     //
     lateinit var capturedImageReader: ImageReader
 
-    /**[HandlerThread] 촬영된 이미지가 동작하는 스레드 */
-    private val imageReaderThread = HandlerThread("imageReaderThread").apply { start() }
-
-    /**[Handler] corresponding to[imageReaderThread] */
-    private val imageReaderHandler = Handler(imageReaderThread.looper)
-
-    /**[HandlerThread] 모든 카메라가 동작하는 스레드 */
-    private val cameraThread = HandlerThread("CameraThread").apply { start() }
 
     /** 카메라 스레드를 다루는 [Handler]*/
-    private val cameraHandler = Handler(cameraThread.looper)
+    private val cameraHandler by lazy {
+        customThreadManager.getHandler("camera") as Handler
+    }
 
+    /** 이미지 스레드를 다루는 [Handler]  */
+    private val imageReaderHandler by lazy {
+        customThreadManager.getHandler("imageReader") as Handler
+    }
+
+    /**스레드 관리를 책임지는 클래스**/
+    private val customThreadManager = CustomThreadManager.instance.apply {
+        this.addHandler("imageReader")
+        this.addHandler("camera")
+    }
+
+    //카메라를 동작하는 Executor ( API 30 이상 )
+    private var cameraExecutor: Executor? = null
 
     //preview 화면을 얻어오는 메소드
     fun getPreview(surface: Surface) {
@@ -129,10 +105,10 @@ application: Application
         )
     }
 
-
     fun destroyVM() {
-        cameraThread.quitSafely()
-        imageReaderThread.quitSafely()
+        capturedImageReader.close()
+        customThreadManager.destroy() //스레드 관리 객체 초기화
+        if (cameraExecutor != null) (cameraExecutor as ExecutorService).shutdown()
     }
 
     //카메라 객체를 가져오는 함수
@@ -143,7 +119,7 @@ application: Application
                 override fun onOpened(camera: CameraDevice) = cont.resume(camera)
                 override fun onDisconnected(camera: CameraDevice) {
                     Log.w("CameraFragment.TAG", "Camera $cameraId has been disconnected")
-                    closeApp()
+                    closeCamera()
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -157,7 +133,8 @@ application: Application
                     }
                     val exc = RuntimeException("Camera $cameraId error: ($error) $msg")
                     Log.e("CameraFragment.TAG", exc.message, exc)
-                    if (cont.isActive) {cont.resumeWithException(exc)
+                    if (cont.isActive) {
+                        cont.resumeWithException(exc)
                     }
                 }
             }, cameraHandler)
@@ -165,7 +142,7 @@ application: Application
 
 
     private suspend fun getCameraSession(device: CameraDevice, targets: List<Surface>) =
-        suspendCoroutine<CameraCaptureSession> { cont ->
+        suspendCoroutine { cont ->
             //결과물에 대한 설정 값 목록
             val configs = ArrayList<OutputConfiguration>().apply {
                 targets.forEach {
@@ -173,10 +150,11 @@ application: Application
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                cameraExecutor = Executors.newSingleThreadExecutor()
                 device.createCaptureSession(
                     SessionConfiguration(
                         SessionConfiguration.SESSION_REGULAR, configs.toList(),
-                        cameraHandler as Executor, //여기엔 무얼 넣어야 할까?
+                        cameraExecutor!!,
                         object : CameraCaptureSession.StateCallback() {
                             override fun onConfigured(session: CameraCaptureSession) =
                                 cont.resume(session)
@@ -227,7 +205,12 @@ application: Application
                 viewFinder,
                 bitmap,
                 { res ->
-                    if (res == PixelCopy.SUCCESS) cont.resume(bitmap)
+                    if (res == PixelCopy.SUCCESS)
+                    {
+                        //이곳에 이미지 처리를 담아보자
+
+                        cont.resume(bitmap)
+                    }
                     else cont.resume(null)
 
                 }, Handler(Looper.getMainLooper())
@@ -342,12 +325,15 @@ application: Application
         viewModelScope.launch {
             cameraStateLiveData.value = CameraState.INIT_CAMERA_START
             characteristics = cameraManager.getCameraCharacteristics(cameraId)
-            camera = getCamera(cameraId) //cameraDevice
+            camera = getCamera(cameraId) //cameraDevice 객체 얻기
 
+            //촬영 해상도
+            //이건 사용자가 선택할 수 있게 해볼까? -> 설정 화면 관련
             val size = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
             )!!.getOutputSizes(ImageFormat.JPEG).maxByOrNull { it.height * it.width }!!
-            //가장 고해상도의 화면을 가져온다.
+
+            //가장 고해상도의 화면을 가져온다. -> 캡쳐된 이미지의
             capturedImageReader = ImageReader.newInstance(
                 size.width, size.height, ImageFormat.JPEG,
                 IMAGE_BUFFER_SIZE
@@ -365,22 +351,22 @@ application: Application
         }
     }
 
-    fun closeApp() {
+    fun closeCamera() {
         camera!!.close()
     }
 
-    //Buffer를 비트맵으로 바꿔줌
+    //ByteBuffer 를 비트맵으로 바꿔줌
     private fun convertBufferToBitmap(buffer: ByteBuffer, degree: Int): Bitmap =
         ByteArray(buffer.remaining()).apply { buffer.get(this) }.let {
             BitmapFactory.decodeByteArray(it, 0, it.size)
         }
 
-        private suspend fun saveResult(result: CombinedCaptureResult): File =
+    private suspend fun saveResult(result: CombinedCaptureResult): File =
         suspendCoroutine { cont ->
             val buffer = result.image.planes[0].buffer
             val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
             try {
-                val output = createFile(getApplication<Application>().applicationContext,"jpg")
+                val output = createFile(getApplication<Application>().applicationContext, "jpg")
                 FileOutputStream(output).use { it.write(bytes) }
                 cont.resume(output)
             } catch (exc: IOException) {
@@ -393,9 +379,44 @@ application: Application
         val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.US)
         return File(context.filesDir, "IMG_${sdf.format(Date())}.$extension")
     }
+
+    companion object {
+        enum class CameraState {
+            DO_NOTHING,
+            INIT_CAMERA_START,
+            INIT_CAMERA_ERROR,
+            READY_TO_PREVIEW,
+            READY_TO_TAKE,
+            TAKE_COMPLETE, TAKE_ERROR
+        }
+
+        data class CombinedCaptureResult(
+            val image: Image, val metadata: CaptureResult, val orientation: Int, val format: Int
+        ) : Closeable {
+            override fun close() = image.close()
+        }
+
+        class CameraViewModelFactory(
+            private var cameraId: String,
+            private var cameraManager: CameraManager,
+            private val application: Application
+//    private val cameraCaptureUseCase: CameraCaptureUseCase
+        ) : ViewModelProvider.Factory {
+
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(CameraViewModel::class.java)) {
+                    return CameraViewModel(
+                        cameraId,
+                        cameraManager,
+                        application
+//                ,cameraCaptureUseCase
+                    ) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        }
+    }
 }
-data class CombinedCaptureResult(
-    val image: Image, val metadata: CaptureResult, val orientation: Int, val format: Int
-) : Closeable {
-    override fun close() = image.close()
-}
+
+
+

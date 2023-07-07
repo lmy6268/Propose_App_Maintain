@@ -32,7 +32,6 @@ fun computeExifOrientation(rotationDegrees: Int, mirrored: Boolean) = when {
     rotationDegrees == 270 && mirrored -> ExifInterface.ORIENTATION_TRANSVERSE
     rotationDegrees == 90 && !mirrored -> ExifInterface.ORIENTATION_ROTATE_90
     rotationDegrees == 90 && mirrored -> ExifInterface.ORIENTATION_TRANSPOSE
-    rotationDegrees == 270 && mirrored -> ExifInterface.ORIENTATION_ROTATE_270
     rotationDegrees == 270 && !mirrored -> ExifInterface.ORIENTATION_TRANSVERSE
     else -> ExifInterface.ORIENTATION_UNDEFINED
 }
@@ -59,6 +58,7 @@ fun decodeExifOrientation(exifOrientation: Int): Matrix {
             matrix.postScale(-1F, 1F)
             matrix.postRotate(270F)
         }
+
         ExifInterface.ORIENTATION_TRANSVERSE -> {
             matrix.postScale(-1F, 1F)
             matrix.postRotate(90F)
