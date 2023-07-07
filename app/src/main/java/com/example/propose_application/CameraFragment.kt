@@ -156,7 +156,7 @@ class CameraFragment : Fragment() {
 
             lifecycleScope.launch(Dispatchers.Main) {
                 ivOverlay.apply {
-                    Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder))
+                    Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder,true))
                         .sizeMultiplier(0.5f).into(this)
                     alpha = 0.5F
                 }

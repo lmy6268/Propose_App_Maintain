@@ -37,6 +37,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.opencv.android.Utils
+import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
 import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
@@ -196,7 +199,9 @@ class CameraViewModel(
             convertBufferToBitmap(result.image.planes[0].buffer, result.orientation)
         }
 
-    suspend fun setLockIn(viewFinder: SurfaceView) =
+    /** 락인 기능
+     * **/
+    suspend fun setLockIn(viewFinder: SurfaceView, isEdge: Boolean) =
         //미리보기 화면 캡쳐를 통해 락인 기능 활성화
         suspendCancellableCoroutine<Bitmap?> { cont ->
             val bitmap =
@@ -205,13 +210,10 @@ class CameraViewModel(
                 viewFinder,
                 bitmap,
                 { res ->
-                    if (res == PixelCopy.SUCCESS)
-                    {
+                    if (res == PixelCopy.SUCCESS) {
                         //이곳에 이미지 처리를 담아보자
-
-                        cont.resume(bitmap)
-                    }
-                    else cont.resume(null)
+                        cont.resume(if (isEdge) edgeDetection(bitmap) else bitmap)
+                    } else cont.resume(null)
 
                 }, Handler(Looper.getMainLooper())
             )
@@ -416,6 +418,33 @@ class CameraViewModel(
             }
         }
     }
+
+    private fun makeGray(bitmap: Bitmap): Bitmap {
+        val mat = Mat()
+        Utils.bitmapToMat(bitmap, mat) // bitmap을 매트릭스로 변환
+
+        //Convert to grayscale
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGB2GRAY)
+
+
+
+        return bitmap.copy(bitmap.config, true).apply {
+            Utils.matToBitmap(mat, this)
+        }
+    }
+
+    private fun edgeDetection(bitmap: Bitmap): Bitmap {
+        val input = Mat()
+        Utils.bitmapToMat(bitmap, input) // bitmap을 매트릭스로 변환
+        Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY)
+        //Convert to detected picture
+        Imgproc.Canny(input, input, 50.0, 80.0)
+
+        return bitmap.copy(bitmap.config, true).apply {
+            Utils.matToBitmap(input, this)
+        }
+    }
+
 }
 
 
