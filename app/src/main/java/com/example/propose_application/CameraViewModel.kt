@@ -63,7 +63,7 @@ import kotlin.coroutines.suspendCoroutine
 
 
 class CameraViewModel(
-    private var cameraId: String,
+    var cameraId: String,
     private var cameraManager: CameraManager,
 //    private val cameraCaptureUseCase: CameraCaptureUseCase
     application: Application
@@ -143,6 +143,11 @@ class CameraViewModel(
             }, cameraHandler)
         }
 
+    fun changeCamera(camId: String, surface: Surface) {
+        closeCamera()
+        cameraId = camId
+        initCamera(surface)
+    }
 
     private suspend fun getCameraSession(device: CameraDevice, targets: List<Surface>) =
         suspendCoroutine { cont ->

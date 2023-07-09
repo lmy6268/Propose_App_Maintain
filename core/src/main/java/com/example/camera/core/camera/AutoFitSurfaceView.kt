@@ -48,6 +48,7 @@ class AutoFitSurfaceView @JvmOverloads constructor(
         requestLayout()
     }
 
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val width = MeasureSpec.getSize(widthMeasureSpec)
@@ -56,6 +57,7 @@ class AutoFitSurfaceView @JvmOverloads constructor(
         setMeasuredDimension(width, height)
         if (aspectRatio == 0f) {
             setMeasuredDimension(width, height)
+
         } else {
 
             // Performs center-crop transformation of the camera frames

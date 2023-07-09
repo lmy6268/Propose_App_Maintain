@@ -100,6 +100,18 @@ class CameraFragment : Fragment() {
                     WindowInsets.CONSUMED
                 }
             }
+
+            //셀카 전환 버튼 구현
+            btnChangeFB.setOnClickListener {
+                cameraViewModel.changeCamera(
+                    when (cameraViewModel.cameraId) {
+                        cameraList[0].cameraId -> cameraList[1].cameraId
+                        cameraList[1].cameraId -> cameraList[0].cameraId
+                        else -> ""
+                    }, viewFinder.holder.surface
+                )
+            }
+
             viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
 
@@ -156,7 +168,7 @@ class CameraFragment : Fragment() {
 
             lifecycleScope.launch(Dispatchers.Main) {
                 ivOverlay.apply {
-                    Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder,true))
+                    Glide.with(rootView).load(cameraViewModel.setLockIn(viewFinder, true))
                         .sizeMultiplier(0.5f).into(this)
                     alpha = 0.5F
                 }
