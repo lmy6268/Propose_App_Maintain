@@ -27,9 +27,9 @@ import kotlin.math.roundToInt
  * performs center-crop transformation of input frames.
  */
 class AutoFitSurfaceView @JvmOverloads constructor(
-        context: Context,
-        attrs: AttributeSet? = null,
-        defStyle: Int = 0
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyle: Int = 0
 ) : SurfaceView(context, attrs, defStyle) {
 
     private var aspectRatio = 0f
@@ -43,7 +43,7 @@ class AutoFitSurfaceView @JvmOverloads constructor(
      */
     fun setAspectRatio(width: Int, height: Int) {
         require(width > 0 && height > 0) { "Size cannot be negative" }
-        aspectRatio = width.toFloat() / height.toFloat()
+        aspectRatio = width.toFloat() / height.toFloat() //
         holder.setFixedSize(width, height)
         requestLayout()
     }
@@ -54,12 +54,9 @@ class AutoFitSurfaceView @JvmOverloads constructor(
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val height = MeasureSpec.getSize(heightMeasureSpec)
         Log.d(TAG, "dimensions set: $width x $height")
-        setMeasuredDimension(width, height)
         if (aspectRatio == 0f) {
             setMeasuredDimension(width, height)
-
         } else {
-
             // Performs center-crop transformation of the camera frames
             val newWidth: Int
             val newHeight: Int
@@ -72,8 +69,13 @@ class AutoFitSurfaceView @JvmOverloads constructor(
                 newHeight = (width / actualRatio).roundToInt()
             }
 
-            Log.d(TAG, "Measured dimensions set: $newWidth x $newHeight")
-            setMeasuredDimension(newWidth, newHeight)
+            Log.d(
+                TAG,
+                "Measured dimensions set: $newWidth x $newHeight / rate : ${newHeight / newWidth.toFloat()}"
+            )
+            setMeasuredDimension(newWidth,newHeight) //화면비 적용
+
+
         }
     }
 

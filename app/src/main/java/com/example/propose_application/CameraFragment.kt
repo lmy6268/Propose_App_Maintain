@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 
 class CameraFragment : Fragment() {
 
+    private var customRatio: Float = (1f / 1)
 
     //카메라 리스트: 줌 인 줌 아웃할 때 사용 할 듯?
     private lateinit var cameraList: List<FormatItem>
@@ -69,6 +70,8 @@ class CameraFragment : Fragment() {
         // Used to rotate the output media to match device orientation
         relativeOrientation = OrientationLiveData(requireContext(), characteristics).apply {
             observe(viewLifecycleOwner) { orientation ->
+
+                Log.d(TAG, "ratio changed: $customRatio")
                 Log.d(TAG, "Orientation changed: $orientation")
             }
         }
@@ -76,6 +79,7 @@ class CameraFragment : Fragment() {
 
 
     private fun setUI() {
+
         //버튼 별 설정
         fragmentCameraViewBinding.apply {
             captureButton.setOnClickListener {
@@ -103,7 +107,7 @@ class CameraFragment : Fragment() {
 
             //셀카 전환 버튼 구현
             btnChangeFB.setOnClickListener {
-                cameraViewModel.changeCamera(
+                if (cameraList.size > 1) cameraViewModel.changeCamera(
                     when (cameraViewModel.cameraId) {
                         cameraList[0].cameraId -> cameraList[1].cameraId
                         cameraList[1].cameraId -> cameraList[0].cameraId
@@ -123,12 +127,15 @@ class CameraFragment : Fragment() {
                     // Selects appropriate preview size and configures view finder
                     fragmentCameraViewBinding.viewFinder.apply {
                         //적절한 미리보기 사이즈를 정해주는 곳 -> 한번 유심히 들여다 봐야할듯
+
                         val previewSize = getPreviewOutputSize(
+                            context,
                             this.display,
                             characteristics,
                             SurfaceHolder::class.java
                         )
                         this.setAspectRatio(previewSize.width, previewSize.height)
+
                     }
                 }
             })

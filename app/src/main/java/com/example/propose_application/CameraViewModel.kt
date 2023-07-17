@@ -33,6 +33,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.camera.core.background.CustomThreadManager
 import com.example.camera.core.camera.OrientationLiveData
 import com.example.camera.core.camera.computeExifOrientation
+import com.example.camera.core.camera.decodeExifOrientation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -201,6 +202,7 @@ class CameraViewModel(
     suspend fun takePhoto(relativeOrientation: OrientationLiveData) =
         getCapturedImage(relativeOrientation).use { result ->
 //            saveResult(result)
+            Log.d("capture orientation: ","${result.orientation}")
             convertBufferToBitmap(result.image.planes[0].buffer, result.orientation)
         }
 
@@ -225,6 +227,7 @@ class CameraViewModel(
         }
 
 
+    //캡쳐된 이미지를 반환하는 메소드
     private suspend fun getCapturedImage(relativeOrientation: OrientationLiveData) =
         suspendCoroutine { cont ->
             // Flush any images left in the image reader
@@ -339,6 +342,7 @@ class CameraViewModel(
             val size = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
             )!!.getOutputSizes(ImageFormat.JPEG).maxByOrNull { it.height * it.width }!!
+            Log.d("captured Size: ","${size.width} * ${size.height} / rate : ${size.width / size.height.toFloat()}")
 
             //가장 고해상도의 화면을 가져온다. -> 캡쳐된 이미지의
             capturedImageReader = ImageReader.newInstance(
@@ -363,9 +367,22 @@ class CameraViewModel(
     }
 
     //ByteBuffer 를 비트맵으로 바꿔줌
-    private fun convertBufferToBitmap(buffer: ByteBuffer, degree: Int): Bitmap =
+    private fun convertBufferToBitmap(buffer: ByteBuffer, exifOrientation: Int): Bitmap =
         ByteArray(buffer.remaining()).apply { buffer.get(this) }.let {
-            BitmapFactory.decodeByteArray(it, 0, it.size)
+            val src = BitmapFactory.decodeByteArray(it, 0, it.size)
+            //원본은 따로 처리하고 일단 비트맵부터 내보냄
+            val tmp = Bitmap.createScaledBitmap(src,src.width/10,src.height/10,true)
+
+            Bitmap.createBitmap(
+                tmp,
+                0,
+                0,
+                tmp.width,
+                tmp.height,
+                decodeExifOrientation(exifOrientation),
+                true
+            )
+
         }
 
     private suspend fun saveResult(result: CombinedCaptureResult): File =
@@ -441,9 +458,10 @@ class CameraViewModel(
     private fun edgeDetection(bitmap: Bitmap): Bitmap {
         val input = Mat()
         Utils.bitmapToMat(bitmap, input) // bitmap을 매트릭스로 변환
-        Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY)
+        Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY) //흑백으로 변경
+
         //Convert to detected picture
-        Imgproc.Canny(input, input, 50.0, 80.0)
+        Imgproc.Canny(input, input, 60.0, 157.0)
 
         return bitmap.copy(bitmap.config, true).apply {
             Utils.matToBitmap(input, this)
