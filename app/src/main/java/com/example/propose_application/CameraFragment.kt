@@ -135,12 +135,12 @@ class CameraFragment : Fragment() {
                             SurfaceHolder::class.java
                         )
                         this.setAspectRatio(previewSize.width, previewSize.height)
-
+                        view!!.post { this@CameraFragment.setCamera() }
                     }
                 }
             })
         }
-        setCamera()
+//        setCamera()
     }
 
     private fun lockButtons(active: Boolean) {
