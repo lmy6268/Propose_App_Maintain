@@ -12,7 +12,7 @@
         android:id="@+id/view_finder"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center" />
+      />
 
     <ImageView
         android:id="@+id/iv_overlay"
@@ -47,6 +47,7 @@
             android:text="카메라 전환" />
 
         <Button
+            android:id="@+id/btnChangeRatio"
             android:layout_width="100dp"
             android:layout_height="100dp"
             android:layout_gravity="end"
