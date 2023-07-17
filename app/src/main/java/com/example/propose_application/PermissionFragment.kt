@@ -22,14 +22,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
-import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.navigation.Navigation
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
+import androidx.navigation.Navigation
 import com.example.camera.core.dialog.PermissionDialog
 import kotlinx.coroutines.launch
 
@@ -44,28 +42,30 @@ private val PERMISSIONS_REQUIRED = arrayOf(
  */
 class PermissionFragment : Fragment() {
     private var isDid: Boolean = false
-    private var permissionDialog: PermissionDialog? =null
+    private var permissionDialog: PermissionDialog? = null
 
     private fun checkIsGranted(permissions: Map<String, Boolean>) {
         permissions.forEach { actionMap ->
 
             //Pie 이하인 경우, 저장소 권한(읽기, 쓰기)을 추가로 받아야 함
-            when (actionMap.key) {
-                Manifest.permission.READ_EXTERNAL_STORAGE -> {
-                    if (actionMap.value) //저장소 읽기 권한이 허가된 경우
-                    {
-                        Log.d("저장소 읽기 권한", "허용됨")
-                    } else {
-                        Log.e("저장소 읽기 권한", "거부됨")
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                when (actionMap.key) {
+                    Manifest.permission.READ_EXTERNAL_STORAGE -> {
+                        if (actionMap.value) //저장소 읽기 권한이 허가된 경우
+                        {
+                            Log.d("저장소 읽기 권한", "허용됨")
+                        } else {
+                            Log.e("저장소 읽기 권한", "거부됨")
+                        }
                     }
-                }
 
-                Manifest.permission.WRITE_EXTERNAL_STORAGE -> {
-                    if (actionMap.value) //저장소 쓰기 권한이 허가된 경우
-                    {
-                        Log.d("저장소 쓰기 권한", "허용됨")
-                    } else {
-                        Log.e("저장소 쓰기 권한", "거부됨")
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE -> {
+                        if (actionMap.value) //저장소 쓰기 권한이 허가된 경우
+                        {
+                            Log.d("저장소 쓰기 권한", "허용됨")
+                        } else {
+                            Log.e("저장소 쓰기 권한", "거부됨")
+                        }
                     }
                 }
             }
@@ -85,8 +85,7 @@ class PermissionFragment : Fragment() {
 
     //권한 허가 요청을 위한 변수
     private val requestMultiplePermissions by lazy {
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions())
-        { permissions ->
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             checkIsGranted(permissions)
             //만약 허가가 안된 내용이 있는 경우
             if (!hasPermissions(requireContext())) {
@@ -115,9 +114,9 @@ class PermissionFragment : Fragment() {
         if (isDid) {
             //만약 허가가 안된 내용이 있는 경우
             if (!hasPermissions(requireContext())) {
-               permissionDialog!!.showDialog()//권한이 필요하다는 다이얼로그를 표시한다.
+                permissionDialog!!.showDialog()//권한이 필요하다는 다이얼로그를 표시한다.
             } else {
-                if(permissionDialog!=null) permissionDialog!!.closeDialog()
+                if (permissionDialog != null) permissionDialog!!.closeDialog()
                 navigateToCamera()
             }
         }
@@ -140,7 +139,10 @@ class PermissionFragment : Fragment() {
     companion object {
         /** Convenience method used to check if all permissions required by this app are granted */
         fun hasPermissions(context: Context) = PERMISSIONS_REQUIRED.all {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context, it
+            ) == PackageManager.PERMISSION_GRANTED
+
         }
     }
 }
