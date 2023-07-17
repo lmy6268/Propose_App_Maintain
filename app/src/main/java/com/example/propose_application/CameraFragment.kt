@@ -1,9 +1,7 @@
 package com.example.propose_application
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.ImageFormat
-import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraMetadata
@@ -30,7 +28,7 @@ import kotlinx.coroutines.launch
 
 class CameraFragment : Fragment() {
 
-    private var customRatio: String = "1:1"
+    private var customRatio: Float = (1f / 1)
 
     //카메라 리스트: 줌 인 줌 아웃할 때 사용 할 듯?
     private lateinit var cameraList: List<FormatItem>
@@ -73,6 +71,7 @@ class CameraFragment : Fragment() {
         relativeOrientation = OrientationLiveData(requireContext(), characteristics).apply {
             observe(viewLifecycleOwner) { orientation ->
 
+                Log.d(TAG, "ratio changed: $customRatio")
                 Log.d(TAG, "Orientation changed: $orientation")
             }
         }
@@ -116,12 +115,7 @@ class CameraFragment : Fragment() {
                     }, viewFinder.holder.surface
                 )
             }
-            //화면비 조정하는
-            btnChangeRatio.setOnClickListener {
-                val text = btnChangeRatio.text.toString()
-                customRatio = if (text == "1:1") "16:9" else "1:1"
-                btnChangeRatio.text = customRatio
-            }
+
             viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
 
@@ -142,13 +136,11 @@ class CameraFragment : Fragment() {
                         )
                         this.setAspectRatio(previewSize.width, previewSize.height)
 
-                        view!!.post { this@CameraFragment.setCamera() }
                     }
                 }
             })
-//            setCamera()
         }
-
+        setCamera()
     }
 
     private fun lockButtons(active: Boolean) {
@@ -208,7 +200,7 @@ class CameraFragment : Fragment() {
             lifecycleScope.launch(Dispatchers.IO) {
                 val image = cameraViewModel.takePhoto(relativeOrientation)
                 requireView().post {
-                    ivResult.setImageBitmap(imageCrop(image, customRatio))
+                    ivResult.setImageBitmap(image)
                     Log.d("Image On processed!: ", "이미지가 처리됨.")
                     captureButton.isEnabled = true
                 }
@@ -252,21 +244,6 @@ class CameraFragment : Fragment() {
             cameraViewModel.closeCamera()
         } catch (exc: Throwable) {
             Log.e(TAG, "Error closing camera", exc)
-        }
-    }
-
-    fun imageCrop(src: Bitmap, aspectRatio: String): Bitmap {
-        return if (aspectRatio == "16:9" || aspectRatio == "9:16") src
-        else {
-            val size = Integer.min(src.width, src.height)
-            val rect = Rect()
-            Bitmap.createBitmap(
-                src,
-                (src.width - size) / 2,
-                (src.height - size) / 2,
-                size,
-                size
-            )
         }
     }
 

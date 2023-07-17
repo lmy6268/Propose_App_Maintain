@@ -202,11 +202,9 @@ class CameraViewModel(
     suspend fun takePhoto(relativeOrientation: OrientationLiveData) =
         getCapturedImage(relativeOrientation).use { result ->
 //            saveResult(result)
-            Log.d("capture orientation: ", "${result.orientation}")
+            Log.d("capture orientation: ","${result.orientation}")
             convertBufferToBitmap(result.image.planes[0].buffer, result.orientation)
         }
-
-
 
     /** 락인 기능
      * **/
@@ -344,10 +342,7 @@ class CameraViewModel(
             val size = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
             )!!.getOutputSizes(ImageFormat.JPEG).maxByOrNull { it.height * it.width }!!
-            Log.d(
-                "captured Size: ",
-                "${size.width} * ${size.height} / rate : ${size.width / size.height.toFloat()}"
-            )
+            Log.d("captured Size: ","${size.width} * ${size.height} / rate : ${size.width / size.height.toFloat()}")
 
             //가장 고해상도의 화면을 가져온다. -> 캡쳐된 이미지의
             capturedImageReader = ImageReader.newInstance(
@@ -376,7 +371,7 @@ class CameraViewModel(
         ByteArray(buffer.remaining()).apply { buffer.get(this) }.let {
             val src = BitmapFactory.decodeByteArray(it, 0, it.size)
             //원본은 따로 처리하고 일단 비트맵부터 내보냄
-            val tmp = Bitmap.createScaledBitmap(src, src.width / 10, src.height / 10, true)
+            val tmp = Bitmap.createScaledBitmap(src,src.width/10,src.height/10,true)
 
             Bitmap.createBitmap(
                 tmp,
