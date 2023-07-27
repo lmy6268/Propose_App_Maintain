@@ -1,54 +1,45 @@
 package com.example.proposeapplication.presentation.view
 
-import android.content.Context
-import android.graphics.ImageFormat
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
-import android.hardware.camera2.CameraMetadata
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.Toast
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.withStarted
+import com.example.proposeapplication.utils.camera.OrientationLiveData
 import com.example.camera.core.camera.getPreviewOutputSize
+import com.example.proposeapplication.presentation.CamearUiState
 import com.example.proposeapplication.presentation.MainViewModel
 import com.example.proposeapplication.presentation.databinding.FragmentCameraBinding
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlin.system.measureTimeMillis
 
 @AndroidEntryPoint
 class CameraFragment : Fragment() {
 
-    //    private var customRatio: Float = (1f / 1)
-//
-//    //카메라 리스트: 줌 인 줌 아웃할 때 사용 할 듯?
-//    private lateinit var cameraList: List<FormatItem>
-//
-//    //카메라 매니저 - 카메라를 다루기 위한 메니저
-//    private lateinit var cameraManager: CameraManager
-//
-//    //카메라 특성
-//    private lateinit var characteristics: CameraCharacteristics
-//
     private var _fragmentCameraViewBinding: FragmentCameraBinding? = null
     private val fragmentCameraViewBinding get() = _fragmentCameraViewBinding!!
     private val mainViewModel: MainViewModel by viewModels()
-//
-//    private lateinit var relativeOrientation: OrientationLiveData
-//    private lateinit var cameraViewModel: CameraViewModel
-//
+    private lateinit var relativeOrientation: OrientationLiveData
+
 //    //Pytorch 사용을 위해
 //    val torchController by lazy{
 //        TorchController(requireContext())
@@ -65,77 +56,108 @@ class CameraFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        fragmentCameraViewBinding.viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
-            override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
-
-            override fun surfaceChanged(
-                holder: SurfaceHolder, format: Int, width: Int, height: Int
-            ) = Unit
-
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                // Selects appropriate preview size and configures view finder
-                fragmentCameraViewBinding.viewFinder.apply {
-                    //적절한 미리보기 사이즈를 정해주는 곳 -> 한번 유심히 들여다 봐야할듯
-                    val previewSize = mainViewModel.getPreviewSize(display)
-                    this.setAspectRatio(previewSize.width, previewSize.height)
-                    view.post {
-                        mainViewModel.showPreview(fragmentCameraViewBinding.viewFinder.holder.surface)
-                    }
+        relativeOrientation = OrientationLiveData(requireContext()).apply {
+            observe(viewLifecycleOwner) { orientation ->
+                when (orientation) {
+                    Surface.ROTATION_0 -> {}
+                    Surface.ROTATION_90 -> {}
+                    Surface.ROTATION_180 -> {}
+                    else -> {}
                 }
+                Log.d(CameraFragment::class.simpleName, "Orientation changed: $orientation")
             }
-        })
+        }
+        setUI()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        setCaptureButton()
     }
 
 
-//        cameraManager = requireContext().getSystemService(Context.CAMERA_SERVICE) as CameraManager
-//        detectCameras() //이용할 카메라를 선택하기 위함.
-//        cameraViewModel = ViewModelProvider(
-//            this,
-//            CameraViewModel.Companion.CameraViewModelFactory(
-//                cameraList[0].cameraId,
-//                cameraManager, requireActivity().application
-//            )
-//        )[CameraViewModel::class.java]
+    private fun setCaptureButton() {
+        fragmentCameraViewBinding.apply {
+            captureButton.setOnClickListener {
+                lifecycleScope.launch {
+                    mainViewModel.apply {
+                        lockButtons(false)
+                        takePhoto(relativeOrientation.value!!)
+                        //
+                        cUiState.collectLatest {
+                            when (it) {
+                                is CamearUiState.Success -> {
+                                    if (it.data != null)
+                                        ((it.data) as Bitmap).apply {
+                                            Log.d(
+                                                "${CameraFragment::class.simpleName}",
+                                                "${height} * ${width}"
+                                            )
+                                            ivResult.setImageBitmap(this)
+                                        }
+                                    lockButtons(true)
+                                }
 
 
-//        // Used to rotate the output media to match device orientation
-//        relativeOrientation = OrientationLiveData(requireContext(), characteristics).apply {
-//            observe(viewLifecycleOwner) { orientation ->
-//
-//                Log.d(TAG, "ratio changed: $customRatio")
-//                Log.d(TAG, "Orientation changed: $orientation")
-//            }
-//        }
-}
+                                is CamearUiState.Error -> {
+                                    Log.e(
+                                        "Exception: ", it.exception.message.toString()
+                                    )
+                                    lockButtons(true)
+                                }
 
+                                else -> null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-//    private fun setUI() {
-//
-//        //버튼 별 설정
-//        fragmentCameraViewBinding.apply {
-//            captureButton.setOnClickListener {
-//                executeCapture()
-//            }
-//            lockInBtn.setOnClickListener {
-//                executeLockIn()
-//            }
-//            //버튼 레이어를 네비바 위로 옮겨주기 위함.
-//            lowerBox.setOnApplyWindowInsetsListener { v, insets ->
-//                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
-//                    v.translationX = (-insets.systemWindowInsetRight).toFloat()
-//                    v.translationY = (-insets.systemWindowInsetBottom).toFloat()
-//                    insets.consumeSystemWindowInsets()
-//                } else {
-//                    v.translationX = (-insets.getInsets(
-//                        WindowInsets.Type.systemBars()
-//                    ).right).toFloat()
-//                    v.translationY = (-insets.getInsets(
-//                        WindowInsets.Type.systemBars()
-//                    ).bottom).toFloat()
-//                    WindowInsets.CONSUMED
-//                }
-//            }
-//
+    private fun setUI() {
+
+        //버튼 별 설정
+        fragmentCameraViewBinding.apply {
+
+            //버튼 레이어를 네비바 위로 옮겨주기 위함.
+            lowerBox.setOnApplyWindowInsetsListener { v, insets ->
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+                    v.translationX = (-insets.systemWindowInsetRight).toFloat()
+                    v.translationY = (-insets.systemWindowInsetBottom).toFloat()
+                    insets.consumeSystemWindowInsets()
+                } else {
+                    v.translationX = (-insets.getInsets(
+                        WindowInsets.Type.systemBars()
+                    ).right).toFloat()
+                    v.translationY = (-insets.getInsets(
+                        WindowInsets.Type.systemBars()
+                    ).bottom).toFloat()
+                    WindowInsets.CONSUMED
+                }
+            }
+            viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
+
+                override fun surfaceChanged(
+                    holder: SurfaceHolder, format: Int, width: Int, height: Int
+                ) = Unit
+
+                override fun surfaceCreated(holder: SurfaceHolder) {
+                    // Selects appropriate preview size and configures view finder
+                    fragmentCameraViewBinding.viewFinder.apply {
+                        //적절한 미리보기 사이즈를 정해주는 곳 -> 한번 유심히 들여다 봐야할듯
+                        val previewSize = mainViewModel.getPreviewSize(display)
+                        this.setAspectRatio(previewSize.width, previewSize.height)
+                        view!!.post {
+                            mainViewModel.showPreview(fragmentCameraViewBinding.viewFinder.holder.surface)
+                        }
+                    }
+                }
+            })
+        }
+    }
+
 //            //셀카 전환 버튼 구현
 //            btnChangeFB.setOnClickListener {
 //                if (cameraList.size > 1) cameraViewModel.changeCamera(
@@ -146,40 +168,16 @@ class CameraFragment : Fragment() {
 //                    }, viewFinder.holder.surface
 //                )
 //            }
-//
-//            viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
-//                override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
-//
-//                override fun surfaceChanged(
-//                    holder: SurfaceHolder, format: Int, width: Int, height: Int
-//                ) = Unit
-//
-//                override fun surfaceCreated(holder: SurfaceHolder) {
-//                    // Selects appropriate preview size and configures view finder
-//                    fragmentCameraViewBinding.viewFinder.apply {
-//                        //적절한 미리보기 사이즈를 정해주는 곳 -> 한번 유심히 들여다 봐야할듯
-//
-//                        val previewSize = getPreviewOutputSize(
-//                            context,
-//                            this.display,
-//                            characteristics,
-//                            SurfaceHolder::class.java
-//                        )
-//                        this.setAspectRatio(previewSize.width, previewSize.height)
-//                        view!!.post { this@CameraFragment.setCamera() }
-//                    }
-//                }
-//            })
-//        }
-////        setCamera()
-//    }
-//
-//    private fun lockButtons(active: Boolean) {
-//        fragmentCameraViewBinding.apply {
-//            lockInBtn.isEnabled = active
-//            captureButton.isEnabled = active
-//        }
-//    }
+
+
+    private fun lockButtons(active: Boolean) {
+        fragmentCameraViewBinding.apply {
+            lockInBtn.isEnabled = active
+            captureButton.isEnabled = active
+        }
+    }
+}
+
 //
 //    //카메라 세팅을 담당하는 메소드
 //    private fun setCamera() {

@@ -8,5 +8,5 @@ import android.view.Surface
 interface CameraRepository {
     fun getPreviewSize(display: Display): Size
     suspend fun initPreview(surface: Surface)
-    fun takePhoto(): Bitmap
+    suspend fun takePhoto(orientationData: Int): Bitmap
 }

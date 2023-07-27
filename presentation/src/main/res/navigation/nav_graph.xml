@@ -21,7 +21,6 @@
 
     <fragment
         android:id="@+id/permission_fragment"
-
         android:name="com.example.proposeapplication.presentation.view.PermissionFragment"
         android:label="Permission">
 

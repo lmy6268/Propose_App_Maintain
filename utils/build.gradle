@@ -10,7 +10,7 @@ android {
 }
 
 dependencies {
-
+    implementation project(":opencv")
     implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
@@ -23,4 +23,10 @@ dependencies {
     //pytorch를 이용하기 위한 gradle dependency
     implementation 'org.pytorch:pytorch_android_lite:1.13.1'
     implementation 'org.pytorch:pytorch_android_torchvision_lite:1.13.1'
+
+    //Numpy in Kotlin
+
+    implementation "org.jetbrains.kotlinx:multik-core:0.2.2"
+    implementation "org.jetbrains.kotlinx:multik-default:0.2.2"
+
 }
