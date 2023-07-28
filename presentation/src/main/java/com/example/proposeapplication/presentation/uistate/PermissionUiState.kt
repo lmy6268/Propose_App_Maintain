@@ -1,4 +1,4 @@
-package com.example.proposeapplication.presentation
+package com.example.proposeapplication.presentation.uistate
 
 sealed class PermissionUiState {
     object Ready : PermissionUiState()

@@ -2,12 +2,17 @@ package com.example.proposeapplication.utils
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
 import android.hardware.camera2.CameraCharacteristics
-import android.media.Image
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import android.view.Surface
 import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
+import java.sql.Timestamp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,21 +60,51 @@ class ImageProcessor(private val context: Context) {
         return File(context.filesDir, "IMG_${sdf.format(Date())}.$extension")
     }
 
-    fun saveImage(file: File) {
-        val uri =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-                MediaStore.Images.Media.getContentUri(
-                    MediaStore.VOLUME_EXTERNAL_PRIMARY
-                )
-            else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        context.contentResolver.insert(uri, ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
-            put(MediaStore.Images.Media.MIME_TYPE, "images/*")
-        })
+    //이미지를 갤러리에 저장하는 함수
+    fun saveImageToGallery(bitmap: Bitmap) {
+        val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.KOREA)
+        val title = "IMG_${sdf.format(Date())}.jpg"
+
+        var fos: OutputStream? = null
+
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+            context.contentResolver?.also { resolver ->
+
+                // 5
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, title)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+                }
+
+                // 6
+                val imageUri =
+                    resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+                // 7
+                fos = imageUri?.let { resolver.openOutputStream(it) }
+//                Log.d("${this.javaClass.simpleName} : ", "사진이 저장되었습니다. / $imageUri")
+            }
+        } else {
+            val imagesDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            val image = File(imagesDir, title)
+            fos = FileOutputStream(image)
+//            Log.d("${this.javaClass.simpleName} : ", "사진이 저장되었습니다. / ${image.toURI()}")
+        }
+
+        fos?.use {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, it)
+            Log.d("${this.javaClass.simpleName} : ", "사진이 저장되었습니다. ")
+        }
+
 
     }
 
-    private fun requestPermission() {
+    //필요한 권한이 있는지 체크하기
+    private fun checkPermission() {
 
     }
 }

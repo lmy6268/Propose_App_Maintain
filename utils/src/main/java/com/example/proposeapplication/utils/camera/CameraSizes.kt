@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.camera.core.camera
+package com.example.proposeapplication.utils.camera
 
 import android.app.Activity
 import android.content.Context
@@ -24,6 +24,7 @@ import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Build
 import android.util.Size
 import android.view.Display
+import dagger.hilt.android.internal.managers.FragmentComponentManager
 import kotlin.math.max
 import kotlin.math.min
 
@@ -43,10 +44,14 @@ val SIZE_1080P: SmartSize = SmartSize(1920, 1080)
 fun getDisplaySmartSize(display: Display, context: Context): SmartSize {
     val outPoint = Point()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        (context as Activity).windowManager.currentWindowMetrics.bounds.apply {
-            outPoint.x = this.width()
-            outPoint.y = this.height()
+
+        FragmentComponentManager.findActivity(context).let {
+            (it as Activity).windowManager.currentWindowMetrics.bounds.apply {
+                outPoint.x = this.width()
+                outPoint.y = this.height()
+            }
         }
+
     } else display.getRealSize(outPoint)
     return SmartSize(outPoint.x, outPoint.y)
 }

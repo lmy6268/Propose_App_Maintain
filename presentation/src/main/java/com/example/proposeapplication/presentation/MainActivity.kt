@@ -1,4 +1,4 @@
-package com.example.proposeapplication.presentation.base
+package com.example.proposeapplication.presentation
 
 import android.content.Context
 import android.os.Build
@@ -21,12 +21,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(activityMainBinding.root)
     }
 
+
     override fun onResume() {
         super.onResume()
+
         activityMainBinding.fragmentContainer.postDelayed(
             {
                 setFullScreen(this)
-            }, 500L
+            }, 50L
         )
     }
 

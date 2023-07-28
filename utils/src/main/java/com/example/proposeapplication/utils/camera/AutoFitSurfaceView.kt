@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.camera.core.camera
+package com.example.proposeapplication.utils.camera
 
 import android.content.Context
 import android.util.AttributeSet
@@ -33,6 +33,8 @@ class AutoFitSurfaceView @JvmOverloads constructor(
 ) : SurfaceView(context, attrs, defStyle) {
 
     private var aspectRatio = 0f
+    private var matchedWidth = 0
+    private var matchedHeight = 0
 
     /**
      * Sets the aspect ratio for this view. The size of the view will be
@@ -41,9 +43,14 @@ class AutoFitSurfaceView @JvmOverloads constructor(
      * @param width  Camera resolution horizontal size
      * @param height Camera resolution vertical size
      */
+
+    private fun gcd(a: Int, b: Int): Int = if (b != 0) gcd(b, a % b) else a
     fun setAspectRatio(width: Int, height: Int) {
         require(width > 0 && height > 0) { "Size cannot be negative" }
-        aspectRatio = width.toFloat() / height.toFloat() //
+
+//        val std = gcd(width, height)
+//        Log.d("screen rate : ", "${width/std} : ${height/std} ")
+        aspectRatio = width.toFloat() / height.toFloat()
         holder.setFixedSize(width, height)
         requestLayout()
     }
@@ -54,9 +61,8 @@ class AutoFitSurfaceView @JvmOverloads constructor(
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val height = MeasureSpec.getSize(heightMeasureSpec)
         Log.d(TAG, "dimensions set: $width x $height")
-        if (aspectRatio == 0f) {
-            setMeasuredDimension(width, height)
-        } else {
+        if (aspectRatio == 0f) setMeasuredDimension(width, height)
+        else {
             // Performs center-crop transformation of the camera frames
             val newWidth: Int
             val newHeight: Int
@@ -68,13 +74,11 @@ class AutoFitSurfaceView @JvmOverloads constructor(
                 newWidth = width
                 newHeight = (width / actualRatio).roundToInt()
             }
-
+            setMeasuredDimension(newWidth, newHeight) //화면비 적용
             Log.d(
                 TAG,
                 "Measured dimensions set: $newWidth x $newHeight / rate : ${newHeight / newWidth.toFloat()}"
             )
-            setMeasuredDimension(newWidth,newHeight) //화면비 적용
-
 
         }
     }

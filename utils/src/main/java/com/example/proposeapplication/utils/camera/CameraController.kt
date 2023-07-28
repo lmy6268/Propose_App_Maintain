@@ -18,7 +18,6 @@ import android.hardware.camera2.params.SessionConfiguration
 import android.media.Image
 import android.media.ImageReader
 import android.os.Build
-import android.provider.MediaStore
 import android.util.Log
 import android.view.Display
 import android.view.Surface
@@ -26,7 +25,6 @@ import android.view.SurfaceHolder
 import com.example.camera.core.camera.FormatItem
 import com.example.camera.core.camera.computeExifOrientation
 import com.example.camera.core.camera.decodeExifOrientation
-import com.example.camera.core.camera.getPreviewOutputSize
 import com.example.proposeapplication.utils.ImageProcessor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,11 +37,7 @@ import java.util.concurrent.TimeoutException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import java.io.FileOutputStream
-import java.io.IOException
-import java.lang.Exception
 
 //카메라를 다루는 컨트롤러
 class CameraController(private val context: Context) {
@@ -88,7 +82,7 @@ class CameraController(private val context: Context) {
                 )
             )
         }
-        nowCamId = res[0].cameraId
+        nowCamId = res[0].cameraId //현재 사용할 카메라 번호
         cameraCharacteristics = cameraManager.getCameraCharacteristics(nowCamId)
         res
     }
@@ -96,7 +90,8 @@ class CameraController(private val context: Context) {
     //캡쳐된 이미지를 읽는 리더 객체
     private val capturedImageReader by lazy {
         cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)!!
-            .getOutputSizes(ImageFormat.JPEG).maxByOrNull { it.height * it.width }!!.let { size ->
+            .getOutputSizes(ImageFormat.JPEG)
+            .maxByOrNull { it.height * it.width }!!.let { size ->
                 ImageReader.newInstance(
                     size.width, size.height, ImageFormat.JPEG, IMAGE_BUFFER_SIZE
                 )
@@ -112,10 +107,31 @@ class CameraController(private val context: Context) {
         val exifOrientation = result.orientation
         val array = ByteArray(buffer.remaining())
         buffer.get(array)
+
+
         BitmapFactory.decodeByteArray(array, 0, array.size).let { src ->
+            Log.d(
+                CameraController::class.simpleName,
+                "dimensions set: ${src.width} x ${src.height}"
+            )
             val tmp = Bitmap.createScaledBitmap(
                 src, src.width / 5, src.height / 5, true
             )
+            //별도로 처리
+            CoroutineScope(Dispatchers.IO).launch {
+                imageProcessor.saveImageToGallery(
+                    Bitmap.createBitmap(
+                        src,
+                        0,
+                        0,
+                        src.width,
+                        src.height,
+                        decodeExifOrientation(exifOrientation),
+                        true
+                    )
+                )
+            }
+
             Bitmap.createBitmap(
                 tmp, 0, 0, tmp.width, tmp.height, decodeExifOrientation(exifOrientation), true
             )
@@ -127,20 +143,6 @@ class CameraController(private val context: Context) {
 
     }
 
-    private suspend fun saveResult(result: CombinedCaptureResult) = suspendCoroutine { cont ->
-        val buffer = result.image.planes[0].buffer
-        val bytes = ByteArray(buffer.remaining()).apply { buffer.get(this) }
-        try {
-            val output = imageProcessor.createFile(context, "jpg")
-            FileOutputStream(output).use {
-                it.write(bytes)
-            }
-            cont.resume(output)
-        } catch (exc: IOException) {
-            Log.e(TAG, "Unable to write JPEG image to file", exc)
-            cont.resumeWithException(exc)
-        }
-    }
 
     private suspend fun getCapturedImage(orientationData: Int) = suspendCoroutine { cont ->
         // Flush any images left in the image reader
@@ -154,6 +156,8 @@ class CameraController(private val context: Context) {
             imageQueue.add(image)
         }, null)
 
+
+        //캡쳐 요청을 생성
         val captureRequest = session.device.createCaptureRequest(
             CameraDevice.TEMPLATE_STILL_CAPTURE
         ).apply { addTarget(capturedImageReader.surface) }
@@ -175,7 +179,8 @@ class CameraController(private val context: Context) {
                     ) //이미지가 정상적으로 처리될 때 로그를 남김
                     CoroutineScope(cont.context).launch {
                         try {
-                            withTimeout(500L) {
+                            //5초 타임아웃
+                            withTimeout(5000L) {
                                 while (true) {
                                     // Dequeue images while timestamps don't match
                                     val image = withContext(Dispatchers.IO) {
@@ -257,10 +262,11 @@ class CameraController(private val context: Context) {
         )
     }
 
-    fun getPreviewSize(display: Display) = availableCameras.let {
-        getPreviewOutputSize(
-            context, display, cameraCharacteristics, SurfaceHolder::class.java
+    fun getPreviewSize(actContext: Context, display: Display) = availableCameras.let {
+        val size = getPreviewOutputSize(
+            actContext, display, cameraCharacteristics, SurfaceHolder::class.java
         )
+        size
     }
 
 
