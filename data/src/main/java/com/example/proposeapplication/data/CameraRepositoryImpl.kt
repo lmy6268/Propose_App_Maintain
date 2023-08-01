@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.view.Display
 import android.view.Surface
+import android.view.SurfaceView
 import com.example.proposeapplication.domain.repository.CameraRepository
 import com.example.proposeapplication.utils.camera.CameraController
 
@@ -18,12 +19,17 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         CameraController(applicationContext)
     }
 
-    override fun getPreviewSize(context: Context,display: Display) = controller.getPreviewSize(context,display)
+    override fun getPreviewSize(context: Context, display: Display) =
+        controller.getPreviewSize(context, display)
 
 
     override suspend fun initPreview(surface: Surface) {
         controller.setPreview(surface)
     }
 
-    override suspend fun takePhoto(orientationData: Int): Bitmap = controller.takePhoto(orientationData)
+    override suspend fun takePhoto(orientationData: Int): Bitmap =
+        controller.takePhoto(orientationData)
+
+    override suspend fun getFixedScreen(surfaceView: SurfaceView): Bitmap? =
+        controller.provideFixedScreen(surfaceView)
 }

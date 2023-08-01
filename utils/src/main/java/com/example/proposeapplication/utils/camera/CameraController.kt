@@ -18,14 +18,19 @@ import android.hardware.camera2.params.SessionConfiguration
 import android.media.Image
 import android.media.ImageReader
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Display
+import android.view.PixelCopy
 import android.view.Surface
 import android.view.SurfaceHolder
+import android.view.SurfaceView
 import com.example.camera.core.camera.FormatItem
 import com.example.camera.core.camera.computeExifOrientation
 import com.example.camera.core.camera.decodeExifOrientation
 import com.example.proposeapplication.utils.ImageProcessor
+import com.example.proposeapplication.utils.pose.PoseRecommendModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,6 +43,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.withTimeout
+import org.opencv.android.OpenCVLoader
+import org.opencv.core.CvType.CV_64F
 
 //카메라를 다루는 컨트롤러
 class CameraController(private val context: Context) {
@@ -114,9 +121,20 @@ class CameraController(private val context: Context) {
                 CameraController::class.simpleName,
                 "dimensions set: ${src.width} x ${src.height}"
             )
+
+            CoroutineScope(Dispatchers.IO).launch {
+                val data = PoseRecommendModule.getHOG(src)
+                Log.d(
+                    "Hog Data: ",
+                    data.toString()
+                )
+                Log.d("HOG size: ", data.size.toString())
+            }
+
             val tmp = Bitmap.createScaledBitmap(
                 src, src.width / 5, src.height / 5, true
             )
+
             //별도로 처리
             CoroutineScope(Dispatchers.IO).launch {
                 imageProcessor.saveImageToGallery(
@@ -139,9 +157,23 @@ class CameraController(private val context: Context) {
     }
 
     //고정 기능에 대한 결과값을 반환하는 함수
-    private suspend fun provideFixedScreen() {
+    suspend fun provideFixedScreen(viewFinder: SurfaceView): Bitmap? =
+        //미리보기 화면 캡쳐를 통해 락인 기능 활성화
+        suspendCancellableCoroutine { cont ->
+            val bitmap =
+                Bitmap.createBitmap(viewFinder.width, viewFinder.height, Bitmap.Config.ARGB_8888)
+            PixelCopy.request(
+                viewFinder,
+                bitmap,
+                { res ->
+                    if (res == PixelCopy.SUCCESS) {
+                        //이곳에 이미지 처리를 담아보자
+                        cont.resume(imageProcessor.edgeDetection(bitmap))
+                    } else cont.resume(null)
 
-    }
+                }, Handler(Looper.getMainLooper())
+            )
+        }
 
 
     private suspend fun getCapturedImage(orientationData: Int) = suspendCoroutine { cont ->
@@ -225,6 +257,7 @@ class CameraController(private val context: Context) {
 
 
     suspend fun setPreview(surface: Surface) {
+
         if (openedCamera == null) openedCamera = openCamera(nowCamId)
         val targets = listOf(surface, capturedImageReader.surface)
         session = suspendCancellableCoroutine { cont ->

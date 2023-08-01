@@ -11,13 +11,16 @@ import android.view.SurfaceHolder
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.example.proposeapplication.utils.camera.OrientationLiveData
 import com.example.proposeapplication.presentation.uistate.CamearUiState
 import com.example.proposeapplication.presentation.MainViewModel
 import com.example.proposeapplication.presentation.databinding.FragmentCameraBinding
+import com.example.proposeapplication.utils.pose.PoseRecommendModule
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -30,10 +33,7 @@ class CameraFragment : Fragment() {
     private val mainViewModel: MainViewModel by viewModels()
     private lateinit var relativeOrientation: OrientationLiveData
 
-//    //Pytorch 사용을 위해
-//    val torchController by lazy{
-//        TorchController(requireContext())
-//    }
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -74,11 +74,12 @@ class CameraFragment : Fragment() {
                         captureButton.isEnabled = false
                         takePhoto(relativeOrientation.value!!)
                         //
-                        cUiState.collectLatest {
+                        captureUiState.collectLatest {
                             when (it) {
                                 is CamearUiState.Success -> {
                                     if (it.data != null)
                                         ((it.data) as Bitmap).apply {
+
                                             Log.d(
                                                 "${CameraFragment::class.simpleName}",
                                                 "$height * $width"
@@ -87,7 +88,6 @@ class CameraFragment : Fragment() {
                                         }
                                     captureButton.isEnabled = true
                                 }
-
 
                                 is CamearUiState.Error -> {
                                     Log.e(
@@ -124,6 +124,18 @@ class CameraFragment : Fragment() {
                     WindowInsets.CONSUMED
                 }
             }
+            lockInBtn.setOnClickListener {
+                lifecycleScope.launch {
+                    lockInBtn.isEnabled = false
+                    mainViewModel.getFixedScreen(viewFinder)
+                    mainViewModel.fixedScreenUiState.collectLatest {
+                        if (it is CamearUiState.Success) {
+                            if (it.data != null) setFixedScreen((it.data as Bitmap))
+                            lockInBtn.isEnabled = true
+                        }
+                    }
+                }
+            }
 
             viewFinder.holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceDestroyed(holder: SurfaceHolder) = Unit
@@ -147,6 +159,25 @@ class CameraFragment : Fragment() {
                 }
             })
         }
+    }
+
+    private fun setFixedScreen(bitmap: Bitmap) {
+
+        fragmentCameraViewBinding.apply {
+            ivOverlay.apply {
+                Glide.with(rootView).load(bitmap)
+                    .sizeMultiplier(0.5f).into(this)
+                alpha = 0.5F
+            }
+            closeOverlay.apply {
+                isVisible = true
+                setOnClickListener {
+                    ivOverlay.setImageResource(0)
+                    isVisible = false
+                }
+            }
+        }
+
     }
 }
 //    companion object {

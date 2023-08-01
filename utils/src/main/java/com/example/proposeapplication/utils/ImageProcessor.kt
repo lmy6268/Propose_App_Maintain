@@ -9,6 +9,10 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Surface
+import org.opencv.android.OpenCVLoader
+import org.opencv.android.Utils
+import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -106,5 +110,22 @@ class ImageProcessor(private val context: Context) {
     //필요한 권한이 있는지 체크하기
     private fun checkPermission() {
 
+    }
+
+    
+
+    fun edgeDetection(bitmap: Bitmap):Bitmap{
+        // No implementation found ~ 에러 해결
+        OpenCVLoader.initDebug()
+        val input = Mat()
+        Utils.bitmapToMat(bitmap, input) // bitmap을 매트릭스로 변환
+        Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY) //흑백으로 변경
+
+        //Convert to detected picture
+        Imgproc.Canny(input, input, 60.0, 157.0)
+
+        return bitmap.copy(bitmap.config, true).apply {
+            Utils.matToBitmap(input, this)
+        }
     }
 }
