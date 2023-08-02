@@ -59,10 +59,6 @@ class ImageProcessor(private val context: Context) {
         return (sensorOrientationDegrees - (deviceOrientationDegrees * sign) + 360) % 360
     }
 
-    fun createFile(context: Context, extension: String): File {
-        val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.US)
-        return File(context.filesDir, "IMG_${sdf.format(Date())}.$extension")
-    }
 
     //이미지를 갤러리에 저장하는 함수
     fun saveImageToGallery(bitmap: Bitmap) {
@@ -112,7 +108,7 @@ class ImageProcessor(private val context: Context) {
 
     }
 
-    
+
 
     fun edgeDetection(bitmap: Bitmap):Bitmap{
         // No implementation found ~ 에러 해결

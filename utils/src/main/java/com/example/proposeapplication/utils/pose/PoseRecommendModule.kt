@@ -11,6 +11,7 @@ import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import org.opencv.imgproc.Imgproc.COLOR_BGR2GRAY
 import org.opencv.imgproc.Imgproc.cvtColor
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -46,22 +47,39 @@ object PoseRecommendModule {
 
 
     private fun getGradient(image: Mat): Pair<Mat, Mat> {
-        val gradientX = Mat()
-        val gradientY = Mat()
+        var gradientX = Mat()
+        var gradientY = Mat()
 
         Imgproc.Sobel(image, gradientX, CvType.CV_64F, 1, 0, 3)
         Imgproc.Sobel(image, gradientY, CvType.CV_64F, 0, 1, 3)
+        gradientX = gradientX.apply {
+            val std = Core.minMaxLoc(this)
+            val dv = if (abs(std.maxVal) > abs(std.minVal)) abs(std.maxVal) else abs(std.minVal)
+            Core.divide(dv, this, this)
+        }
+        gradientY = gradientY.apply {
+            val std = Core.minMaxLoc(this)
+            val dv = if (abs(std.maxVal) > abs(std.minVal)) abs(std.maxVal) else abs(std.minVal)
+            Core.divide(dv, this, this)
+        }
 
-        //0~255값으로 정규화
-        Core.normalize(gradientX, gradientX, 0.0, 255.0, Core.NORM_MINMAX)
-        Core.normalize(gradientY, gradientY, 0.0, 255.0, Core.NORM_MINMAX)
+//
+//        //0~255값으로 정규화
 
 
-        val gradientMagnitude = Mat()
-        val gradientOrientation = Mat()
+        val gradientMagnitude = Mat().apply {
+            val tmpX = Mat()
+            val tmpY = Mat()
+            Core.pow(gradientX, 2.0, tmpX)
+            Core.pow(gradientY, 2.0, tmpY)
+            Core.add(tmpX, tmpY, tmpX)
+            Core.sqrt(tmpX, this)
+        }
+        val gradientOrientation = Mat().apply {
+            //https://docs.opencv.org/3.4/d2/de8/group__core__array.html#ga9db9ca9b4d81c3bde5677b8f64dc0137
+            Core.phase(gradientX, gradientY, this, true)
+        }
 
-        Core.magnitude(gradientX, gradientY, gradientMagnitude)
-        Core.phase(gradientX, gradientY, gradientOrientation, true)
 
         for (x in 0 until gradientMagnitude.rows()) {
             for (y in 0 until gradientMagnitude.cols()) {
@@ -141,6 +159,7 @@ object PoseRecommendModule {
         return histogramMap
     }
 
+    //Hog 구하는 메소드
     fun getHOG(image: Bitmap): List<Double> {
         val histogramMap = getHistogramMap(image)
         val hog = mutableListOf<Double>()
@@ -152,21 +171,20 @@ object PoseRecommendModule {
                     for (by in y until y + HogConfig.blockSize.height.toInt()) {
                         histogramVector.addAll(histogramMap[bx, by].toList()) //값을 추가
                     }
+                    //정규화 요소 구하는 공식 -> 각 값의 제곱을 더한 후 그것에 루트를 씌움 (Norm_2)
+                    val norm = histogramVector.toDoubleArray().let { hist ->
+                        var res = 0.0
+                        hist.forEach {
+                            res += it.pow(2)
+                        }
+                        sqrt(res)
+                    } //정규화 요소
+                    val normVector = histogramVector.map { it / norm } //정규화된 벡터값
+                    hog.addAll(normVector)
                 }
-                Log.d("histogramVector : ", histogramVector.toDoubleArray().contentToString())
-                val norm = histogramVector.toDoubleArray().let { hist ->
-                    var res = 0.0
-                    hist.forEach {
-                        res += it.pow(2)
-                    }
-                    sqrt(res)
-                } //정규화 요소
-                val normVector = histogramVector.map { it / norm } //정규화된 벡터값
-                hog.addAll(normVector)
             }
         }
         return hog
+
     }
-
-
 }

@@ -36,19 +36,6 @@
         android:background="@android:color/transparent"
         android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btnChangeFB"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_gravity="end"
-            android:text="카메라 전환" />
-
-        <Button
-            android:id="@+id/btnChangeRatio"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_gravity="end"
-            android:text="1:1" />
     </LinearLayout>
 
     <LinearLayout
@@ -78,7 +65,7 @@
                 android:layout_width="80dp"
                 android:layout_height="80dp"
                 android:layout_marginStart="40dp"
-                android:background="@color/design_default_color_primary" />
+                android:background="@drawable/imageview_shape" />
 
             <ImageButton
                 android:id="@+id/capture_button"

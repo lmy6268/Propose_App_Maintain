@@ -34,7 +34,6 @@ class CameraFragment : Fragment() {
     private lateinit var relativeOrientation: OrientationLiveData
 
 
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View = FragmentCameraBinding.inflate(LayoutInflater.from(requireActivity())).apply {
@@ -73,7 +72,7 @@ class CameraFragment : Fragment() {
                     mainViewModel.apply {
                         captureButton.isEnabled = false
                         takePhoto(relativeOrientation.value!!)
-                        //
+
                         captureUiState.collectLatest {
                             when (it) {
                                 is CamearUiState.Success -> {
@@ -84,7 +83,7 @@ class CameraFragment : Fragment() {
                                                 "${CameraFragment::class.simpleName}",
                                                 "$height * $width"
                                             )
-                                            ivResult.setImageBitmap(this)
+                                            Glide.with(root).load(this).circleCrop().into(ivResult)
                                         }
                                     captureButton.isEnabled = true
                                 }

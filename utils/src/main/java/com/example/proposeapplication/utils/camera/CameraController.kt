@@ -30,6 +30,7 @@ import com.example.camera.core.camera.FormatItem
 import com.example.camera.core.camera.computeExifOrientation
 import com.example.camera.core.camera.decodeExifOrientation
 import com.example.proposeapplication.utils.ImageProcessor
+import com.example.proposeapplication.utils.TorchController
 import com.example.proposeapplication.utils.pose.PoseRecommendModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.withTimeout
 import org.opencv.android.OpenCVLoader
 import org.opencv.core.CvType.CV_64F
+import kotlin.system.measureTimeMillis
 
 //카메라를 다루는 컨트롤러
 class CameraController(private val context: Context) {
@@ -67,6 +69,11 @@ class CameraController(private val context: Context) {
 
     //현재 사용중인 카메라 아이디를 저장
     private lateinit var nowCamId: String
+
+    //Pytorch 사용
+    private val torchController by lazy {
+        TorchController(context)
+    }
 
     //사용 가능한 카메라 목록
     private val availableCameras by lazy {
@@ -122,14 +129,24 @@ class CameraController(private val context: Context) {
                 "dimensions set: ${src.width} x ${src.height}"
             )
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val data = PoseRecommendModule.getHOG(src)
-                Log.d(
-                    "Hog Data: ",
-                    data.toString()
-                )
-                Log.d("HOG size: ", data.size.toString())
-            }
+
+//            CoroutineScope(Dispatchers.IO).launch {
+//                val time = measureTimeMillis {
+//                    val data = PoseRecommendModule.getHOG(src)
+//
+//                    Log.d(
+//                        "Hog Data1: ", data.subList(0, data.size / 2).toString()
+//
+//                    )
+//                    Log.d(
+//                        "Hog Data2: ", data.subList(data.size / 2, data.size).toString()
+//
+//                    )
+//                    Log.d("HOG size: ", data.size.toString())
+//                }
+//                Log.d("Elapse Time to calculate: ", "${time}ms")
+//
+//            }
 
             val tmp = Bitmap.createScaledBitmap(
                 src, src.width / 5, src.height / 5, true
