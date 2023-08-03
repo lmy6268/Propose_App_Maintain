@@ -48,6 +48,7 @@ class OrientationLiveData(
     override fun onActive() {
         super.onActive()
         listener.enable()
+        value = Surface.ROTATION_0
     }
 
     override fun onInactive() {

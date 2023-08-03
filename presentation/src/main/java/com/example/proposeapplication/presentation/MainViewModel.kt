@@ -1,6 +1,5 @@
 package com.example.proposeapplication.presentation
 
-import android.app.Activity
 import android.content.Context
 import android.util.Log
 import android.view.Display
@@ -13,12 +12,11 @@ import com.example.proposeapplication.domain.usecase.permission.PermissionCheckU
 import com.example.proposeapplication.domain.usecase.camera.RetrievePreviewSizeUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
-import com.example.proposeapplication.presentation.uistate.CamearUiState
+import com.example.proposeapplication.presentation.uistate.CameraUiState
 import com.example.proposeapplication.presentation.uistate.PermissionUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.system.measureTimeMillis
@@ -34,8 +32,8 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _pUiState = MutableStateFlow<PermissionUiState>(PermissionUiState.Ready)
-    private val _fixedScreenUiState = MutableStateFlow<CamearUiState>(CamearUiState.Ready)
-    private val _captureUiState = MutableStateFlow<CamearUiState>(CamearUiState.Ready)
+    private val _fixedScreenUiState = MutableStateFlow<CameraUiState>(CameraUiState.Ready)
+    private val _captureUiState = MutableStateFlow<CameraUiState>(CameraUiState.Ready)
 
     val pUiState = _pUiState.asStateFlow()
     val fixedScreenUiState = _fixedScreenUiState.asStateFlow()
@@ -55,7 +53,7 @@ class MainViewModel @Inject constructor(
 
     fun takePhoto(orientationData: Int) {
         viewModelScope.launch {
-            _captureUiState.emit(CamearUiState.Loading)
+            _captureUiState.emit(CameraUiState.Loading)
             Log.d(
                 "elapse to Take", "${
                     measureTimeMillis {
@@ -64,7 +62,7 @@ class MainViewModel @Inject constructor(
                             "${MainViewModel::class.simpleName}",
                             "${data.height} * ${data.width}"
                         )
-                        _captureUiState.emit(CamearUiState.Success(data))
+                        _captureUiState.emit(CameraUiState.Success(data))
                     }.toString()
                 }ms"
             )
@@ -76,12 +74,12 @@ class MainViewModel @Inject constructor(
         retrievePreviewSizeUseCase(context, display)
 
     suspend fun getFixedScreen(viewFinder: SurfaceView) {
-        _fixedScreenUiState.emit(CamearUiState.Loading)
+        _fixedScreenUiState.emit(CameraUiState.Loading)
         Log.d(
             "elapse to Take", "${
                 measureTimeMillis {
                     val data = showFixedScreenUseCase(viewFinder)
-                    _fixedScreenUiState.emit(CamearUiState.Success(data))
+                    _fixedScreenUiState.emit(CameraUiState.Success(data))
                 }
             }ms"
         )
