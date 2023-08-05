@@ -45,7 +45,6 @@ class AutoFitSurfaceView @JvmOverloads constructor(
      * @param height Camera resolution vertical size
      */
 
-    private fun gcd(a: Int, b: Int): Int = if (b != 0) gcd(b, a % b) else a
     fun setAspectRatio(width: Int, height: Int) {
         require(width > 0 && height > 0) { "Size cannot be negative" }
 

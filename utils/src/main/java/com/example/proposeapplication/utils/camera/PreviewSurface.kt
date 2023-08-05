@@ -9,8 +9,5 @@ class PreviewSurface(
     attrs: AttributeSet? = null,
     defStyle: Int = 0
 ) : SurfaceView(context,attrs,defStyle) {
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
-    }
 
 }
