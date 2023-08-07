@@ -49,7 +49,7 @@ import org.opencv.core.CvType.CV_64F
 import kotlin.system.measureTimeMillis
 
 //카메라를 다루는 컨트롤러
-class CameraController(private val context: Context) {
+class CameraController(private val context: Context) : CameraControllerInterface {
 
     private val cameraManager by lazy {
         context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -112,7 +112,7 @@ class CameraController(private val context: Context) {
             }
     }
 
-    suspend fun takePhoto(orientation: Int) = getCapturedImage(
+    override suspend fun takePhoto(orientation: Int) = getCapturedImage(
         imageProcessor.computeRelativeRotation(
             cameraCharacteristics, orientation
         )
@@ -174,7 +174,7 @@ class CameraController(private val context: Context) {
     }
 
     //고정 기능에 대한 결과값을 반환하는 함수
-    suspend fun provideFixedScreen(viewFinder: SurfaceView): Bitmap? =
+    override suspend fun provideFixedScreen(viewFinder: SurfaceView): Bitmap? =
         //미리보기 화면 캡쳐를 통해 락인 기능 활성화
         suspendCancellableCoroutine { cont ->
             val bitmap =
@@ -193,7 +193,7 @@ class CameraController(private val context: Context) {
         }
 
 
-    private suspend fun getCapturedImage(orientationData: Int) = suspendCoroutine { cont ->
+    override suspend fun getCapturedImage(orientationData: Int) = suspendCoroutine { cont ->
         // Flush any images left in the image reader
         @Suppress("ControlFlowWithEmptyBody") while (capturedImageReader.acquireNextImage() != null) {
         }
@@ -273,7 +273,7 @@ class CameraController(private val context: Context) {
     }
 
 
-    suspend fun setPreview(surface: Surface) {
+    override suspend fun setPreview(surface: Surface) {
 
         if (openedCamera == null) openedCamera = openCamera(nowCamId)
         val targets = listOf(surface, capturedImageReader.surface)
@@ -312,7 +312,7 @@ class CameraController(private val context: Context) {
         )
     }
 
-    fun getPreviewSize(actContext: Context, display: Display) = availableCameras.let {
+    override fun getPreviewSize(actContext: Context, display: Display) = availableCameras.let {
         val size = getPreviewOutputSize(
             actContext, display, cameraCharacteristics, SurfaceHolder::class.java
         )
@@ -321,7 +321,7 @@ class CameraController(private val context: Context) {
 
 
     @SuppressLint("MissingPermission")
-    private suspend fun openCamera(cameraId: String) = suspendCancellableCoroutine { cont ->
+    override suspend fun openCamera(cameraId: String) = suspendCancellableCoroutine { cont ->
         cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) = cont.resume(camera)
             override fun onDisconnected(camera: CameraDevice) {
@@ -347,6 +347,9 @@ class CameraController(private val context: Context) {
             }
         }, null)
     }
+
+    override fun getLatestImage(): Bitmap? =
+        imageProcessor.getLatestImage()
 
 
     companion object {

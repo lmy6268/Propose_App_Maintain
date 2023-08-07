@@ -3,6 +3,7 @@ package com.example.proposeapplication.utils
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
 import android.os.Environment
@@ -71,7 +72,6 @@ class ImageProcessor(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
 
             context.contentResolver?.also { resolver ->
-
                 // 5
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, title)
@@ -85,7 +85,6 @@ class ImageProcessor(private val context: Context) {
 
                 // 7
                 fos = imageUri?.let { resolver.openOutputStream(it) }
-//                Log.d("${this.javaClass.simpleName} : ", "사진이 저장되었습니다. / $imageUri")
             }
         } else {
             val imagesDir =
@@ -108,9 +107,32 @@ class ImageProcessor(private val context: Context) {
 
     }
 
+    fun getLatestImage(): Bitmap? {
+        val projection = arrayOf(
+            MediaStore.Images.ImageColumns._ID,
+            MediaStore.Images.ImageColumns.DATA,
+            MediaStore.Images.ImageColumns.BUCKET_DISPLAY_NAME,
+            MediaStore.Images.ImageColumns.DATE_TAKEN,
+            MediaStore.Images.ImageColumns.MIME_TYPE
+        )
+        var res: Bitmap? = null
+        context.contentResolver
+            .query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, projection, null, null,
+                MediaStore.Images.ImageColumns.DATE_TAKEN + " ASC"
+            ).use { cursor ->
+                if (cursor!!.moveToLast()) {
+                    val latestImageUri = cursor.getString(1)
+                    val imageFile = File(latestImageUri)
+                    if (imageFile.exists()) {
+                        res = BitmapFactory.decodeFile(latestImageUri)
+                    }
+                }
+            }
+        return res
+    }
 
-
-    fun edgeDetection(bitmap: Bitmap):Bitmap{
+    fun edgeDetection(bitmap: Bitmap): Bitmap {
         // No implementation found ~ 에러 해결
         OpenCVLoader.initDebug()
         val input = Mat()

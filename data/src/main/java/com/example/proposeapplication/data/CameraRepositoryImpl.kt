@@ -32,4 +32,9 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
 
     override suspend fun getFixedScreen(surfaceView: SurfaceView): Bitmap? =
         controller.provideFixedScreen(surfaceView)
+
+    override fun getLatestImage(): Bitmap? {
+        return controller.getLatestImage()
+    }
+
 }

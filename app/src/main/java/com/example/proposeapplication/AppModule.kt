@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.proposeapplication.data.CameraRepositoryImpl
 import com.example.proposeapplication.domain.repository.CameraRepository
 import com.example.proposeapplication.domain.usecase.camera.CaptureImageUseCase
+import com.example.proposeapplication.domain.usecase.camera.GetLatestImageUseCase
 import com.example.proposeapplication.domain.usecase.camera.RetrievePreviewSizeUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
 import dagger.Module
@@ -21,7 +22,6 @@ object AppModule {
     @InstallIn(SingletonComponent::class)
     @Module
     internal object RepoModule {
-
 
         @Singleton
         @Provides
@@ -52,6 +52,10 @@ object AppModule {
         fun provideCaptureImageUseCase(cameraRepository: CameraRepository): CaptureImageUseCase =
             CaptureImageUseCase(cameraRepository)
 
+        @ViewModelScoped
+        @Provides
+        fun provideGetLatestImageUseCase(cameraRepository: CameraRepository): GetLatestImageUseCase =
+            GetLatestImageUseCase(cameraRepository)
     }
 
 }

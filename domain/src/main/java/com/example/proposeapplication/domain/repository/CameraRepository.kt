@@ -12,4 +12,6 @@ interface CameraRepository {
     suspend fun initPreview(surface: Surface)
     suspend fun takePhoto(orientationData: Int): Bitmap
     suspend fun getFixedScreen(surfaceView: SurfaceView): Bitmap?
+    fun getLatestImage(): Bitmap?
+
 }

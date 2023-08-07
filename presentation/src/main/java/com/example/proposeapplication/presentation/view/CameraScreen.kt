@@ -17,7 +17,6 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
@@ -193,6 +191,7 @@ object CameraScreen {
                 if (surfaceHolder.value is AutoFitSurfaceView) mainViewModel.showPreview(
                     surfaceHolder.value!!.holder.surface
                 )
+                mainViewModel.getLatestImage()
             }
         }
 
@@ -247,9 +246,9 @@ object CameraScreen {
                     modifier = Modifier
                         .align(Alignment.Center)
                         .fillMaxSize()
-                        .aspectRatio(3F / 4F),
+//                        .aspectRatio(3F / 4F),
 
-                    ) { image ->
+                ) { image ->
                     if (isFixed.value) (context as AppCompatActivity).lifecycleScope.launch {
                         mainViewModel.fixedScreenUiState.collect {
                             if (it is CameraUiState.Success) {
@@ -311,12 +310,12 @@ object CameraScreen {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
 
-                        //촬영된 이미지 보기 ㄴ
+                        //촬영된 이미지 보기
                         AndroidView(modifier = Modifier
                             .widthIn(70.dp)
                             .heightIn(70.dp)
                             .clickable {
-                                //onclick() 구현하기
+
 
                             }, factory = {
                             ImageView(context).apply {
@@ -327,12 +326,19 @@ object CameraScreen {
                                 )
                             }
                         }) { image ->
-
                             (context as AppCompatActivity).lifecycleScope.launch {
-                                mainViewModel.captureUiState.collect {
-                                    if (it is CameraUiState.Success) Glide.with(context)
-                                        .load(it.data as Bitmap).circleCrop().into(image)
-                                        .apply { isCaptured.value = false }
+                                var beforeData: Bitmap? = null
+                                mainViewModel.latestImgUiState.collect {
+                                    if (it is CameraUiState.Success) {
+                                        val data = it.data as Bitmap?
+                                        if (data == null) image.setImageResource(0)
+                                        else if (data != beforeData) {
+                                            Glide.with(context)
+                                                .load(it.data as Bitmap).circleCrop().into(image)
+                                                .apply { isCaptured.value = false }
+                                            beforeData = it.data
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -506,23 +512,6 @@ fun testMenu() {
 }
 
 
-@Composable
-fun AspectRatioView(
-    aspectRatio: Float,
-    modifier: Modifier,
-    content: @Composable BoxScope.() -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .aspectRatio(aspectRatio)
-            .fillMaxSize().apply {
-                modifier
-            },
-        content = content
-    )
-}
-
-
 private fun calculateSize(width: Int, height: Int, aspectRatio: Size): Size {
     fun gcd(a: Int, b: Int): Int = if (b != 0) gcd(b, a % b) else a
     val std = if (width > height) gcd(width, height) else gcd(height, width)
@@ -530,3 +519,8 @@ private fun calculateSize(width: Int, height: Int, aspectRatio: Size): Size {
     return Size(std * aspectRatio.width, std * aspectRatio.height)
 
 }
+
+private fun openGallery(activity: AppCompatActivity) {
+
+}
+
