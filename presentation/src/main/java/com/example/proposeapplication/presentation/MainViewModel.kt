@@ -8,6 +8,7 @@ import android.view.SurfaceView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proposeapplication.domain.usecase.camera.CaptureImageUseCase
+import com.example.proposeapplication.domain.usecase.camera.GetCameraInfoUseCase
 import com.example.proposeapplication.domain.usecase.camera.GetLatestImageUseCase
 import com.example.proposeapplication.domain.usecase.camera.RetrievePreviewSizeUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
@@ -29,6 +30,7 @@ class MainViewModel @Inject constructor(
     private val captureImageUseCase: CaptureImageUseCase,
     private val showFixedScreenUseCase: ShowFixedScreenUseCase,
     private val getLatestImageUseCase: GetLatestImageUseCase,
+    private val getCameraInfoUseCase: GetCameraInfoUseCase,
 ) : ViewModel() {
 
     private val _fixedScreenUiState = MutableStateFlow<CameraUiState>(CameraUiState.Ready)
@@ -43,6 +45,8 @@ class MainViewModel @Inject constructor(
             showPreviewUseCase(surface)
         }
     }
+
+    fun getCameraInfo() = getCameraInfoUseCase() //카메라 정보 얻기
 
     fun takePhoto(orientationData: Int) {
         viewModelScope.launch {

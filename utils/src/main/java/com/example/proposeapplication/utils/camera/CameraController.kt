@@ -29,6 +29,7 @@ import android.view.SurfaceView
 import com.example.camera.core.camera.FormatItem
 import com.example.camera.core.camera.computeExifOrientation
 import com.example.camera.core.camera.decodeExifOrientation
+import com.example.proposeapplication.utils.CameraInfo
 import com.example.proposeapplication.utils.ImageProcessor
 import com.example.proposeapplication.utils.TorchController
 import com.example.proposeapplication.utils.pose.PoseRecommendModule
@@ -350,6 +351,10 @@ class CameraController(private val context: Context) : CameraControllerInterface
 
     override fun getLatestImage(): Bitmap? =
         imageProcessor.getLatestImage()
+
+    override fun getCameraInfo(): CameraInfo {
+        return CameraInfo(availableCameras) //더미 데이터 탐재
+    }
 
 
     companion object {

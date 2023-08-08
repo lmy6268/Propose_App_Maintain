@@ -6,6 +6,7 @@ import android.util.Size
 import android.view.Display
 import android.view.Surface
 import android.view.SurfaceView
+import com.example.proposeapplication.utils.CameraInfo
 
 interface CameraRepository {
     fun getPreviewSize(context: Context, display: Display): Size
@@ -13,5 +14,6 @@ interface CameraRepository {
     suspend fun takePhoto(orientationData: Int): Bitmap
     suspend fun getFixedScreen(surfaceView: SurfaceView): Bitmap?
     fun getLatestImage(): Bitmap?
+    fun getCameraInfo():CameraInfo //카메라 관련 정보를 얻는 함수
 
 }

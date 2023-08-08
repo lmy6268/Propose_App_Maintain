@@ -7,6 +7,7 @@ import android.util.Size
 import android.view.Display
 import android.view.Surface
 import android.view.SurfaceView
+import com.example.proposeapplication.utils.CameraInfo
 
 
 interface CameraControllerInterface {
@@ -17,5 +18,6 @@ interface CameraControllerInterface {
     fun getPreviewSize(actContext: Context, display: Display): Size
     suspend fun openCamera(cameraId: String): CameraDevice
     fun getLatestImage(): Bitmap?
+    fun getCameraInfo(): CameraInfo
 
 }

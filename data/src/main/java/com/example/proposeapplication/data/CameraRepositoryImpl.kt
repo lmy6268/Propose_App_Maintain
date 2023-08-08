@@ -6,6 +6,7 @@ import android.view.Display
 import android.view.Surface
 import android.view.SurfaceView
 import com.example.proposeapplication.domain.repository.CameraRepository
+import com.example.proposeapplication.utils.CameraInfo
 import com.example.proposeapplication.utils.camera.CameraController
 
 import javax.inject.Inject
@@ -33,8 +34,10 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override suspend fun getFixedScreen(surfaceView: SurfaceView): Bitmap? =
         controller.provideFixedScreen(surfaceView)
 
-    override fun getLatestImage(): Bitmap? {
-        return controller.getLatestImage()
-    }
+    override fun getLatestImage(): Bitmap? = controller.getLatestImage()
+
+
+    override fun getCameraInfo(): CameraInfo = controller.getCameraInfo()
+
 
 }

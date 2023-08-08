@@ -1,10 +1,18 @@
 package com.example.proposeapplication.presentation.view
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
+import android.provider.MediaStore
+import android.util.Log
 import android.util.Size
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.ImageView
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.animation.animateContentSize
@@ -20,7 +28,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -34,9 +41,9 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,7 +79,7 @@ object CameraScreen {
     private val defaultFont = CustomFont.font_pretendard
 
     @Composable
-    fun Menu() {
+    fun Menu(selectedState: MutableIntState) {
         val menuList = listOf<String>("포즈", "포즈&구도", "구도")
         val selectedIdx = remember {
             mutableIntStateOf(0)
@@ -121,7 +128,7 @@ object CameraScreen {
                             fontSize = 14.sp,
                             fontFamily = defaultFont,
                             fontWeight = FontWeight.Bold,
-                            color = if (i == selectedIdx.intValue) Color.White else Color(0xFF999999),
+                            color = if (i == selectedIdx.intValue) Color.White else Color(0xFF000000),
                         )
                     }
                 }
@@ -157,20 +164,30 @@ object CameraScreen {
         val lifecycleEvent = rememberLifecycleEvent()
         val systemUiController = rememberSystemUiController()
         val surfaceHolder = remember { mutableStateOf<SurfaceView?>(null) }
-        val rotateState = OrientationLiveData(context).observeAsState()
+        val rotateState = OrientationLiveData(context).observeAsState() //회전 상태를 파악하는 상태 변수
+
+        //State Values
+        //고정 여부
         val isFixed = remember {
             mutableStateOf(false)
         }
-        val viewRate = remember {
-            mutableStateOf(Size(3, 4))
+        val viewRateList = listOf(Size(1, 1), Size(5, 4), Size(4, 3), Size(16, 9))
+        val viewSelectedState = remember { mutableIntStateOf(3) }
+        val selectedIdx = remember {
+            mutableIntStateOf(1)
         }
-        val viewSize = remember {
-            mutableStateOf<Size?>(null)
-        }
-        val viewRateList = listOf("1:1", "4:3", "16:9", "4:5")
+
+        //현재 줌 레벨을 가지고 있는 상태 변수
         val zoomState = remember {
-            mutableFloatStateOf(1F)
+            mutableIntStateOf(1)
         }
+
+        //화면에 사용자의 입력이 들어간 경우 기존에 확장된 창들을 닫음
+        val interruptState = remember {
+            mutableStateOf(false)
+        }
+
+
         val interactionSource = remember { MutableInteractionSource() }
         val isPressed by interactionSource.collectIsPressedAsState()
         val isFocused by interactionSource.collectIsFocusedAsState()
@@ -183,6 +200,17 @@ object CameraScreen {
 
         val fixedButtonImg = if (isFixed.value) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
+        val launcher =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
+                mainViewModel.getLatestImage()
+            }
+//        val galleryLauncher =
+//            rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+//                launcher.launch(Intent(Intent.ACTION_VIEW).apply {
+//                    setDataAndType(it, "image/*")
+////                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+//                })
+//            }
 
 
         //생명주기를 인식 -> 만약 다시 활동상태가 재개 된다면, 카메라 객체를 다시 초기화함.
@@ -193,9 +221,11 @@ object CameraScreen {
                 )
                 mainViewModel.getLatestImage()
             }
+
+
         }
 
-
+        //화면 진입점
         Scaffold(
             modifier = Modifier.fillMaxSize()
         ) { innerPadding ->
@@ -208,9 +238,7 @@ object CameraScreen {
                 AndroidView(
                     factory = {
                         AutoFitSurfaceView(it)
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
+                    }, modifier = Modifier.fillMaxSize()
 //                        .aspectRatio(3F / 4F),
                 ) {
                     surfaceHolder.value = it
@@ -242,8 +270,7 @@ object CameraScreen {
                 AndroidView(
                     factory = {
                         ImageView(context)
-                    },
-                    modifier = Modifier
+                    }, modifier = Modifier
                         .align(Alignment.Center)
                         .fillMaxSize()
 //                        .aspectRatio(3F / 4F),
@@ -270,8 +297,12 @@ object CameraScreen {
                         .padding(top = 30.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    ExpandableButton(text = viewRateList, type = "비율")
-                    Menu()
+                    ExpandableButton(
+                        text = viewRateList.map { it -> "${it.height}:${it.width}" },
+                        type = "비율",
+                        viewSelectedState
+                    )
+                    Menu(selectedIdx)
                     IconButton(onClick = { }) {
                         Icon(
                             modifier = Modifier
@@ -296,8 +327,13 @@ object CameraScreen {
                 ) {
 
 
-                    MenuModule(text = "hello", isSelected = true)
-
+//                    MenuModule(text = "hello", isSelected = true)
+                    ExpandableButton(
+                        text = listOf("0.5X", "1X", "2X"),
+                        type = "줌",
+                        selectedState = zoomState,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
 
                     //하단 부분
                     Row(
@@ -315,8 +351,7 @@ object CameraScreen {
                             .widthIn(70.dp)
                             .heightIn(70.dp)
                             .clickable {
-
-
+                                openGallery(launcher)
                             }, factory = {
                             ImageView(context).apply {
                                 this.setImageDrawable(
@@ -326,33 +361,33 @@ object CameraScreen {
                                 )
                             }
                         }) { image ->
+                            //이미지가 촬영되면, 촬영된 이미지를 뷰에 띄워준다
                             (context as AppCompatActivity).lifecycleScope.launch {
                                 var beforeData: Bitmap? = null
                                 mainViewModel.latestImgUiState.collect {
                                     if (it is CameraUiState.Success) {
-                                        val data = it.data as Bitmap?
-                                        if (data == null) image.setImageResource(0)
-                                        else if (data != beforeData) {
-                                            Glide.with(context)
-                                                .load(it.data as Bitmap).circleCrop().into(image)
-                                                .apply { isCaptured.value = false }
+                                        val data = it.data as Bitmap
+                                        if (data != beforeData) {
+                                            Glide.with(context).load(it.data).circleCrop()
+                                                .into(image).apply { isCaptured.value = false }
                                             beforeData = it.data
                                         }
+                                    } else if (it is CameraUiState.Error) {
+                                        Log.d("CameraScreen: ", it.exception.message!!)
+                                        image.setImageResource(R.drawable.based_circle)
                                     }
                                 }
                             }
                         }
-                        Box(
-                            Modifier.clickable(
-                                indication = null,
-                                interactionSource = interactionSource,
-                            ) {
-                                if (isCaptured.value.not()) {
-                                    mainViewModel.takePhoto(rotateState.value!!)
-                                    isCaptured.value = true
-                                }
-                            }
+                        Box(Modifier.clickable(
+                            indication = null,
+                            interactionSource = interactionSource,
                         ) {
+                            if (isCaptured.value.not()) {
+                                mainViewModel.takePhoto(rotateState.value!!)
+                                isCaptured.value = true
+                            }
+                        }) {
                             Icon(
                                 modifier = Modifier
                                     .widthIn(100.dp)
@@ -416,15 +451,20 @@ object CameraScreen {
 
     //확장가능한 버튼
     @Composable
-    private fun ExpandableButton(text: List<String>, type: String) {
-        val selectedState = remember { mutableIntStateOf(0) }
+    private fun ExpandableButton(
+        text: List<String>,
+        type: String,
+        selectedState: MutableIntState?,
+        modifier: Modifier = Modifier
+    ) {
         val isClicked = remember {
             mutableStateOf(false)
         }
-        Box(modifier = Modifier
+        Box(modifier = modifier
             .apply {
                 if (isClicked.value) fillMaxWidth()
                 else widthIn(44.dp)
+
             }
             .animateContentSize(
                 animationSpec = tween(
@@ -444,7 +484,8 @@ object CameraScreen {
 
                 ) {
                     //닫는 버튼
-                    IconButton(modifier = Modifier.heightIn(30.dp),
+                    IconButton(
+                        modifier = Modifier.heightIn(30.dp),
                         onClick = { isClicked.value = false }) {
                         Icon(
                             painterResource(id = R.drawable.based_circle),
@@ -455,7 +496,6 @@ object CameraScreen {
                         Icon(
                             painterResource(id = R.drawable.close),
                             contentDescription = "close",
-//                        modifier = Modifier.fillMaxSize(0.3F)
                         )
                     }
                     Row(
@@ -465,15 +505,18 @@ object CameraScreen {
                             .padding(start = 40.dp, end = 10.dp),
                         horizontalArrangement = Arrangement.SpaceAround,
                     ) {
-
-
                         for (i in text.indices) {
                             Text(
-
-                                modifier = Modifier.clickable { },
+                                modifier = Modifier.clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() })
+                                {
+                                    selectedState!!.intValue = i
+                                },
                                 text = text[i],
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight =
+                                if (i == selectedState!!.intValue) FontWeight.Bold else FontWeight.Light,
                                 textAlign = TextAlign.Center
                             )
 
@@ -493,11 +536,12 @@ object CameraScreen {
                     tint = Color.Unspecified,
                     contentDescription = type
                 )
-                Text(
-                    text = text[selectedState.value],
-                    fontWeight = FontWeight(FontWeight.Bold.weight),
-                    fontSize = 12.sp
-                )
+                if (selectedState != null) {
+                    Text(
+                        text = text[selectedState.intValue], //화면 비 글씨 표기
+                        fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
+                    )
+                }
             }
 
         }
@@ -508,7 +552,9 @@ object CameraScreen {
 @Preview
 @Composable
 fun testMenu() {
-    CameraScreen.Menu()
+    CameraScreen.Menu(selectedState = remember {
+        mutableIntStateOf(0)
+    })
 }
 
 
@@ -520,7 +566,10 @@ private fun calculateSize(width: Int, height: Int, aspectRatio: Size): Size {
 
 }
 
-private fun openGallery(activity: AppCompatActivity) {
-
+private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
+    launcher.launch(Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse(MediaStore.Images.Media.EXTERNAL_CONTENT_URI.toString())
+    })
 }
+
 

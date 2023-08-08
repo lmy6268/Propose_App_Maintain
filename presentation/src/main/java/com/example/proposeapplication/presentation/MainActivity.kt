@@ -22,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.proposeapplication.presentation.view.CameraScreen
 import com.example.proposeapplication.presentation.view.PermScreen
+import com.example.proposeapplication.presentation.view.SettingScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import dagger.hilt.android.AndroidEntryPoint
@@ -77,6 +78,9 @@ class MainActivity : AppCompatActivity() {
             composable(route = page.Perm.name) {
                 PermScreen.Screen(navController, multiplePermissionsState)
             }
+            composable(route = page.Setting.name) {
+                SettingScreen.Screen()
+            }
         }
     }
 
@@ -89,6 +93,7 @@ class MainActivity : AppCompatActivity() {
 
 
     companion object {
+
         //전체화면 적용
         private fun setFullScreen(context: Context) {
             (context as AppCompatActivity).apply {
