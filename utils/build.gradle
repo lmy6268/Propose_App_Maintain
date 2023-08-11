@@ -23,6 +23,10 @@ dependencies {
     //pytorch를 이용하기 위한 gradle dependency
     implementation 'org.pytorch:pytorch_android_lite:1.13.1'
     implementation 'org.pytorch:pytorch_android_torchvision_lite:1.13.1'
-
+    // CameraX
+    var cameraxVersion = '1.3.0-beta02'
+    implementation "androidx.camera:camera-lifecycle:$cameraxVersion"
+    implementation "androidx.camera:camera-view:$cameraxVersion"
+    implementation "androidx.camera:camera-extensions:$cameraxVersion"
 
 }

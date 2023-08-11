@@ -20,6 +20,7 @@ import androidx.core.view.WindowCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.proposeapplication.presentation.ui.MainTheme
 import com.example.proposeapplication.presentation.view.CameraScreen
 import com.example.proposeapplication.presentation.view.PermScreen
 import com.example.proposeapplication.presentation.view.SettingScreen
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         setFullScreen(this)
 
         setContent {
-            MaterialTheme {
+            MainTheme {
                 MainScreen()
             }
         }

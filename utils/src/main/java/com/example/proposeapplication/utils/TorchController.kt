@@ -15,6 +15,7 @@ class TorchController(private val context: Context) {
 
     private val mModule by lazy {
         LiteModuleLoader.load(assetFilePath("mobile_csnet.ptl"))
+
     }
 
     @Throws(IOException::class)

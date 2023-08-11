@@ -25,40 +25,7 @@ import java.util.Locale
 
 //이미지를 처리하는 프로세서
 class ImageProcessor(private val context: Context) {
-    /**
-     * Computes rotation required to transform from the camera sensor orientation to the
-     * device's current orientation in degrees.
-     *
-     * @param characteristics the [CameraCharacteristics] to query for the sensor orientation.
-     * @param surfaceRotation the current device orientation as a Surface constant
-     * @return the relative rotation from the camera sensor to the current device orientation.
-     */
 
-
-    fun computeRelativeRotation(
-        characteristics: CameraCharacteristics,
-        surfaceRotation: Int
-    ): Int {
-        val sensorOrientationDegrees =
-            characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)!!
-
-        val deviceOrientationDegrees = when (surfaceRotation) {
-            Surface.ROTATION_0 -> 0
-            Surface.ROTATION_90 -> 90
-            Surface.ROTATION_180 -> 180
-            Surface.ROTATION_270 -> 270
-            else -> 0
-        }
-
-        // Reverse device orientation for front-facing cameras
-        val sign = if (characteristics.get(CameraCharacteristics.LENS_FACING) ==
-            CameraCharacteristics.LENS_FACING_FRONT
-        ) 1 else -1
-
-        // Calculate desired JPEG orientation relative to camera orientation to make
-        // the image upright relative to the device orientation
-        return (sensorOrientationDegrees - (deviceOrientationDegrees * sign) + 360) % 360
-    }
 
 
     //이미지를 갤러리에 저장하는 함수
@@ -140,7 +107,7 @@ class ImageProcessor(private val context: Context) {
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY) //흑백으로 변경
 
         //Convert to detected picture
-        Imgproc.Canny(input, input, 60.0, 157.0)
+        Imgproc.Canny(input, input, 80.0, 150.0)
 
         return bitmap.copy(bitmap.config, true).apply {
             Utils.matToBitmap(input, this)

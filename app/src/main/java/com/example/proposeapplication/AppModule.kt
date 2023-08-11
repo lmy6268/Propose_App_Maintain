@@ -5,7 +5,7 @@ import com.example.proposeapplication.data.CameraRepositoryImpl
 import com.example.proposeapplication.domain.repository.CameraRepository
 import com.example.proposeapplication.domain.usecase.camera.CaptureImageUseCase
 import com.example.proposeapplication.domain.usecase.camera.GetLatestImageUseCase
-import com.example.proposeapplication.domain.usecase.camera.RetrievePreviewSizeUseCase
+
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
 import dagger.Module
 import dagger.Provides
@@ -41,11 +41,6 @@ object AppModule {
         ): ShowPreviewUseCase =
             ShowPreviewUseCase(cameraRepository)
 
-        @ViewModelScoped
-        @Provides
-        fun providePreviewSizeUseCase(
-            cameraRepository: CameraRepository
-        ): RetrievePreviewSizeUseCase = RetrievePreviewSizeUseCase(cameraRepository)
 
         @ViewModelScoped
         @Provides

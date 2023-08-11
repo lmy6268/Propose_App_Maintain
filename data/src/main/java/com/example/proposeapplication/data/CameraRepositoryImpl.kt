@@ -2,42 +2,43 @@ package com.example.proposeapplication.data
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.view.Display
-import android.view.Surface
-import android.view.SurfaceView
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.lifecycle.LifecycleOwner
 import com.example.proposeapplication.domain.repository.CameraRepository
-import com.example.proposeapplication.utils.CameraInfo
-import com.example.proposeapplication.utils.camera.CameraController
-
+import com.example.proposeapplication.utils.CameraControllerImpl
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class CameraRepositoryImpl @Inject constructor(private val applicationContext: Context) :
     CameraRepository {
-    //변수 초기화
-    private val controller by lazy {
-        CameraController(applicationContext)
+
+    private val controllerImpl by lazy {
+        CameraControllerImpl(applicationContext)
     }
 
-    override fun getPreviewSize(context: Context, display: Display) =
-        controller.getPreviewSize(context, display)
 
-
-    override suspend fun initPreview(surface: Surface) {
-        controller.setPreview(surface)
+    override fun initPreview(
+        lifecycleOwner: LifecycleOwner,
+        surfaceProvider: Preview.SurfaceProvider,
+        ratio: AspectRatioStrategy,
+        analyzer: ImageAnalysis.Analyzer
+    ) {
+//        controller.setPreview(surface)
+        controllerImpl.showPreview(
+            lifecycleOwner, surfaceProvider, ratio, analyzer
+        )
     }
 
-    override suspend fun takePhoto(orientationData: Int): Bitmap =
-        controller.takePhoto(orientationData)
+    override suspend fun takePhoto(): Bitmap =
+        controllerImpl.takePhoto()
 
-    override suspend fun getFixedScreen(surfaceView: SurfaceView): Bitmap? =
-        controller.provideFixedScreen(surfaceView)
+    override suspend fun getFixedScreen(rawBitmap: Bitmap): Bitmap =
+        controllerImpl.getFixedScreen(rawBitmap)
 
-    override fun getLatestImage(): Bitmap? = controller.getLatestImage()
-
-
-    override fun getCameraInfo(): CameraInfo = controller.getCameraInfo()
+    override fun getLatestImage(): Bitmap? = controllerImpl.getLatestImage()
 
 
 }
