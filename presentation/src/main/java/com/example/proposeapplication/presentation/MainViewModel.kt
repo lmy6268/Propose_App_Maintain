@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.proposeapplication.domain.usecase.camera.CaptureImageUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
+import com.example.proposeapplication.utils.pose.PoseRecommendModule
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,17 +42,35 @@ class MainViewModel @Inject constructor(
             100, 100, Bitmap.Config.ARGB_8888
         )
     )
+    private val _poseResultState = MutableStateFlow("")
 
     //State Getter
     val edgeDetectBitmapState = _edgeDetectBitmapState.asStateFlow() //고정 이미지의 상태를 저장해두는 변수
     val capturedBitmapState = _capturedBitmapState.asStateFlow()
+    val poseResultState = _poseResultState.asStateFlow()
 
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer { it ->
         it.use { image ->
             //포즈 선정 로직
-//            if (reqCompoState.value)
+            if (reqPoseState.value) {
+                viewModelScope.launch {
+                    val target = image.toBitmap().let { bitmap ->
+                        Bitmap.createBitmap(
+                            bitmap,
+                            0,
+                            0,
+                            bitmap.width,
+                            bitmap.height,
+                            Matrix().apply { postRotate(image.imageInfo.rotationDegrees.toFloat()) },
+                            true
+                        )
+                    }
+                    _poseResultState.value = PoseRecommendModule.getHOG(target).toString()
+                    reqPoseState.value = false
+                }
+            }
             //구도 추천 로직
 
             //고정화면 로직
@@ -97,5 +116,15 @@ class MainViewModel @Inject constructor(
         reqFixedScreenState.value = true
     }
 
+    fun reqPoseRecommend() {
+        reqPoseState.value = true
+    }
+
+    fun testPose(bitmap: Bitmap) {
+        viewModelScope.launch {
+            _poseResultState.value = PoseRecommendModule.getHOG(bitmap).toString()
+
+        }
+    }
 
 }

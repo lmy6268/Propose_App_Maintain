@@ -2,9 +2,11 @@ package com.example.proposeapplication.presentation.view
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
@@ -22,6 +24,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -163,8 +166,8 @@ object CameraScreen {
         val capturedEdgesBitmap: Bitmap by mainViewModel.edgeDetectBitmapState.collectAsState() //업데이트된 고정화면을 가지고 있는 변수
         val capturedThumbnailBitmap: Bitmap by mainViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
         val viewRateList = stringArrayResource(id = R.array.view_rates)
-
-
+        val poseRecString: String by mainViewModel.poseResultState.collectAsState()
+        if (poseRecString != "") Log.d(this.javaClass::class.simpleName, "Hog 결과: $poseRecString")
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { previewView },
@@ -423,66 +426,108 @@ object CameraScreen {
         val fixedButtonImg = if (isPressedFixedBtn.value) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
 
-        //뷰
-        Row(
-            modifier = modifier,
-            horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            //캡쳐 썸네일 이미지 뷰 -> 원형으로 표사
-            Image(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .paint(
-                        painter = painterResource(R.drawable.based_circle),
-                        contentScale = ContentScale.FillBounds
-                    )
-                    .clickable(interactionSource = MutableInteractionSource(), indication = null) {
-                        openGallery(launcher)
-                    },
-                contentScale = ContentScale.Crop,
-                bitmap = capturedThumbnailBitmap.asImageBitmap(), contentDescription = "캡쳐된 이미지"
-            )
-            //캡쳐 버튼
-            Box(
-                modifier = Modifier.clickable(
-                    indication = null, //Ripple 효과 제거
-                    interactionSource = interactionSource
-                ) {
-                    mainViewModel.getPhoto()
-                }
-            ) {
-                Icon(
-                    modifier = Modifier
-                        .size(100.dp),
-                    painter = painterResource(id = buttonImg),
-                    tint = Color.Unspecified,
-                    contentDescription = "촬영버튼"
-                )
-            }
-            //고정 버튼
-            Box(
-                Modifier.clickable(
-                    indication = null, //Ripple 효과 제거
-                    interactionSource = MutableInteractionSource()
-                ) {
-                    if (!isPressedFixedBtn.value) {
-                        mainViewModel.reqFixedScreen()
-                        isPressedFixedBtn.value = true
-                    } else isPressedFixedBtn.value = false
-                }
-            ) {
-                Icon(
-                    modifier = Modifier
-                        .size(80.dp),
-                    painter = painterResource(id = fixedButtonImg),
-                    tint = Color.Unspecified,
-                    contentDescription = "고정버튼"
-                )
-            }
-
+        val testImage = LocalContext.current.assets.open("test.png").use {
+            BitmapFactory.decodeStream(it)
         }
+
+        Column(
+            modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally
+
+        ) {
+            //첫번째 단
+            Row(horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally)) {
+                IconButton(modifier = Modifier.heightIn(30.dp),
+                    onClick = {
+//                        mainViewModel.reqPoseRecommend()
+                        mainViewModel.testPose(testImage)
+                    }) {
+                    Icon(
+                        painterResource(id = R.drawable.based_circle),
+                        tint = Color(0x80000000),
+                        contentDescription = "background",
+
+                        )
+                    Text(
+                        text = "포즈 추천"
+                    )
+                }
+                IconButton(modifier = Modifier.heightIn(30.dp),
+                    onClick = { }) {
+                    Icon(
+                        painterResource(id = R.drawable.based_circle),
+                        tint = Color(0x80000000),
+                        contentDescription = "background",
+
+                        )
+                    Text(
+                        text = "구도 추천"
+                    )
+                }
+            }
+            //두번쨰 단
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                //캡쳐 썸네일 이미지 뷰 -> 원형으로 표사
+                Image(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .paint(
+                            painter = painterResource(R.drawable.based_circle),
+                            contentScale = ContentScale.FillBounds
+                        )
+                        .clickable(
+                            interactionSource = MutableInteractionSource(),
+                            indication = null
+                        ) {
+                            openGallery(launcher)
+                        },
+                    contentScale = ContentScale.Crop,
+                    bitmap = capturedThumbnailBitmap.asImageBitmap(), contentDescription = "캡쳐된 이미지"
+                )
+                //캡쳐 버튼
+                Box(
+                    modifier = Modifier.clickable(
+                        indication = null, //Ripple 효과 제거
+                        interactionSource = interactionSource
+                    ) {
+                        mainViewModel.getPhoto()
+                    }
+                ) {
+                    Icon(
+                        modifier = Modifier
+                            .size(100.dp),
+                        painter = painterResource(id = buttonImg),
+                        tint = Color.Unspecified,
+                        contentDescription = "촬영버튼"
+                    )
+                }
+                //고정 버튼
+                Box(
+                    Modifier.clickable(
+                        indication = null, //Ripple 효과 제거
+                        interactionSource = MutableInteractionSource()
+                    ) {
+                        if (!isPressedFixedBtn.value) {
+                            mainViewModel.reqFixedScreen()
+                            isPressedFixedBtn.value = true
+                        } else isPressedFixedBtn.value = false
+                    }
+                ) {
+                    Icon(
+                        modifier = Modifier
+                            .size(80.dp),
+                        painter = painterResource(id = fixedButtonImg),
+                        tint = Color.Unspecified,
+                        contentDescription = "고정버튼"
+                    )
+                }
+
+            }
+        }
+
     }
 }
 

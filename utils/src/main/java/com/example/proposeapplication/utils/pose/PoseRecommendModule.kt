@@ -7,11 +7,15 @@ import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import org.opencv.imgproc.Imgproc.COLOR_BGR2GRAY
+import org.opencv.imgproc.Imgproc.COLOR_RGB2BGR
 import org.opencv.imgproc.Imgproc.cvtColor
+import org.opencv.imgproc.Imgproc.resize
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -30,65 +34,80 @@ object PoseRecommendModule {
 
     private fun preProcessing(image: Bitmap): Mat {
         OpenCVLoader.initDebug() //초기화
-        val resizedImage =
-            Bitmap.createScaledBitmap(
-                image,
-                HogConfig.imageResize.width.toInt(),
-                HogConfig.imageResize.height.toInt(),
-                true
-            )
-        return Mat().apply {
-            Utils.bitmapToMat(resizedImage, this)
-        }.apply {
-            cvtColor(this, this, HogConfig.imageConvert) //흑백으로 변환
-        }
+        return Mat(image.width, image.height, CvType.CV_8UC3).apply {
+            Utils.bitmapToMat(image, this)
+            cvtColor(this, this, COLOR_RGB2BGR)
 
+
+            resize(this, this, HogConfig.imageResize)
+            cvtColor(this, this, HogConfig.imageConvert)
+        }
     }
 
 
     private fun getGradient(image: Mat): Pair<Mat, Mat> {
-        var gradientX = Mat()
-        var gradientY = Mat()
+        var gradientX = Mat(image.size(), image.type())
+        var gradientY = Mat(image.size(), image.type())
 
         Imgproc.Sobel(image, gradientX, CvType.CV_64F, 1, 0, 3)
         Imgproc.Sobel(image, gradientY, CvType.CV_64F, 0, 1, 3)
+
+        //gradient_x = gradient_x / int(np.max(np.abs(gradient_x)) if np.max(np.abs(gradient_x)) != 0 else 1) * 255
         gradientX = gradientX.apply {
-            val std = Core.minMaxLoc(this)
-            val dv = if (abs(std.maxVal) > abs(std.minVal)) abs(std.maxVal) else abs(std.minVal)
-            Core.divide(dv, this, this)
+            val zeroMat = Mat.zeros(this.size(), this.type())
+            val absMat = Mat(this.size(), this.type())
+            Core.absdiff(this, zeroMat, absMat)//abs값으로 변환
+            val std = Core.minMaxLoc(absMat)
+            val dv = if (std.maxVal != 0.0) std.maxVal else 1.0
+            Core.divide(this, Scalar(dv), this)
+            Core.multiply(this, Scalar(255.0), this)
         }
+//        gradient_y = gradient_y / int(np.max(np.abs(gradient_y)) if np.max(np.abs(gradient_y)) != 0 else 1) * 255
         gradientY = gradientY.apply {
-            val std = Core.minMaxLoc(this)
-            val dv = if (abs(std.maxVal) > abs(std.minVal)) abs(std.maxVal) else abs(std.minVal)
-            Core.divide(dv, this, this)
+            val zeroMat = Mat.zeros(this.size(), this.type())
+            val absMat = Mat(this.size(), this.type())
+            Core.absdiff(this, zeroMat, absMat)//abs값으로 변환
+            val std = Core.minMaxLoc(absMat)
+            val dv = if (std.maxVal != 0.0) std.maxVal else 1.0
+            Core.divide(this, Scalar(dv), this)
+            Core.multiply(this, Scalar(255.0), this)
         }
 
-//
-//        //0~255값으로 정규화
 
-
-        val gradientMagnitude = Mat().apply {
-            val tmpX = Mat()
-            val tmpY = Mat()
-            Core.pow(gradientX, 2.0, tmpX)
+        val gradientMagnitude = Mat(gradientX.size(), gradientX.type()).apply {
+            val tmpY = Mat(gradientY.size(), gradientY.type())
+            Core.pow(gradientX, 2.0, this)
             Core.pow(gradientY, 2.0, tmpY)
-            Core.add(tmpX, tmpY, tmpX)
-            Core.sqrt(tmpX, this)
+            Core.add(this, tmpY, this)
+            Core.pow(this, 0.5, this)
         }
-        val gradientOrientation = Mat().apply {
-            //https://docs.opencv.org/3.4/d2/de8/group__core__array.html#ga9db9ca9b4d81c3bde5677b8f64dc0137
+
+        // Calculate gradient orientation using OpenCV
+        val gradientOrientation = Mat.zeros(gradientX.size(), gradientX.type()).apply {
             Core.phase(gradientX, gradientY, this, true)
+        }
+
+        // Adjust gradient orientation to [-π, π] range -> 이부분만 살짝 수정하면 Hog값은 100퍼센트 나옴.
+        for (row in 0 until gradientOrientation.rows()) {
+            for (col in 0 until gradientOrientation.cols()) {
+                var adjustedPhase = gradientOrientation[row, col][0]
+                if (adjustedPhase >= 180.0) {
+                    adjustedPhase -= 180.0
+                }
+                gradientOrientation.put(row, col, adjustedPhase)
+            }
         }
 
 
         for (x in 0 until gradientMagnitude.rows()) {
             for (y in 0 until gradientMagnitude.cols()) {
                 if (gradientMagnitude.get(x, y)[0] < HogConfig.magnitudeThreshold) {
-                    gradientMagnitude.put(x, y, *doubleArrayOf(0.0))
+                    gradientMagnitude.put(x, y, 0.0)
                 }
             }
         }
 
+        //테스트 결과 여기까진 잘나옴
         return Pair(gradientMagnitude, gradientOrientation)
     }
 
@@ -99,13 +118,12 @@ object PoseRecommendModule {
         val maxDegree = 180.0
         val diff = maxDegree / HogConfig.nBins
 
-//        val degreeAxis = DoubleArray(nBins) { it * diff }
         val histogram = DoubleArray(HogConfig.nBins)
 
         val cellSize = magnitude.size()
 
-        for (x in 0 until cellSize.height.toInt()) {
-            for (y in 0 until cellSize.width.toInt()) {
+        for (x in 0 until cellSize.width.toInt()) {
+            for (y in 0 until cellSize.height.toInt()) {
                 val magValue = magnitude[x, y][0]
                 val orientationValue = orientation[x, y][0]
 
@@ -136,11 +154,10 @@ object PoseRecommendModule {
             CvType.CV_64FC(HogConfig.nBins)
         )
 
-        for (x in 0 until resizedImage.height() step HogConfig.cellSize.height.toInt()) {
-            for (y in 0 until resizedImage.width() step HogConfig.cellSize.width.toInt()) {
-                val xEnd = x + HogConfig.cellSize.height.toInt()
-                val yEnd = y + HogConfig.cellSize.width.toInt()
-
+        for (x in 0 until resizedImage.width() step HogConfig.cellSize.height.toInt()) {
+            for (y in 0 until resizedImage.height() step HogConfig.cellSize.width.toInt()) {
+                val xEnd = x + HogConfig.cellSize.width.toInt()
+                val yEnd = y + HogConfig.cellSize.height.toInt()
                 val cellMagnitude = magnitude.submat(x, xEnd, y, yEnd)
                 val cellOrientation = orientation.submat(x, xEnd, y, yEnd)
 
@@ -149,8 +166,8 @@ object PoseRecommendModule {
                     cellOrientation
                 )
                 histogramMap.put(
-                    x / HogConfig.cellSize.height.toInt(),
-                    y / HogConfig.cellSize.width.toInt(),
+                    x / HogConfig.cellSize.width.toInt(),
+                    y / HogConfig.cellSize.height.toInt(),
                     *histogram
                 )
             }
@@ -177,7 +194,9 @@ object PoseRecommendModule {
                         hist.forEach {
                             res += it.pow(2)
                         }
-                        sqrt(res)
+                        if (sqrt(res) == 0.0) 1.0
+                        else sqrt(res)
+
                     } //정규화 요소
                     val normVector = histogramVector.map { it / norm } //정규화된 벡터값
                     hog.addAll(normVector)
