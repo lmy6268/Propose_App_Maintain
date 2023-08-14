@@ -1,5 +1,6 @@
 package com.example.proposeapplication.presentation.view
 
+import android.Manifest
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,20 +10,23 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import com.example.proposeapplication.presentation.MainActivity
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
 object PermScreen {
     @OptIn(ExperimentalPermissionsApi::class)
     @Composable
     //권한 설정화면
-    fun Screen(
+    fun PermScreen(
         navController: NavHostController,
         multiplePermissionsState: MultiplePermissionsState
     ) {
@@ -31,13 +35,22 @@ object PermScreen {
         LaunchedEffect(Unit) {
             if (needToCheck.value) {
                 if (multiplePermissionsState.allPermissionsGranted) navController.navigate(
-                    MainActivity.page.Cam.name) {
+                    MainActivity.page.Cam.name
+                ) {
                     popUpTo(MainActivity.page.Perm.name) { inclusive = true }
                 }
                 else needToCheck.value = false
             }
         }
+        Screen(multiplePermissionsState = multiplePermissionsState, needToCheck = needToCheck)
+    }
 
+    @OptIn(ExperimentalPermissionsApi::class)
+    @Composable
+    fun Screen(
+        multiplePermissionsState: MultiplePermissionsState,
+        needToCheck: MutableState<Boolean>
+    ) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -59,4 +72,15 @@ object PermScreen {
             }
         }
     }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Preview
+@Composable
+private fun PreviewScreen() {
+    PermScreen.Screen(
+        multiplePermissionsState =
+        rememberMultiplePermissionsState(permissions = listOf(Manifest.permission.CAMERA)),
+        remember { mutableStateOf(false) }
+    )
 }

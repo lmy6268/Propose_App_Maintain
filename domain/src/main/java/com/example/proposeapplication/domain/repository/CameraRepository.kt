@@ -21,5 +21,7 @@ interface CameraRepository {
     suspend fun takePhoto(): Bitmap
     suspend fun getFixedScreen(rawBitmap: Bitmap): Bitmap?
     fun getLatestImage(): Bitmap?
+    fun setZoomRatio(zoomLevel: Float)
 
+    suspend fun compositionData(bitmap: Bitmap): String
 }

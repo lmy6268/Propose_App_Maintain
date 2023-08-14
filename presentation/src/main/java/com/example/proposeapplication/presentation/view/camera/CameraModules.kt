@@ -1,4 +1,4 @@
-package com.example.proposeapplication.presentation.view
+package com.example.proposeapplication.presentation.view.camera
 
 import android.content.Intent
 import android.graphics.Bitmap
@@ -6,13 +6,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.resolutionselector.AspectRatioStrategy
-import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -26,16 +23,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
@@ -44,18 +39,16 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
@@ -70,20 +63,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavHostController
 import com.example.proposeapplication.presentation.MainViewModel
 import com.example.proposeapplication.presentation.R
+import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
+import com.example.proposeapplication.presentation.view.camera.CameraModules.ExpandableButton
+import com.example.proposeapplication.presentation.view.camera.CameraModules.LowerButtons
+import com.example.proposeapplication.presentation.view.camera.CameraModules.MenuModule
+import kotlinx.coroutines.delay
 
-object CameraScreen {
 
+object CameraModules {
     @Composable
     fun Menu(selectedIdx: MutableIntState, modifier: Modifier = Modifier) {
         val cameraModeList = stringArrayResource(id = R.array.camera_modes)
-
         Box(
             modifier = modifier
         ) {
@@ -130,128 +126,11 @@ object CameraScreen {
                 }
             }
         }
-
-
-    }
-
-
-    @Composable
-    private fun rememberLifecycleEvent(lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current): Lifecycle.Event {
-        var state by remember { mutableStateOf(Lifecycle.Event.ON_ANY) }
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                state = event
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
-        }
-        return state
-    }
-
-    @Composable
-    fun Screen(
-        navController: NavHostController, mainViewModel: MainViewModel
-    ) {
-        val lifecycleOwner = LocalLifecycleOwner.current
-        val context = LocalContext.current
-        val previewView = PreviewView(context)
-        val isUpdated = remember {
-            mutableStateOf(false)
-        }
-        val isPressedFixedBtn = remember {
-            mutableStateOf(false)
-        }
-        val capturedEdgesBitmap: Bitmap by mainViewModel.edgeDetectBitmapState.collectAsState() //업데이트된 고정화면을 가지고 있는 변수
-        val capturedThumbnailBitmap: Bitmap by mainViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
-        val viewRateList = stringArrayResource(id = R.array.view_rates)
-        val poseRecString: String by mainViewModel.poseResultState.collectAsState()
-        if (poseRecString != "") Log.d(this.javaClass::class.simpleName, "Hog 결과: $poseRecString")
-        Box(Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = { previewView },
-                modifier = Modifier
-                    .wrapContentSize()
-                    .aspectRatio(3 / 4F)
-                    .align(Alignment.Center)
-                    .offset(y = (-80).dp)
-
-            ) {
-                //뷰를 계속 업데이트 하면서 생겼던 오류
-                if (isUpdated.value.not()) {
-                    mainViewModel.showPreview(
-                        lifecycleOwner,
-                        previewView.surfaceProvider,
-                        AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
-                    )
-                    it.implementationMode = PreviewView.ImplementationMode.PERFORMANCE
-                    isUpdated.value = true
-                }
-
-            }
-            Image(
-                modifier = Modifier
-                    .matchParentSize()
-                    .offset(y = (-80).dp)
-                    .align(Alignment.Center)
-                    .alpha(
-                        if (isPressedFixedBtn.value) 0.5F
-                        else 0F
-                    ),
-                bitmap = capturedEdgesBitmap.asImageBitmap(), contentDescription = "엣지화면"
-            )
-            UpperButtons(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .heightIn(100.dp)
-                    .fillMaxWidth(),
-                navController = navController
-            )
-            LowerButtons(
-                capturedThumbnailBitmap = capturedThumbnailBitmap,
-                mainViewModel = mainViewModel,
-                isPressedFixedBtn = isPressedFixedBtn,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 80.dp)
-            )
-
-        }
-    }
-
-
-    //메뉴별 아이콘
-    @Composable
-    private fun MenuModule(text: String, isSelected: Boolean) {
-        Box(
-            modifier = Modifier
-                .widthIn(96.dp)
-                .heightIn(36.dp)
-                .background(
-                    color = Color(
-                        if (isSelected) 0xFF212121
-                        else 0x00000000 //투명하게
-                    ), shape = RoundedCornerShape(size = 18.dp)
-                )
-                .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
-        ) {
-            Text(
-                text = text,
-                fontSize = 14.sp,
-                modifier = Modifier.align(Alignment.Center),
-                color = Color(
-                    if (isSelected) 0xFFFFFFFF
-                    else 0xFF000000 //검은색
-                )
-            )
-        }
-
     }
 
     //확장가능한 버튼
     @Composable
-    private fun ExpandableButton(
+    fun ExpandableButton(
         text: List<String>,
         type: String,
         isExpandedState: MutableState<Boolean>,
@@ -338,19 +217,17 @@ object CameraScreen {
         }
     }
 
-
     //상단 부분
     @Composable
     fun UpperButtons(
-        modifier: Modifier = Modifier, navController: NavHostController
+        modifier: Modifier = Modifier,
+        navController: NavHostController,
+        selectedViewRateIdxState: MutableIntState
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
         }
         val viewRateList = stringArrayResource(id = R.array.view_rates)
-        val selectedViewRateIdxState = remember {
-            mutableIntStateOf(0)
-        }
 
         val selectedModeIdxState = remember {
             mutableIntStateOf(0)
@@ -377,7 +254,7 @@ object CameraScreen {
                 )
                 IconButton(
                     onClick = {
-
+//                        navController.navigate()
 
                     }) {
                     Icon(
@@ -419,6 +296,11 @@ object CameraScreen {
 
         }
 
+        //현재 줌 상태
+        val zoomState = remember {
+            mutableIntStateOf(0)
+        }
+
         //버튼 이미지 배치
         val buttonImg = if (isPressed) R.drawable.ic_shutter_pressed
         else if (isFocused) R.drawable.ic_shutter_focused
@@ -452,7 +334,9 @@ object CameraScreen {
                     )
                 }
                 IconButton(modifier = Modifier.heightIn(30.dp),
-                    onClick = { }) {
+                    onClick = {
+                        mainViewModel.reqCompRecommend()
+                    }) {
                     Icon(
                         painterResource(id = R.drawable.based_circle),
                         tint = Color(0x80000000),
@@ -463,6 +347,34 @@ object CameraScreen {
                         text = "구도 추천"
                     )
                 }
+                listOf("1", "2").forEachIndexed { index, str ->
+                    IconButton(
+                        onClick = {
+                            zoomState.intValue = index
+                            mainViewModel.setZoomLevel(str.toFloat())
+                        },
+                    ) {
+                        Icon(
+                            modifier = Modifier.apply {
+                                if (index == zoomState.intValue) sizeIn(50.dp)
+                                else sizeIn(10.dp)
+                            },
+                            painter = painterResource(id = R.drawable.based_circle),
+                            tint = if (index == zoomState.intValue) Color(0xFF000000) else Color.Unspecified,
+                            contentDescription = "줌버튼"
+                        )
+                        Text(
+                            text = if (index == zoomState.intValue) "${str}X" else str,
+                            style = MaterialTheme.typography.h1,
+                            fontWeight = if (index == zoomState.intValue) FontWeight.Bold else FontWeight.Light,
+                            color = if (index == zoomState.intValue) Color(0xFFFFFFFF) else Color(
+                                0xFF000000
+                            ),
+                        )
+                    }
+
+                }
+
             }
             //두번쨰 단
             Row(
@@ -505,45 +417,220 @@ object CameraScreen {
                     )
                 }
                 //고정 버튼
+//                Box(
+//                    Modifier.clickable(
+//                        indication = null, //Ripple 효과 제거
+//                        interactionSource = MutableInteractionSource()
+//                    ) {
+//                        if (!isPressedFixedBtn.value) {
+//                            mainViewModel.reqFixedScreen()
+//                            isPressedFixedBtn.value = true
+//                        } else isPressedFixedBtn.value = false
+//                    }
+//                ) {
+//                    Icon(
+//                        modifier = Modifier
+//                            .size(80.dp),
+//                        painter = painterResource(id = fixedButtonImg),
+//                        tint = Color.Unspecified,
+//                        contentDescription = "고정버튼"
+//                    )
+//                }
                 Box(
                     Modifier.clickable(
-                        indication = null, //Ripple 효과 제거
+                        indication = null, // Remove ripple effect
                         interactionSource = MutableInteractionSource()
                     ) {
-                        if (!isPressedFixedBtn.value) {
-                            mainViewModel.reqFixedScreen()
-                            isPressedFixedBtn.value = true
-                        } else isPressedFixedBtn.value = false
+                        isPressedFixedBtn.value = !isPressedFixedBtn.value
                     }
                 ) {
                     Icon(
-                        modifier = Modifier
-                            .size(80.dp),
+                        modifier = Modifier.size(80.dp),
                         painter = painterResource(id = fixedButtonImg),
                         tint = Color.Unspecified,
                         contentDescription = "고정버튼"
                     )
                 }
 
+
+
+
             }
         }
 
     }
+
+
+    //구도 추천 관련 UI
+    @Composable
+    fun CompositionArrow(arrowDirection: String,modifier: Modifier = Modifier) {
+        val tint = Color.Unspecified
+        val size = 50.dp
+        Box(modifier = modifier) {
+            when (arrowDirection) {
+                "L" -> {
+                    Icon(
+                        modifier = Modifier
+                            .size(size)
+                            .align(Alignment.CenterStart)
+                            .padding(horizontal = 10.dp),
+                        painter = painterResource(id = R.drawable.left_arrow),
+                        contentDescription = "왼쪽 화살표 ", tint = tint
+                    )
+                }
+
+                "R" -> {
+                    Icon(
+                        modifier = Modifier
+                            .size(size)
+                            .align(Alignment.CenterEnd)
+                            .padding(horizontal = 10.dp),
+                        painter = painterResource(id = R.drawable.right_arrow),
+                        contentDescription = "오른쪽 화살표 ",
+                        tint = tint
+                    )
+                }
+
+                "U" -> {
+                    Icon(
+                        modifier = Modifier
+                            .size(size)
+                            .align(Alignment.TopCenter)
+                            .padding(vertical = 10.dp),
+                        painter = painterResource(id = R.drawable.up_arrow),
+                        contentDescription = "위쪽 화살표 ",
+                        tint = tint
+                    )
+                }
+
+                "D" -> {
+                    Icon(
+                        modifier = Modifier
+                            .size(size)
+                            .align(Alignment.BottomCenter)
+                            .padding(vertical = 10.dp),
+                        painter = painterResource(id = R.drawable.down_arrow),
+                        contentDescription = "아래쪽 화살표 ",
+                        tint = tint
+                    )
+                }
+
+                "S" -> {
+                    var show by remember { mutableStateOf(true) }
+
+                    LaunchedEffect(key1 = Unit) {
+                        delay(2000) //2초만 보여줌
+                        show = false
+                    }
+                    if (show) Icon(
+                        modifier = Modifier
+                            .size(size)
+                            .align(Alignment.Center),
+                        painter = painterResource(id = R.drawable.good_comp),
+                        contentDescription = "좋은 구도",
+                        tint = tint
+                    )
+                }
+
+                else -> {}
+            }
+
+        }
+
+    }
+
+    //메뉴별 아이콘
+    @Composable
+    fun MenuModule(text: String, isSelected: Boolean) {
+        Box(
+            modifier = Modifier
+                .widthIn(96.dp)
+                .heightIn(36.dp)
+                .background(
+                    color = Color(
+                        if (isSelected) 0xFF212121
+                        else 0x00000000 //투명하게
+                    ), shape = RoundedCornerShape(size = 18.dp)
+                )
+                .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
+        ) {
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                modifier = Modifier.align(Alignment.Center),
+                color = Color(
+                    if (isSelected) 0xFFFFFFFF
+                    else 0xFF000000 //검은색
+                )
+            )
+        }
+
+    }
+
+    //생명주기 추적
+    @Composable
+    fun rememberLifecycleEvent(lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current): Lifecycle.Event {
+        var state by remember { mutableStateOf(Lifecycle.Event.ON_ANY) }
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                state = event
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+        return state
+    }
+
+
+    private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
+        //실 기기에서는 안됨..
+
+
+        launcher.launch(
+//            Intent(Intent.ACTION_VIEW).apply {
+//                data = Uri.parse(MediaStore.Images.Media.EXTERNAL_CONTENT_URI.toString())
+//            }
+            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+}
+
+
+//Test Preview
+@Preview
+@Composable
+fun PreviewExpandableBtn() {
+    ExpandableButton(text = listOf("Test", "TT"),
+        type = "테스트",
+        isExpandedState = remember { mutableStateOf(false) },
+        selectedState = remember {
+            mutableIntStateOf(0)
+        })
+}
+
+
+@Preview
+@Composable
+fun PreviewLower() {
+//    LowerButtons(isPressedFixedBtn =, capturedThumbnailBitmap =, mainViewModel =)
 }
 
 @Preview
 @Composable
-fun testMenu() {
-    CameraScreen.Menu(selectedIdx = remember {
-        mutableIntStateOf(0)
-    })
+fun PreviewMenuModule() {
+    MenuModule(text = "hi", isSelected = true)
 }
 
-private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
-    //실 기기에서는 안됨..
-    launcher.launch(Intent(Intent.ACTION_VIEW).apply {
-        data = Uri.parse(MediaStore.Images.Media.EXTERNAL_CONTENT_URI.toString())
-    })
+@Preview(widthDp = 300, heightDp = 400)
+@Composable
+fun PreviewArrow() {
+    CompositionArrow("L")
 }
+
+
+
 
 

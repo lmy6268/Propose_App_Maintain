@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -33,6 +34,7 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
     private lateinit var imageCapture: ImageCapture
     private lateinit var imageAnalysis: ImageAnalysis
     private lateinit var executor: Executor
+    private lateinit var camera: Camera
 
     override fun showPreview(
         lifecycleOwner: LifecycleOwner,
@@ -127,7 +129,7 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
 
         try {
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
+            camera = cameraProvider.bindToLifecycle(
                 lifecycleOwner, // Use the provided lifecycle owner
                 cameraSelector, preview, imageCapture,
                 imageAnalysis
@@ -144,4 +146,11 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
 
     override fun getLatestImage(): Bitmap? =
         imageProcessor.getLatestImage()
+
+    fun setZoomLevel(zoomLevel: Float) {
+//        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio
+//        val maxValue = camera.cameraInfo.zoomState.value!!.maxZoomRatio
+//        Log.d("MIN/MAX ZoomRatio: ","$minValue/$maxValue")
+        camera.cameraControl.setZoomRatio(zoomLevel)
+    }
 }

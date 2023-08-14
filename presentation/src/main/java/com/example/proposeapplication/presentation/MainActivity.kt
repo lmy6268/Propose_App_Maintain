@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,9 +20,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.proposeapplication.presentation.ui.MainTheme
-import com.example.proposeapplication.presentation.view.CameraScreen
 import com.example.proposeapplication.presentation.view.PermScreen
 import com.example.proposeapplication.presentation.view.SettingScreen
+import com.example.proposeapplication.presentation.view.camera.Screen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import dagger.hilt.android.AndroidEntryPoint
@@ -74,10 +73,10 @@ class MainActivity : AppCompatActivity() {
             else page.Cam.name
         ) {
             composable(route = page.Cam.name) {
-                CameraScreen.Screen(navController, mainViewModel)
+                Screen(navController, mainViewModel)
             }
             composable(route = page.Perm.name) {
-                PermScreen.Screen(navController, multiplePermissionsState)
+                PermScreen.PermScreen(navController, multiplePermissionsState)
             }
             composable(route = page.Setting.name) {
                 SettingScreen.Screen()
