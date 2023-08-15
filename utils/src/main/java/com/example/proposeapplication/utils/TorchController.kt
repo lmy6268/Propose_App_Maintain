@@ -13,9 +13,12 @@ import java.util.Arrays
 
 class TorchController(private val context: Context) {
 
-    private val mModule by lazy {
-        LiteModuleLoader.load(assetFilePath("mobile_csnet.ptl"))
-
+    private val resNetModule by lazy {
+        LiteModuleLoader.load(
+            assetFilePath(
+                "noopt_resnet50.ptl"
+            )
+        )
     }
 
     @Throws(IOException::class)
@@ -37,36 +40,31 @@ class TorchController(private val context: Context) {
         }
     }
 
-    fun analyzeImage(bitmap: Bitmap) {
 
-        //이미지를 224 * 224 으로 리사이징 하고 진행
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 244, 244, true).apply {
+    fun runResNet(bitmap: Bitmap) {
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true).apply {
             config = Bitmap.Config.ARGB_8888
         }
+        val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
+        val stdArray = arrayOf(0.229F, 0.224F, 0.225F).toFloatArray()
 
         val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
             resizedBitmap,
-            NO_MEAN_RGB,
-            NO_STD_RGB
+            meanArray,
+            stdArray
         )
-        //입력 텐서를 생성
-
-        Log.d(
-            TAG, "Make Input Tensor : ${
-                Arrays.toString(inputTensor.shape())
-            }"
-        )
-        val output = mModule!!.forward(IValue.from(inputTensor))
+        val output = resNetModule!!.forward(IValue.from(inputTensor))
 
         //결과값 텐서 도출
         Log.d(TAG, "Now output ")
 //        val outputs = outputTuple[0].toTensor().dataAsFloatArray //결과값이 담긴 배열 가져옴
-        Log.d(TAG, Arrays.toString(output.toTensor().shape()))
+        Log.d(TAG, output.toTensor().dataAsFloatArray.size.toString())
+
     }
 
     companion object {
-        private val NO_STD_RGB = floatArrayOf(1.0f, 1.0f, 1.0f)
+        //        private val NO_STD_RGB = floatArrayOf(1.0f, 1.0f, 1.0f)
         private val TAG: String = TorchController::class.java.simpleName
-        private val NO_MEAN_RGB = floatArrayOf(0.0f, 0.0f, 0.0f)
+//        private val NO_MEAN_RGB = floatArrayOf(0.0f, 0.0f, 0.0f)
     }
 }

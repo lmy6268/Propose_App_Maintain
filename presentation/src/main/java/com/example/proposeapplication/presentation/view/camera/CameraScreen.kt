@@ -135,8 +135,6 @@ fun Screen(
         }
 
 
-
-
         LowerButtons(
             capturedThumbnailBitmap = capturedThumbnailBitmap,
             mainViewModel = mainViewModel,

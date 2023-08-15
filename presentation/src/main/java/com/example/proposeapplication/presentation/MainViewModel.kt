@@ -1,5 +1,7 @@
 package com.example.proposeapplication.presentation
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
@@ -15,15 +17,19 @@ import com.example.proposeapplication.domain.usecase.camera.GetCompInfoUseCase
 import com.example.proposeapplication.domain.usecase.camera.SetZoomLevelUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
+import com.example.proposeapplication.utils.pose.PoseRecommendControllerImpl
 import com.example.proposeapplication.utils.pose.PoseRecommendModule
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
+@SuppressLint("StaticFieldLeak")
 class MainViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     //UseCases
     private val showPreviewUseCase: ShowPreviewUseCase,
     private val captureImageUseCase: CaptureImageUseCase,
@@ -35,11 +41,13 @@ class MainViewModel @Inject constructor(
     val reqFixedScreenState = MutableStateFlow(false)// 고정 화면 요청 on/off
     private val reqPoseState = MutableStateFlow(false)// 포즈 추천 요청 on/off
     private val reqCompState = MutableStateFlow(false) // 구도 추천 요청 on/off
+    private val poseRecommendControllerImpl = PoseRecommendControllerImpl(context) //포즈 추천 컨트롤러
 
     //Result Holder
     private val _edgeDetectBitmapState = MutableStateFlow<Bitmap?>(//고정된 이미지 상태
         null
     )
+
     private val _capturedBitmapState = MutableStateFlow<Bitmap>( //캡쳐된 이미지 상태
         Bitmap.createBitmap(
             100, 100, Bitmap.Config.ARGB_8888
@@ -62,7 +70,9 @@ class MainViewModel @Inject constructor(
             if (reqPoseState.value) {
                 viewModelScope.launch {
                     val target = adjustRotationInfo(image)
-                    _poseResultState.value = PoseRecommendModule.getHOG(target).toString()
+                    _poseResultState.value =
+                        PoseRecommendModule.getHOG(target).toString()
+//                        poseRecommendControllerImpl.getRecommendPose(image.toBitmap())
                     reqPoseState.value = false
                 }
             }
@@ -111,7 +121,9 @@ class MainViewModel @Inject constructor(
 
     fun testPose(bitmap: Bitmap) {
         viewModelScope.launch {
-            _poseResultState.value = PoseRecommendModule.getHOG(bitmap).toString()
+            _poseResultState.value =
+//                    PoseRecommendModule.getHOG(bitmap).toString()
+                poseRecommendControllerImpl.getRecommendPose(bitmap)
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.proposeapplication.utils.pose
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import org.opencv.android.OpenCVLoader
@@ -31,6 +32,11 @@ object PoseRecommendModule {
         const val magnitudeThreshold: Int = 151
         const val nBins: Int = 9
     }
+
+    val centroid by lazy {
+
+    }
+
 
     private fun preProcessing(image: Bitmap): Mat {
         OpenCVLoader.initDebug() //초기화
@@ -206,4 +212,15 @@ object PoseRecommendModule {
         return hog
 
     }
+
+
+    fun showRecommendPose(targetBackground: Bitmap, context: Context) {
+        val hog = getHOG(targetBackground) //HoG 값 가져오기
+        //
+        val centroid = context.assets.open("centroids.csv").use {
+
+        }
+
+    }
+
 }

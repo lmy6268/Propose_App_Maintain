@@ -29,4 +29,7 @@ dependencies {
     implementation "androidx.camera:camera-view:$cameraxVersion"
     implementation "androidx.camera:camera-extensions:$cameraxVersion"
 
+    // Open csv file
+    implementation 'com.opencsv:opencsv:4.4'
+
 }

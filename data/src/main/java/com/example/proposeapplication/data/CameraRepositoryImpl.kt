@@ -55,7 +55,8 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
 
     override suspend fun compositionData(bitmap: Bitmap): String {
         try {
-            val URL = "https://regularly-enabled-perch.ngrok-free.app/guide/"
+//            val URL = "https://regularly-enabled-perch.ngrok-free.app/guide/"
+            val URL = "http://172.16.101.36:8000/guide/"
             val retrofit: Retrofit = Retrofit.Builder()
                 .baseUrl(URL).addConverterFactory(ScalarsConverterFactory.create())
                 .addConverterFactory(
