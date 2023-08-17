@@ -9,5 +9,5 @@ interface PoseRecommendController {
     fun getHistogram(magnitude: Mat, orientation: Mat): DoubleArray
     fun getHistogramMap(image: Bitmap): Mat
     fun getHOG(image: Bitmap): List<Double>//HoG 값 구하기
-    fun getRecommendPose(backgroundImage: Bitmap): String
+    suspend fun getRecommendPose(backgroundImage: Bitmap): String
 }

@@ -18,13 +18,13 @@ import com.example.proposeapplication.domain.usecase.camera.SetZoomLevelUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
 import com.example.proposeapplication.utils.pose.PoseRecommendControllerImpl
-import com.example.proposeapplication.utils.pose.PoseRecommendModule
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.system.measureTimeMillis
 
 @HiltViewModel
 @SuppressLint("StaticFieldLeak")
@@ -53,7 +53,7 @@ class MainViewModel @Inject constructor(
             100, 100, Bitmap.Config.ARGB_8888
         )
     )
-    private val _poseResultState = MutableStateFlow("")
+    private val _poseResultState = MutableStateFlow(listOf(""))
     private val _compResultState = MutableStateFlow("")
 
     //State Getter
@@ -70,8 +70,11 @@ class MainViewModel @Inject constructor(
             if (reqPoseState.value) {
                 viewModelScope.launch {
                     val target = adjustRotationInfo(image)
-                    _poseResultState.value =
-                        PoseRecommendModule.getHOG(target).toString()
+                    testPose(target)
+//                    _poseResultState.value =
+//                        PoseRecommendModule.getHOG(target).toString()
+
+
 //                        poseRecommendControllerImpl.getRecommendPose(image.toBitmap())
                     reqPoseState.value = false
                 }
@@ -120,11 +123,27 @@ class MainViewModel @Inject constructor(
     }
 
     fun testPose(bitmap: Bitmap) {
-        viewModelScope.launch {
-            _poseResultState.value =
-//                    PoseRecommendModule.getHOG(bitmap).toString()
-                poseRecommendControllerImpl.getRecommendPose(bitmap)
-        }
+
+
+        Log.d(
+            "Pose data elapse time", "${
+                measureTimeMillis {
+                    viewModelScope.launch {
+                        val res = poseRecommendControllerImpl.getRecommendPose(bitmap)
+                        _poseResultState.value = listOf(res)
+//                    PoseRecommendModule.getHOG(bitmap).toString
+                        Log.d("Pose data: ", res)
+                    }
+                }
+            }ms"
+
+
+        )
+//        viewModelScope.launch {
+//            _poseResultState.value =
+////                    PoseRecommendModule.getHOG(bitmap).toString()
+//                poseRecommendControllerImpl.getRecommendPose(bitmap)
+//        }
     }
 
     fun reqCompRecommend() {

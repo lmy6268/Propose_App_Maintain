@@ -5,6 +5,10 @@
         <item>포즈&amp;구도</item>
         <item>구도</item>
     </string-array>
+
+
+
+
     <string-array name="view_rates">
 <!--        <item>1:1</item>-->
         <item>4:3</item>

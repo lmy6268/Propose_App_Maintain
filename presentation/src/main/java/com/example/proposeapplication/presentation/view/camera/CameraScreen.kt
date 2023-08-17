@@ -11,10 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -59,7 +60,7 @@ fun Screen(
         Pair(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY, 3 / 4F),
         Pair(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY, 6 / 19F)
     )
-    val poseRecString: String by mainViewModel.poseResultState.collectAsState()
+    val poseRecString: List<String> by mainViewModel.poseResultState.collectAsState()
 
     LaunchedEffect(key1 = viewRateIdxState) {
 
@@ -74,16 +75,22 @@ fun Screen(
             isUpdated.value = true
         }
     }
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+
+    ) {
         UpperButtons(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .heightIn(100.dp)
+
                 .fillMaxWidth(),
             navController = navController,
-            remember {
+            selectedViewRateIdxState = remember {
                 mutableIntStateOf(0)
-            }
+            },
+            mainColor = MaterialTheme.colors.primary,
         )
         AndroidView(
             factory = { previewView },
@@ -116,23 +123,15 @@ fun Screen(
 
 
         //엣지 화면
-        if (isPressedFixedBtn.value) {
-            //Fix for AfterImage error when use fixedScreen feature.
-            val reqState: Boolean by mainViewModel.reqFixedScreenState.collectAsState(true)
-            LaunchedEffect(Unit) {
-                mainViewModel.reqFixedScreenState.value = true
-            }
-            if (!reqState) capturedEdgesBitmap?.let { bitmap ->
-                Image(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .offset(y = (-80).dp)
-                        .alpha(0.5F),
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "Edge Image"
-                )
-            }
-        }
+        ShowEdgeImage(
+            mainViewModel = mainViewModel,
+            capturedEdgesBitmap = capturedEdgesBitmap,
+            isPressedFixedBtn = isPressedFixedBtn,
+            modifier = Modifier
+                .matchParentSize()
+                .aspectRatio(viewRateList[viewRateIdxState.intValue].second)
+                .offset(y = (-80).dp)
+        )
 
 
         LowerButtons(
@@ -147,6 +146,12 @@ fun Screen(
     }
 }
 
+@Composable
+private fun CameraScreen16_9() {
+
+}
+
+
 //@Composable
 //@Preview
 //private fun PreviewScreen() {
@@ -156,6 +161,31 @@ fun Screen(
 //        )
 //    )
 //}
+
+@Composable
+fun ShowEdgeImage(
+    mainViewModel: MainViewModel,
+    capturedEdgesBitmap: Bitmap?,
+    modifier: Modifier = Modifier,
+    isPressedFixedBtn: MutableState<Boolean>
+) {
+    //Fix for AfterImage error when use fixedScreen feature.
+    if (isPressedFixedBtn.value) {
+        val reqState: Boolean by mainViewModel.reqFixedScreenState.collectAsState(true)
+        LaunchedEffect(Unit) {
+            mainViewModel.reqFixedScreenState.value = true
+        }
+        if (!reqState) capturedEdgesBitmap?.let { bitmap ->
+            Image(
+                modifier = modifier
+                    .alpha(0.5F),
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "Edge Image"
+            )
+        }
+    }
+
+}
 
 
 

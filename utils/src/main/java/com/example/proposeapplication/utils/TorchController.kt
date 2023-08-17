@@ -2,23 +2,35 @@ package com.example.proposeapplication.utils
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
+import android.provider.ContactsContract.CommonDataKinds.Im
+import androidx.core.graphics.scale
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.Resource
+import com.bumptech.glide.load.resource.bitmap.BitmapResource
+import com.bumptech.glide.load.resource.bitmap.BitmapTransformation
+import com.example.proposeapplication.utils.pose.PoseRecommendControllerImpl
+import org.opencv.android.Utils
+import org.opencv.core.CvType
+import org.opencv.core.Mat
+import org.opencv.core.Size
+import org.opencv.imgproc.Imgproc
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader
+import org.pytorch.Tensor
 import org.pytorch.torchvision.TensorImageUtils
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.util.Arrays
 
 class TorchController(private val context: Context) {
 
     private val resNetModule by lazy {
         LiteModuleLoader.load(
             assetFilePath(
-                "noopt_resnet50.ptl"
+                "noopt_resnet50.ptl" //모델 파일 이름
             )
         )
+
     }
 
     @Throws(IOException::class)
@@ -40,11 +52,21 @@ class TorchController(private val context: Context) {
         }
     }
 
+    //리사이징 메소드
+    fun resizeBitmapWithOpenCV(bitmap: Bitmap, size: Size): Bitmap {
+        val inputImageMat = Mat(bitmap.width, bitmap.height, CvType.CV_8UC3)
+        val outputResizeBitmap =
+            Bitmap.createBitmap(size.width.toInt(), size.height.toInt(), Bitmap.Config.ARGB_8888)
+        Utils.bitmapToMat(bitmap, inputImageMat)
+        Imgproc.cvtColor(inputImageMat,inputImageMat,Imgproc.COLOR_RGBA2RGB) //알파값을 빼고 저장
+        Imgproc.resize(inputImageMat, inputImageMat, size)
+        Utils.matToBitmap(inputImageMat, outputResizeBitmap)
+        return outputResizeBitmap
+    }
 
-    fun runResNet(bitmap: Bitmap) {
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true).apply {
-            config = Bitmap.Config.ARGB_8888
-        }
+    fun runResNet(bitmap: Bitmap): FloatArray {
+        val resizedBitmap = resizeBitmapWithOpenCV(bitmap, Size(224.0, 224.0))
+
         val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
         val stdArray = arrayOf(0.229F, 0.224F, 0.225F).toFloatArray()
 
@@ -53,13 +75,10 @@ class TorchController(private val context: Context) {
             meanArray,
             stdArray
         )
+
+
         val output = resNetModule!!.forward(IValue.from(inputTensor))
-
-        //결과값 텐서 도출
-        Log.d(TAG, "Now output ")
-//        val outputs = outputTuple[0].toTensor().dataAsFloatArray //결과값이 담긴 배열 가져옴
-        Log.d(TAG, output.toTensor().dataAsFloatArray.size.toString())
-
+        return output.toTensor().dataAsFloatArray
     }
 
     companion object {

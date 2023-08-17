@@ -3,8 +3,6 @@ package com.example.proposeapplication.presentation.view.camera
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
-import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -23,7 +21,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -71,19 +68,17 @@ import com.example.proposeapplication.presentation.MainViewModel
 import com.example.proposeapplication.presentation.R
 import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
 import com.example.proposeapplication.presentation.view.camera.CameraModules.ExpandableButton
-import com.example.proposeapplication.presentation.view.camera.CameraModules.LowerButtons
 import com.example.proposeapplication.presentation.view.camera.CameraModules.MenuModule
 import kotlinx.coroutines.delay
 
 
 object CameraModules {
     @Composable
-    fun Menu(selectedIdx: MutableIntState, modifier: Modifier = Modifier) {
+    fun ModeMenu(selectedIdx: MutableIntState, modifier: Modifier = Modifier) {
         val cameraModeList = stringArrayResource(id = R.array.camera_modes)
         Box(
             modifier = modifier
         ) {
-
             Box(
                 Modifier
                     .background(
@@ -147,12 +142,10 @@ object CameraModules {
                     durationMillis = 200, easing = LinearEasing
                 )
             ) //크기 변경이 감지되면 애니메이션을 추가해준다.
-//            .heightIn(44.dp)
 
         ) {
 
             if (isExpandedState.value) Row(Modifier.fillMaxWidth()) {
-//                Spacer(modifier = Modifier.weight(1F))
                 Box(
                     Modifier.background(
                         color = Color(0x80FAFAFA), shape = RoundedCornerShape(30.dp)
@@ -222,7 +215,11 @@ object CameraModules {
     fun UpperButtons(
         modifier: Modifier = Modifier,
         navController: NavHostController,
-        selectedViewRateIdxState: MutableIntState
+        selectedViewRateIdxState: MutableIntState,
+        mainColor: Color = MaterialTheme.colors.primary,
+        mainTextColor: Color = MaterialTheme.colors.onPrimary,
+        subColor: Color = MaterialTheme.colors.onSecondary,
+        subTextColor:Color =  MaterialTheme.colors.onSecondary
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
@@ -248,33 +245,44 @@ object CameraModules {
                 isExpandedState,
                 selectedViewRateIdxState,
             )
-            if (isExpandedState.value.not()) {
-                Menu(
+            //확장 가능한 버튼이 확장 되지 않은 경우
+            if (!isExpandedState.value) {
+                ModeMenu(
                     selectedModeIdxState,
                 )
-                IconButton(
-                    onClick = {
-//                        navController.navigate()
-
-                    }) {
-                    Icon(
-                        modifier = Modifier
-                            .widthIn(44.dp)
-                            .heightIn(44.dp),
-                        painter = painterResource(id = R.drawable.based_circle),
-                        tint = Color.Unspecified,
-                        contentDescription = "설정"
-                    )
-                    Icon(
-                        painter = painterResource(
-                            id = R.drawable.settings
-                        ), contentDescription = "설정 아이콘"
-                    )
+                NormalButton(
+                    buttonName = "설정",
+                    iconDrawableId = R.drawable.settings
+                ) {
+                    //설정화면으로 이동
                 }
+
             }
         }
 
 
+    }
+
+
+    @Composable
+    fun NormalButton(
+        buttonName: String, modifier: Modifier = Modifier, iconDrawableId: Int, onClick: () -> Unit
+    ) {
+        IconButton(
+            onClick = onClick
+        ) {
+            Icon(
+                modifier = modifier,
+                painter = painterResource(id = R.drawable.based_circle),
+                tint = Color.Unspecified,
+                contentDescription = buttonName
+            )
+            Icon(
+                painter = painterResource(
+                    id = iconDrawableId
+                ), contentDescription = "$buttonName 아이콘"
+            )
+        }
     }
 
     @Composable
@@ -308,7 +316,7 @@ object CameraModules {
         val fixedButtonImg = if (isPressedFixedBtn.value) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
 
-        val testImage = LocalContext.current.assets.open("test.png").use {
+        val testImage = LocalContext.current.assets.open("test.jpeg").use {
             BitmapFactory.decodeStream(it)
         }
 
@@ -318,11 +326,10 @@ object CameraModules {
         ) {
             //첫번째 단
             Row(horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally)) {
-                IconButton(modifier = Modifier.heightIn(30.dp),
-                    onClick = {
+                IconButton(modifier = Modifier.heightIn(30.dp), onClick = {
 //                        mainViewModel.reqPoseRecommend()
-                        mainViewModel.testPose(testImage)
-                    }) {
+                    mainViewModel.testPose(testImage)
+                }) {
                     Icon(
                         painterResource(id = R.drawable.based_circle),
                         tint = Color(0x80000000),
@@ -333,10 +340,9 @@ object CameraModules {
                         text = "포즈 추천"
                     )
                 }
-                IconButton(modifier = Modifier.heightIn(30.dp),
-                    onClick = {
-                        mainViewModel.reqCompRecommend()
-                    }) {
+                IconButton(modifier = Modifier.heightIn(30.dp), onClick = {
+                    mainViewModel.reqCompRecommend()
+                }) {
                     Icon(
                         painterResource(id = R.drawable.based_circle),
                         tint = Color(0x80000000),
@@ -391,26 +397,23 @@ object CameraModules {
                             contentScale = ContentScale.FillBounds
                         )
                         .clickable(
-                            interactionSource = MutableInteractionSource(),
-                            indication = null
+                            interactionSource = MutableInteractionSource(), indication = null
                         ) {
                             openGallery(launcher)
                         },
                     contentScale = ContentScale.Crop,
-                    bitmap = capturedThumbnailBitmap.asImageBitmap(), contentDescription = "캡쳐된 이미지"
+                    bitmap = capturedThumbnailBitmap.asImageBitmap(),
+                    contentDescription = "캡쳐된 이미지"
                 )
                 //캡쳐 버튼
-                Box(
-                    modifier = Modifier.clickable(
-                        indication = null, //Ripple 효과 제거
-                        interactionSource = interactionSource
-                    ) {
-                        mainViewModel.getPhoto()
-                    }
+                Box(modifier = Modifier.clickable(
+                    indication = null, //Ripple 효과 제거
+                    interactionSource = interactionSource
                 ) {
+                    mainViewModel.getPhoto()
+                }) {
                     Icon(
-                        modifier = Modifier
-                            .size(100.dp),
+                        modifier = Modifier.size(100.dp),
                         painter = painterResource(id = buttonImg),
                         tint = Color.Unspecified,
                         contentDescription = "촬영버튼"
@@ -436,14 +439,12 @@ object CameraModules {
 //                        contentDescription = "고정버튼"
 //                    )
 //                }
-                Box(
-                    Modifier.clickable(
-                        indication = null, // Remove ripple effect
-                        interactionSource = MutableInteractionSource()
-                    ) {
-                        isPressedFixedBtn.value = !isPressedFixedBtn.value
-                    }
+                Box(Modifier.clickable(
+                    indication = null, // Remove ripple effect
+                    interactionSource = MutableInteractionSource()
                 ) {
+                    isPressedFixedBtn.value = !isPressedFixedBtn.value
+                }) {
                     Icon(
                         modifier = Modifier.size(80.dp),
                         painter = painterResource(id = fixedButtonImg),
@@ -451,8 +452,6 @@ object CameraModules {
                         contentDescription = "고정버튼"
                     )
                 }
-
-
 
 
             }
@@ -463,7 +462,7 @@ object CameraModules {
 
     //구도 추천 관련 UI
     @Composable
-    fun CompositionArrow(arrowDirection: String,modifier: Modifier = Modifier) {
+    fun CompositionArrow(arrowDirection: String, modifier: Modifier = Modifier) {
         val tint = Color.Unspecified
         val size = 50.dp
         Box(modifier = modifier) {
@@ -475,7 +474,8 @@ object CameraModules {
                             .align(Alignment.CenterStart)
                             .padding(horizontal = 10.dp),
                         painter = painterResource(id = R.drawable.left_arrow),
-                        contentDescription = "왼쪽 화살표 ", tint = tint
+                        contentDescription = "왼쪽 화살표 ",
+                        tint = tint
                     )
                 }
 
