@@ -26,8 +26,6 @@ import java.util.Locale
 //이미지를 처리하는 프로세서
 class ImageProcessor(private val context: Context) {
 
-
-
     //이미지를 갤러리에 저장하는 함수
     fun saveImageToGallery(bitmap: Bitmap) {
         val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss_SSS", Locale.KOREA)
@@ -58,7 +56,6 @@ class ImageProcessor(private val context: Context) {
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
             val image = File(imagesDir, title)
             fos = FileOutputStream(image)
-//            Log.d("${this.javaClass.simpleName} : ", "사진이 저장되었습니다. / ${image.toURI()}")
         }
 
         fos?.use {
@@ -69,11 +66,8 @@ class ImageProcessor(private val context: Context) {
 
     }
 
-    //필요한 권한이 있는지 체크하기
-    private fun checkPermission() {
 
-    }
-
+    //
     fun getLatestImage(): Bitmap? {
         val projection = arrayOf(
             MediaStore.Images.ImageColumns._ID,

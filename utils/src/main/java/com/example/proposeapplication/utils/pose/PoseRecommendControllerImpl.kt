@@ -2,13 +2,16 @@ package com.example.proposeapplication.utils.pose
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.graphics.drawable.toBitmap
+import com.example.proposeapplication.utils.R
 import com.example.proposeapplication.utils.TorchController
 import com.opencsv.CSVReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
@@ -17,8 +20,10 @@ import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import java.io.InputStreamReader
+import java.lang.Double.POSITIVE_INFINITY
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -39,6 +44,9 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
 
     private val torchController by lazy {
         TorchController(applicationContext)
+    }
+    private val poseSetController by lazy {
+        PoseSetController(applicationContext)
     }
 
 
@@ -64,7 +72,8 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
     }
 
     private val poseRanks by lazy {
-        applicationContext.assets.open("pose_ranks.csv").use { stream ->
+        val poseDataList = mutableListOf<List<PoseData>>()
+        val rankList = applicationContext.assets.open("pose_ranks.csv").use { stream ->
             val resMutableList = mutableListOf<List<Double>>()
             CSVReader(InputStreamReader(stream)).forEach { strings ->
                 if (strings[1].equals("pose_ids").not()) {
@@ -76,25 +85,42 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
             }
             resMutableList
         }
+        val keyDrawableArray = applicationContext.resources.obtainTypedArray(R.array.keypointImage)
+        rankList.forEachIndexed { index, doubleList ->
+            val tmpPoseList = mutableListOf<PoseData>()
+            doubleList.forEach {
+                val resId = keyDrawableArray.getResourceId(it.toInt(), -1)
+                tmpPoseList.add(
+                    PoseData(
+                        it.toInt(),
+                        resId,
+                        index
+                    )
+                )
+            }
+            poseDataList.add(tmpPoseList)
+        }
+        poseDataList.toList()
     }
 
     //포즈 추천 메소드
-    override suspend fun getRecommendPose(backgroundImage: Bitmap): String =
+    override suspend fun getRecommendPose(backgroundImage: Bitmap): Pair<DoubleArray, List<PoseData>> =
         suspendCoroutine { cont ->
             CoroutineScope(Dispatchers.IO).launch {
+                val posePosition =
+                    async { poseSetController.getPosePosition(backgroundImage) }.await()
                 val hogResult = async { getHOG(backgroundImage) }.await() //HoG 결과
                 val resFeature = async {
-                    torchController.runResNet(backgroundImage).map { it.toDouble() } //ResNet
-
+                    torchController.runResNet(backgroundImage).map { it.toDouble() }
                 }.await() //ResNet 결과
-//                var res = Pair(-1, POSITIVE_INFINITY)
-//                for (i in centroid.indices) {
-//                    val calculatedDistance = getDistance(hogResult, resFeature, i)
-//                    if (res.first > calculatedDistance)
-//                        res = res.copy(first = i, second = calculatedDistance)
-//                }
-
-                cont.resume(resFeature.toString())
+                var res = Pair(-1, POSITIVE_INFINITY)
+                for (i in 0 until centroid.size - 2) {
+                    val calculatedDistance = getDistance(hogResult, resFeature, i)
+                    if (res.second > calculatedDistance)
+                        res = res.copy(first = i, second = calculatedDistance)
+                }
+                val bestPoseId = res.first
+                cont.resume(Pair(posePosition, poseRanks[bestPoseId]))
             }
         }
 
@@ -105,34 +131,73 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
             centroid[centroidIdx].subList(2048, centroid[centroidIdx].size)
         )
         val distanceResNet50 = resnet50.zip(centroidResNet50).map {
-            sqrt(it.first.pow(2) - it.second.pow(2)) //np.linalg.norm(A - B, axis = 0)
+            sqrt(abs(it.first.pow(2) - it.second.pow(2))) //np.linalg.norm(A - B, axis = 0)
         }.let {
             it.sum() / it.size // np.mean()
         }
-//        val distanceHog =
-
-
-        return weight
+        val distanceHog = distanceHog(hog, centroidGHog)
+        return weight * distanceHog + distanceResNet50
     }
 
 
-    private fun distanceHog(aHog: List<Double>, bHog: List<Double>) {
+    private fun distanceHog(aHog: List<Double>, bHog: List<Double>): Double {
         val imageResizeConfig = 128.0
         val cellSizeConfig = 16.0
-
         val histCnt = (imageResizeConfig / cellSizeConfig).pow(2).toInt()
         val binCnt = 9
-        val reshapedAHog = addZDimension(reshapeList(aHog, listOf(histCnt, binCnt)))
-        val reshapedBHog = addZDimension(reshapeList(bHog, listOf(histCnt, binCnt)))
+        val reshapedAHog =
+            reshapeList(aHog, listOf(histCnt, binCnt)).toMutableList().apply { addZDimension(this) }
+        val reshapedBHog = reshapeList(bHog, listOf(histCnt, binCnt)).toMutableList().apply {
+            addZDimension(this)
+        }
+        return calculateDistance(reshapedAHog, reshapedBHog)
+    }
 
 
+    private fun addZDimension(arr: MutableList<List<Double>>) {
+        val arrShape = arr.size
+        val zeroArr = List(arrShape) { 0.0 }
+        val normArr = MutableList(arrShape) { 0.0 }
+        normArr[0] = 1.0
+        normArr[1] = 1.0
+
+        val arrTrue = arr.map { sublist ->
+            sublist.all { value -> abs(value) < 1e-6 } // Adjust tolerance as needed
+        }
+        val arrZDim = arrTrue.mapIndexed { index, value ->
+            if (value) normArr else zeroArr
+        }
+
+        val arrZDimReshaped = arrZDim.flatten()
+        val arrConcat = arr.mapIndexed { index, sublist ->
+            sublist + arrZDimReshaped[index]
+        }
+        arr.clear()
+        arr.addAll(arrConcat)
+    }
+
+    private fun calculateDistance(a: List<List<Double>>, b: List<List<Double>>): Double {
+        require(a.size == b.size && a.isNotEmpty()) { "Input lists must have the same non-empty size." }
+
+        val numElements = a.size * a[0].size
+
+        val diffSquaredSum = a.zip(b).sumOf { (aSublist, bSublist) ->
+            require(aSublist.size == bSublist.size) { "Sublists must have the same size." }
+
+            aSublist.zip(bSublist).sumOf { (aVal, bVal) ->
+                val diff = aVal - bVal
+                diff * diff
+            }
+        }
+
+        return sqrt(diffSquaredSum) / numElements
     }
 
     private fun reshapeList(inputList: List<Double>, newShape: List<Int>): List<List<Double>> {
         val totalElements = inputList.size
         val newTotalElements = newShape.reduce { acc, i -> acc * i }
 
-        require(totalElements == newTotalElements) { "Total elements in input list must match new shape" }
+        require(totalElements == newTotalElements) { "Total elements in input list must match new shape, total: $totalElements / new:$newTotalElements" }
 
         val result = mutableListOf<List<Double>>()
         var currentIndex = 0
@@ -145,29 +210,10 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
         return result
     }
 
-    private fun addZDimension(list: List<List<Double>>): List<List<List<Double>>> {
-        val arrShape = list.size to list[0].size
-        val zeroArr = List(arrShape.second) { List(arrShape.second) { 0.0 } }
-        val normArr = List(zeroArr.size) { _ ->
-            List(arrShape.second) { columnIndex ->
-                if (columnIndex == 0 || columnIndex == 1) 1.0 else 0.0
-            }
-        }
-
-        val arrTrue = list.map { row -> row.all { it == 0.0 } }
-        val arrZDim = arrTrue.map { isTrue ->
-            if (isTrue) normArr else zeroArr
-        }
-
-        val arrExpanded = listOf(list)
-
-        return arrExpanded.plus(arrZDim)
-    }
-
 
     //Hog 뽑기 위한 사전 작업
     override fun preProcessing(image: Bitmap): Mat {
-        OpenCVLoader.initDebug() //초기화
+
         val resizedImageMat = Mat(image.width, image.height, CvType.CV_8UC3)
         Utils.bitmapToMat(image, resizedImageMat)
         Imgproc.cvtColor(resizedImageMat, resizedImageMat, Imgproc.COLOR_RGBA2RGB) //알파값을 빼고 저장

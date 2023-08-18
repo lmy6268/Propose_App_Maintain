@@ -2,7 +2,6 @@ package com.example.proposeapplication.presentation.view.camera
 
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,10 +50,10 @@ import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -66,9 +65,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavHostController
 import com.example.proposeapplication.presentation.MainViewModel
 import com.example.proposeapplication.presentation.R
+import com.example.proposeapplication.presentation.ui.PretendardFamily
 import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
 import com.example.proposeapplication.presentation.view.camera.CameraModules.ExpandableButton
-import com.example.proposeapplication.presentation.view.camera.CameraModules.MenuModule
 import kotlinx.coroutines.delay
 
 
@@ -85,7 +84,7 @@ object CameraModules {
                         color = Color(0x80FAFAFA), shape = RoundedCornerShape(18.dp)
                     )
                     .heightIn(30.dp)
-                    .widthIn(220.dp)
+                    .widthIn(210.dp)
                     .align(alignment = Alignment.CenterStart)
             ) {}
             Row(
@@ -114,8 +113,12 @@ object CameraModules {
                                 .align(Alignment.Center)
                                 .padding(horizontal = 20.dp, vertical = 10.dp),
                             text = cameraModeList[i],
-                            style = MaterialTheme.typography.h1,
-                            color = if (i == selectedIdx.intValue) Color.White else Color(0xFF000000),
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                fontFamily = PretendardFamily,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = if (i == selectedIdx.intValue) Color(0xFF999999) else Color(0xFF000000),
                         )
                     }
                 }
@@ -216,19 +219,17 @@ object CameraModules {
         modifier: Modifier = Modifier,
         navController: NavHostController,
         selectedViewRateIdxState: MutableIntState,
+        selectedModeIdxState: MutableIntState,
         mainColor: Color = MaterialTheme.colors.primary,
         mainTextColor: Color = MaterialTheme.colors.onPrimary,
         subColor: Color = MaterialTheme.colors.onSecondary,
-        subTextColor:Color =  MaterialTheme.colors.onSecondary
+        subTextColor: Color = MaterialTheme.colors.onSecondary
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
         }
         val viewRateList = stringArrayResource(id = R.array.view_rates)
 
-        val selectedModeIdxState = remember {
-            mutableIntStateOf(0)
-        }
 
         Row(
             modifier = modifier
@@ -287,6 +288,7 @@ object CameraModules {
 
     @Composable
     fun LowerButtons(
+        selectedModeIdxState: MutableIntState,
         modifier: Modifier = Modifier,
         isPressedFixedBtn: MutableState<Boolean>,
         capturedThumbnailBitmap: Bitmap, //캡쳐된 이미지의 썸네일을 받아옴.
@@ -298,11 +300,14 @@ object CameraModules {
         val isCaptured = remember {
             mutableStateOf(false)
         }
+
+        var thumbnail: Bitmap
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult()
         ) {
 
         }
+
 
         //현재 줌 상태
         val zoomState = remember {
@@ -316,9 +321,10 @@ object CameraModules {
         val fixedButtonImg = if (isPressedFixedBtn.value) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
 
-        val testImage = LocalContext.current.assets.open("test.jpeg").use {
-            BitmapFactory.decodeStream(it)
-        }
+//        val testImage = LocalContext.current.assets.open("test.jpeg").use {
+//            BitmapFactory.decodeStream(it)
+//        }
+
 
         Column(
             modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally
@@ -326,33 +332,36 @@ object CameraModules {
         ) {
             //첫번째 단
             Row(horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally)) {
-                IconButton(modifier = Modifier.heightIn(30.dp), onClick = {
-//                        mainViewModel.reqPoseRecommend()
-                    mainViewModel.testPose(testImage)
-                }) {
-                    Icon(
-                        painterResource(id = R.drawable.based_circle),
-                        tint = Color(0x80000000),
-                        contentDescription = "background",
+                if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1)
+                    IconButton(modifier = Modifier.heightIn(30.dp), onClick = {
+                        mainViewModel.reqPoseRecommend()
+                    }) {
+                        Icon(
+                            painterResource(id = R.drawable.based_circle),
+                            tint = Color(0x80000000),
+                            contentDescription = "background",
 
+                            )
+                        Text(
+                            text = "포즈 추천"
                         )
-                    Text(
-                        text = "포즈 추천"
-                    )
-                }
-                IconButton(modifier = Modifier.heightIn(30.dp), onClick = {
-                    mainViewModel.reqCompRecommend()
-                }) {
-                    Icon(
-                        painterResource(id = R.drawable.based_circle),
-                        tint = Color(0x80000000),
-                        contentDescription = "background",
+                    }
+                if (selectedModeIdxState.intValue == 2 || selectedModeIdxState.intValue == 1)
+                    IconButton(modifier = Modifier.heightIn(30.dp), onClick = {
+                        mainViewModel.reqCompRecommend()
+                    }) {
+                        Icon(
+                            painterResource(id = R.drawable.based_circle),
+                            tint = Color(0x80000000),
+                            contentDescription = "background",
 
+                            )
+                        Text(
+                            text = "구도 추천"
                         )
-                    Text(
-                        text = "구도 추천"
-                    )
-                }
+                    }
+
+
                 listOf("1", "2").forEachIndexed { index, str ->
                     IconButton(
                         onClick = {
@@ -402,7 +411,10 @@ object CameraModules {
                             openGallery(launcher)
                         },
                     contentScale = ContentScale.Crop,
-                    bitmap = capturedThumbnailBitmap.asImageBitmap(),
+                    bitmap = capturedThumbnailBitmap.let {
+                        //가장 최근 이미지를 화면에 띄워주는 로직
+                        mainViewModel.lastImage() ?: it
+                    }.asImageBitmap(),
                     contentDescription = "캡쳐된 이미지"
                 )
                 //캡쳐 버튼
@@ -415,30 +427,12 @@ object CameraModules {
                     Icon(
                         modifier = Modifier.size(100.dp),
                         painter = painterResource(id = buttonImg),
-                        tint = Color.Unspecified,
+                        tint = if (!isFocused && !isPressed) MaterialTheme.colors.secondary
+                        else Color.Unspecified,
                         contentDescription = "촬영버튼"
                     )
                 }
-                //고정 버튼
-//                Box(
-//                    Modifier.clickable(
-//                        indication = null, //Ripple 효과 제거
-//                        interactionSource = MutableInteractionSource()
-//                    ) {
-//                        if (!isPressedFixedBtn.value) {
-//                            mainViewModel.reqFixedScreen()
-//                            isPressedFixedBtn.value = true
-//                        } else isPressedFixedBtn.value = false
-//                    }
-//                ) {
-//                    Icon(
-//                        modifier = Modifier
-//                            .size(80.dp),
-//                        painter = painterResource(id = fixedButtonImg),
-//                        tint = Color.Unspecified,
-//                        contentDescription = "고정버튼"
-//                    )
-//                }
+
                 Box(Modifier.clickable(
                     indication = null, // Remove ripple effect
                     interactionSource = MutableInteractionSource()
@@ -539,33 +533,6 @@ object CameraModules {
 
     }
 
-    //메뉴별 아이콘
-    @Composable
-    fun MenuModule(text: String, isSelected: Boolean) {
-        Box(
-            modifier = Modifier
-                .widthIn(96.dp)
-                .heightIn(36.dp)
-                .background(
-                    color = Color(
-                        if (isSelected) 0xFF212121
-                        else 0x00000000 //투명하게
-                    ), shape = RoundedCornerShape(size = 18.dp)
-                )
-                .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 8.dp)
-        ) {
-            Text(
-                text = text,
-                fontSize = 14.sp,
-                modifier = Modifier.align(Alignment.Center),
-                color = Color(
-                    if (isSelected) 0xFFFFFFFF
-                    else 0xFF000000 //검은색
-                )
-            )
-        }
-
-    }
 
     //생명주기 추적
     @Composable
@@ -589,9 +556,6 @@ object CameraModules {
 
 
         launcher.launch(
-//            Intent(Intent.ACTION_VIEW).apply {
-//                data = Uri.parse(MediaStore.Images.Media.EXTERNAL_CONTENT_URI.toString())
-//            }
             Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
@@ -611,6 +575,12 @@ fun PreviewExpandableBtn() {
         })
 }
 
+@Preview
+@Composable
+fun PreviewMode() {
+    CameraModules.ModeMenu(selectedIdx = remember { mutableIntStateOf(0) })
+}
+
 
 @Preview
 @Composable
@@ -618,11 +588,6 @@ fun PreviewLower() {
 //    LowerButtons(isPressedFixedBtn =, capturedThumbnailBitmap =, mainViewModel =)
 }
 
-@Preview
-@Composable
-fun PreviewMenuModule() {
-    MenuModule(text = "hi", isSelected = true)
-}
 
 @Preview(widthDp = 300, heightDp = 400)
 @Composable

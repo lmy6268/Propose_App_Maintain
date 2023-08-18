@@ -14,9 +14,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proposeapplication.domain.usecase.camera.CaptureImageUseCase
 import com.example.proposeapplication.domain.usecase.camera.GetCompInfoUseCase
+import com.example.proposeapplication.domain.usecase.camera.GetLatestImageUseCase
 import com.example.proposeapplication.domain.usecase.camera.SetZoomLevelUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
+import com.example.proposeapplication.utils.pose.PoseData
 import com.example.proposeapplication.utils.pose.PoseRecommendControllerImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,7 +37,8 @@ class MainViewModel @Inject constructor(
     private val captureImageUseCase: CaptureImageUseCase,
     private val showFixedScreenUseCase: ShowFixedScreenUseCase,
     private val setZoomLevelUseCase: SetZoomLevelUseCase,
-    private val getCompInfoUseCase: GetCompInfoUseCase
+    private val getCompInfoUseCase: GetCompInfoUseCase,
+    private val getLatestImageUseCase: GetLatestImageUseCase
 ) : ViewModel() {
     //Switches
     val reqFixedScreenState = MutableStateFlow(false)// 고정 화면 요청 on/off
@@ -48,12 +51,12 @@ class MainViewModel @Inject constructor(
         null
     )
 
-    private val _capturedBitmapState = MutableStateFlow<Bitmap>( //캡쳐된 이미지 상태
+    private val _capturedBitmapState = MutableStateFlow( //캡쳐된 이미지 상태
         Bitmap.createBitmap(
             100, 100, Bitmap.Config.ARGB_8888
         )
     )
-    private val _poseResultState = MutableStateFlow(listOf(""))
+    private val _poseResultState = MutableStateFlow < Pair<DoubleArray, List<PoseData>>?>(null)
     private val _compResultState = MutableStateFlow("")
 
     //State Getter
@@ -68,27 +71,24 @@ class MainViewModel @Inject constructor(
         it.use { image ->
             //포즈 선정 로직
             if (reqPoseState.value) {
+                reqPoseState.value = false
                 viewModelScope.launch {
-                    val target = adjustRotationInfo(image)
-                    testPose(target)
-//                    _poseResultState.value =
-//                        PoseRecommendModule.getHOG(target).toString()
-
-
-//                        poseRecommendControllerImpl.getRecommendPose(image.toBitmap())
-                    reqPoseState.value = false
+                    _poseResultState.value =
+                        poseRecommendControllerImpl.getRecommendPose(adjustRotationInfo(image))
                 }
+
+
             }
             //구도 추천 로직
             if (reqCompState.value) {
+                reqCompState.value = false
                 viewModelScope.launch {
                     _compResultState.value = getCompInfoUseCase(adjustRotationInfo(image))
-                    reqCompState.value = false
                 }
             }
             //고정화면 로직
             if (reqFixedScreenState.value) {
-                _edgeDetectBitmapState.value = null
+                _edgeDetectBitmapState.value = null //이미지
                 viewModelScope.launch {
                     _edgeDetectBitmapState.value =
                         showFixedScreenUseCase(
@@ -119,35 +119,14 @@ class MainViewModel @Inject constructor(
     }
 
     fun reqPoseRecommend() {
-        reqPoseState.value = true
+        if (reqPoseState.value.not())
+            reqPoseState.value = true
     }
 
-    fun testPose(bitmap: Bitmap) {
-
-
-        Log.d(
-            "Pose data elapse time", "${
-                measureTimeMillis {
-                    viewModelScope.launch {
-                        val res = poseRecommendControllerImpl.getRecommendPose(bitmap)
-                        _poseResultState.value = listOf(res)
-//                    PoseRecommendModule.getHOG(bitmap).toString
-                        Log.d("Pose data: ", res)
-                    }
-                }
-            }ms"
-
-
-        )
-//        viewModelScope.launch {
-//            _poseResultState.value =
-////                    PoseRecommendModule.getHOG(bitmap).toString()
-//                poseRecommendControllerImpl.getRecommendPose(bitmap)
-//        }
-    }
 
     fun reqCompRecommend() {
-        reqCompState.value = true
+        if (reqCompState.value.not())
+            reqCompState.value = true
     }
 
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
@@ -162,4 +141,9 @@ class MainViewModel @Inject constructor(
             true
         )
     }
+
+    //최근 이미지
+    fun lastImage() =
+        getLatestImageUseCase()
+
 }

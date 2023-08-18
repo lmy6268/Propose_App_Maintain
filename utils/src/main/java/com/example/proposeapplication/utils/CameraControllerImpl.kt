@@ -1,9 +1,11 @@
 package com.example.proposeapplication.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
+import android.util.Size
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -11,8 +13,10 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.impl.ImageAnalysisConfig
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -21,11 +25,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import org.opencv.android.OpenCVLoader
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 class CameraControllerImpl(private val context: Context) : CameraControllerInterface {
+
     private val imageProcessor by lazy {
         ImageProcessor(context)
     }
@@ -42,9 +48,9 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         ratio: AspectRatioStrategy,
         analyzer: ImageAnalysis.Analyzer
     ) {
+        OpenCVLoader.initDebug()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         executor = ContextCompat.getMainExecutor(context) //현재 애플리케이션의 메인 스레드의 Executor를 가져온다.
-
         cameraProviderFuture.addListener(
             makeCameraListener(
                 lifecycleOwner, surfaceProvider, ratio, cameraProviderFuture, analyzer
@@ -52,50 +58,43 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         )
     }
 
-    override suspend fun takePhoto(): Bitmap =
-        suspendCancellableCoroutine<Bitmap> { cont ->
-            imageCapture.takePicture(executor, object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    image.use { imageProxy ->
-                        // 원본 이미지를 획득함
-                        val rotateMatrix =
-                            Matrix().apply { setRotate(imageProxy.imageInfo.rotationDegrees.toFloat()) }
-                        val origin = imageProxy.toBitmap().let {
-                            Bitmap.createBitmap(
-                                it,
-                                0,
-                                0,
-                                it.width,
-                                it.height,
-                                rotateMatrix,
-                                false
-                            )
-                        }
-
-                        val tmp =
-                            Bitmap.createScaledBitmap(
-                                origin, origin.width / 5, origin.height / 5, true
-                            )
-                        cont.resume(tmp)
-                        //갤러리에 저장함
-                        CoroutineScope(Dispatchers.IO).launch {
-                            imageProcessor.saveImageToGallery(origin)
-                        }
-                        super.onCaptureSuccess(image)
+    override suspend fun takePhoto(): Bitmap = suspendCancellableCoroutine<Bitmap> { cont ->
+        imageCapture.takePicture(executor, object : ImageCapture.OnImageCapturedCallback() {
+            override fun onCaptureSuccess(image: ImageProxy) {
+                image.use { imageProxy ->
+                    // 원본 이미지를 획득함
+                    val rotateMatrix =
+                        Matrix().apply { setRotate(imageProxy.imageInfo.rotationDegrees.toFloat()) }
+                    val origin = imageProxy.toBitmap().let {
+                        Bitmap.createBitmap(
+                            it, 0, 0, it.width, it.height, rotateMatrix, false
+                        )
                     }
 
+                    val tmp = Bitmap.createScaledBitmap(
+                        origin, origin.width / 5, origin.height / 5, true
+                    )
+                    cont.resume(tmp)
+                    //갤러리에 저장함
+                    CoroutineScope(Dispatchers.IO).launch {
+                        imageProcessor.saveImageToGallery(origin)
+                    }
+                    super.onCaptureSuccess(image)
                 }
 
-                //에러가 나는 경우 에러를 반환한다.
-                override fun onError(exception: ImageCaptureException) {
-                    cont.resumeWithException(exception)
-                    super.onError(exception)
-                }
+            }
 
-            })
-        }
+            //에러가 나는 경우 에러를 반환한다.
+            override fun onError(exception: ImageCaptureException) {
+                cont.resumeWithException(exception)
+                super.onError(exception)
+            }
+
+        })
+    }
 
 
+    @SuppressLint("RestrictedApi")
     private fun makeCameraListener(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
@@ -104,8 +103,14 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         analyzer: ImageAnalysis.Analyzer
     ) = Runnable {
         cameraProvider = cameraProviderFuture.get()
-
-        val ratioSelector = ResolutionSelector.Builder().setAspectRatioStrategy(ratio).build()
+        //기본은 480XX640이라 수정이 필요함.
+        val ratioSelector = ResolutionSelector.Builder()
+            .setResolutionStrategy(
+                ResolutionStrategy(
+                    Size(640, 640), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER
+                )
+            )
+            .setAspectRatioStrategy(ratio).build()
 
         val cameraSelector =
             CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
@@ -118,7 +123,10 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
             ratioSelector
         ).setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
 
-        imageAnalysis = ImageAnalysis.Builder().setResolutionSelector(ratioSelector)
+        imageAnalysis =
+
+
+            ImageAnalysis.Builder().setResolutionSelector(ratioSelector)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888).build().apply {
                 setAnalyzer(
@@ -131,9 +139,9 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
             cameraProvider.unbindAll()
             camera = cameraProvider.bindToLifecycle(
                 lifecycleOwner, // Use the provided lifecycle owner
-                cameraSelector, preview, imageCapture,
-                imageAnalysis
+                cameraSelector, preview, imageCapture, imageAnalysis
             )
+            Log.d("Camera : ", camera.cameraInfo.cameraSelector.cameraFilterSet.toString())
             // Now you have the CameraControl instance if you need it
         } catch (exc: Exception) {
             // Handle camera initialization error
@@ -144,8 +152,7 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
 
     fun getFixedScreen(rawBitmap: Bitmap) = imageProcessor.edgeDetection(rawBitmap)
 
-    override fun getLatestImage(): Bitmap? =
-        imageProcessor.getLatestImage()
+    override fun getLatestImage(): Bitmap? = imageProcessor.getLatestImage()
 
     fun setZoomLevel(zoomLevel: Float) {
 //        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio

@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setFullScreen(this)
 
+
         setContent {
             MainTheme {
                 MainScreen()
