@@ -101,7 +101,7 @@ class ImageProcessor(private val context: Context) {
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY) //흑백으로 변경
 
         //Convert to detected picture
-        Imgproc.Canny(input, input, 80.0, 150.0)
+        Imgproc.Canny(input, input, 100.0, 200.0)
 
         return bitmap.copy(bitmap.config, true).apply {
             Utils.matToBitmap(input, this)

@@ -1,14 +1,9 @@
 package com.example.proposeapplication.presentation.view.camera
 
-import android.content.Context
 import android.graphics.Bitmap
-import android.util.DisplayMetrics
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,8 +12,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,19 +33,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.size
 import androidx.navigation.NavHostController
 import com.example.proposeapplication.presentation.MainViewModel
+import com.example.proposeapplication.presentation.R
 import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
 import com.example.proposeapplication.presentation.view.camera.CameraModules.LowerButtons
 import com.example.proposeapplication.presentation.view.camera.CameraModules.UpperButtons
@@ -68,8 +68,15 @@ fun Screen(
         mutableIntStateOf(0)
     }
     val selectedModeIdxState = remember {
+        mutableIntStateOf(1)
+    }
+    val nextRecomPoseState = remember {
         mutableIntStateOf(0)
     }
+    val recomPoseSizeState = remember {
+        mutableIntStateOf(0)
+    }
+
     val capturedEdgesBitmap: Bitmap? by mainViewModel.edgeDetectBitmapState.collectAsState() //업데이트된 고정화면을 가지고 있는 변수
     val capturedThumbnailBitmap: Bitmap by mainViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
     val compResultDirection: String by mainViewModel.compResultState.collectAsState()
@@ -77,7 +84,7 @@ fun Screen(
         Pair(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY, 3 / 4F),
         Pair(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY, 6 / 19F)
     )
-    val poseRecPair: Pair<DoubleArray, List<PoseData>>? by mainViewModel.poseResultState.collectAsState()
+    val poseRecPair: Pair<DoubleArray?, List<PoseData>?>? by mainViewModel.poseResultState.collectAsState()
 
     LaunchedEffect(key1 = viewRateIdxState.intValue) {
 
@@ -105,7 +112,7 @@ fun Screen(
                 .wrapContentSize()
                 .aspectRatio(viewRateList[viewRateIdxState.intValue].second)
                 .then(
-                    if (viewRateIdxState.intValue == 0) Modifier.offset(0.dp, (-80).dp)
+                    if (viewRateIdxState.intValue == 0) Modifier.offset(0.dp, (-100).dp)
                     else Modifier
                 )
 
@@ -113,41 +120,72 @@ fun Screen(
 
         }
 
-        val previewViewData = remember {
-            mutableStateOf(Pair(IntSize(0, 0), Offset(0F, 0F)))
-        }
         Box(
             Modifier
                 .matchParentSize()
                 .aspectRatio(viewRateList[viewRateIdxState.intValue].second)
-                .onGloballyPositioned {
-                    val metrics = context.resources.displayMetrics
-                    val dpSize = it.size.let { intSize ->
-                        IntSize(
-                            intSize.width / metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT,
-                            intSize.height / metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT
-                        )
-                    }
-
-                    previewViewData.value = Pair(dpSize, it.positionInRoot())
-                }
+                .then(
+                    if (viewRateIdxState.intValue == 0) Modifier.offset(0.dp, (-100).dp)
+                    else Modifier
+                )
+//                .onGloballyPositioned {
+//                    val metrics = context.resources.displayMetrics
+//                    val dpSize = it.size.let { intSize ->
+//                        IntSize(
+//                            intSize.width / metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT,
+//                            intSize.height / metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT
+//                        )
+//                    }
+//
+//                    previewViewData.value = Pair(dpSize, it.positionInRoot())
+//                }
                 .align(Alignment.TopCenter)
         ) {
-
-            if (poseRecPair != null) {
+            if (poseRecPair != null && poseRecPair != Pair(null, null)) { //포즈 목록이 도착하면
+                recomPoseSizeState.intValue = poseRecPair!!.second!!.size
                 Image(
                     modifier = Modifier
-                        .offset(
-                            (poseRecPair!!.first[0] * previewViewData.value.first.width).dp,
-                            (previewViewData.value.first.height * poseRecPair!!.first[1]).dp
-                        )
-                        .widthIn((previewViewData.value.first.width * poseRecPair!!.first[2]).dp)
-                        .heightIn((previewViewData.value.first.height * poseRecPair!!.first[3]).dp),
-                    painter = painterResource(id = poseRecPair!!.second[0].poseDrawableId),
+                        .size(DpSize(350.dp, 350.dp))
+                        .align(Alignment.BottomCenter)
+//                        .offset(.dp)
+                    ,
+//                        .offset(
+//                            (poseRecPair!!.first[0] * previewViewData.value.first.width).dp,
+//                            (previewViewData.value.first.height * poseRecPair!!.first[1]).dp
+//                        )
+//                        .widthIn((previewViewData.value.first.width * poseRecPair!!.first[2]).dp)
+//                        .heightIn((previewViewData.value.first.height * poseRecPair!!.first[3]).dp),
+
+                    painter = painterResource(id = poseRecPair!!.second!![nextRecomPoseState.intValue].poseDrawableId),
                     contentDescription = "포즈 이미지"
+                )
+            } else if (poseRecPair == Pair(null, null)) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
                 )
             }
         }
+
+
+        //다음 포즈 선택 버튼
+        if ((selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1) && recomPoseSizeState.intValue > 0)
+            IconButton(modifier = Modifier
+                .size(50.dp)
+                .offset(x = (-20).dp)
+                .align(
+                    Alignment.CenterEnd
+                ), onClick = {
+                if (nextRecomPoseState.intValue in 0 until recomPoseSizeState.intValue-1)
+                    nextRecomPoseState.intValue += 1
+                else nextRecomPoseState.intValue = 0
+            }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.based_circle),
+                    contentDescription = "배경",
+                    tint = Color.White
+                )
+                Icon(painter = painterResource(id = R.drawable.refresh), contentDescription = "배경")
+            }
         UpperButtons(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -158,12 +196,20 @@ fun Screen(
             mainColor = MaterialTheme.colors.primary,
             selectedModeIdxState = selectedModeIdxState
         )
+
         CompositionArrow(
-            arrowDirection = compResultDirection,
+            arrowDirection =
+            compResultDirection
+//            ""
+            ,
             modifier = Modifier
-                .matchParentSize()
                 .aspectRatio(viewRateList[viewRateIdxState.intValue].second)
-//                .offset(y = (-80).dp)
+                .heightIn(150.dp)
+//                .widthIn(250.dp)
+//                .height(200.dp)
+                .align(Alignment.Center)
+
+                .offset(y = (-100).dp)
         )
 
 
@@ -175,6 +221,10 @@ fun Screen(
             modifier = Modifier
                 .matchParentSize()
                 .aspectRatio(viewRateList[viewRateIdxState.intValue].second)
+                .then(
+                    if (viewRateIdxState.intValue == 0) Modifier.offset(0.dp, (-100).dp)
+                    else Modifier
+                )
 //                .offset(y = (-80).dp)
         )
 
@@ -187,14 +237,10 @@ fun Screen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .heightIn(150.dp)
-                .padding(bottom = 80.dp)
+                .padding(bottom = 100.dp)
         )
 
     }
-}
-
-@Composable
-private fun CameraScreen16_9() {
 
 }
 

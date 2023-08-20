@@ -56,7 +56,7 @@ class MainViewModel @Inject constructor(
             100, 100, Bitmap.Config.ARGB_8888
         )
     )
-    private val _poseResultState = MutableStateFlow < Pair<DoubleArray, List<PoseData>>?>(null)
+    private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
     private val _compResultState = MutableStateFlow("")
 
     //State Getter
@@ -72,6 +72,7 @@ class MainViewModel @Inject constructor(
             //포즈 선정 로직
             if (reqPoseState.value) {
                 reqPoseState.value = false
+                _poseResultState.value = Pair(null, null)
                 viewModelScope.launch {
                     _poseResultState.value =
                         poseRecommendControllerImpl.getRecommendPose(adjustRotationInfo(image))

@@ -29,11 +29,6 @@ class TorchController(private val context: Context) {
 
     private val bbPredictionModule by lazy {
         loadModule(
-//            "model_bbprediction.ptl" //Not Working ->   com.facebook.jni.CppException: PytorchStreamReader failed locating file bytecode.pkl:
-            //            file not found ()
-//            "model_bbprediction_dq.ptl" //Not Working ->   com.facebook.jni.CppException: PytorchStreamReader failed locating file bytecode.pkl:
-            //            file not found ()
-//            "model_bbprediction_lite.ptl" //Not Working -> "com.facebook.jni.CppException: Expected Tensor but got None"
             "model_bbprediction_dqlite.ptl" //Not Working -> "com.facebook.jni.CppException: Expected Tensor but got None"
         )
     }

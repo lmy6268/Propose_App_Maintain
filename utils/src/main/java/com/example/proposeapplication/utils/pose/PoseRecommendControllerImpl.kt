@@ -107,8 +107,8 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
     override suspend fun getRecommendPose(backgroundImage: Bitmap): Pair<DoubleArray, List<PoseData>> =
         suspendCoroutine { cont ->
             CoroutineScope(Dispatchers.IO).launch {
-                val posePosition =
-                    async { poseSetController.getPosePosition(backgroundImage) }.await()
+//                val posePosition =
+//                    async { poseSetController.getPosePosition(backgroundImage) }.await()
                 val hogResult = async { getHOG(backgroundImage) }.await() //HoG 결과
                 val resFeature = async {
                     torchController.runResNet(backgroundImage).map { it.toDouble() }
@@ -120,7 +120,13 @@ class PoseRecommendControllerImpl(private val applicationContext: Context) :
                         res = res.copy(first = i, second = calculatedDistance)
                 }
                 val bestPoseId = res.first
-                cont.resume(Pair(posePosition, poseRanks[bestPoseId]))
+                cont.resume(
+                    Pair(
+//                        posePosition,
+                        emptyArray<Double>().toDoubleArray(),
+                        poseRanks[bestPoseId]
+                    )
+                )
             }
         }
 

@@ -106,12 +106,17 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         //기본은 480XX640이라 수정이 필요함.
         val ratioSelector = ResolutionSelector.Builder()
             .setResolutionStrategy(
+                ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY
+            )
+            .setAspectRatioStrategy(ratio).build()
+
+        val analyzerRatioSelector = ResolutionSelector.Builder()
+            .setResolutionStrategy(
                 ResolutionStrategy(
                     Size(640, 640), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER
                 )
             )
             .setAspectRatioStrategy(ratio).build()
-
         val cameraSelector =
             CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
@@ -124,9 +129,7 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         ).setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
 
         imageAnalysis =
-
-
-            ImageAnalysis.Builder().setResolutionSelector(ratioSelector)
+            ImageAnalysis.Builder().setResolutionSelector(analyzerRatioSelector)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888).build().apply {
                 setAnalyzer(
