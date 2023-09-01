@@ -1,4 +1,4 @@
-package com.example.proposeapplication.utils
+package com.example.proposeapplication.utils.datasource
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -9,36 +9,32 @@ import android.util.Size
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageAnalysis.Analyzer
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
-import androidx.camera.core.impl.ImageAnalysisConfig
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.example.proposeapplication.utils.datasource.interfaces.CameraDataSource
 import com.google.common.util.concurrent.ListenableFuture
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.opencv.android.OpenCVLoader
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class CameraControllerImpl(private val context: Context) : CameraControllerInterface {
+class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
-    private val imageProcessor by lazy {
-        ImageProcessor(context)
-    }
     private lateinit var cameraProvider: ProcessCameraProvider
     private lateinit var preview: Preview
     private lateinit var imageCapture: ImageCapture
     private lateinit var imageAnalysis: ImageAnalysis
+    private lateinit var fixedImageAnalysis: ImageAnalysis
     private lateinit var executor: Executor
     private lateinit var camera: Camera
 
@@ -46,14 +42,18 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         ratio: AspectRatioStrategy,
-        analyzer: ImageAnalysis.Analyzer
+        analyzer: Analyzer
     ) {
         OpenCVLoader.initDebug()
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         executor = ContextCompat.getMainExecutor(context) //현재 애플리케이션의 메인 스레드의 Executor를 가져온다.
         cameraProviderFuture.addListener(
             makeCameraListener(
-                lifecycleOwner, surfaceProvider, ratio, cameraProviderFuture, analyzer
+                lifecycleOwner,
+                surfaceProvider,
+                ratio,
+                cameraProviderFuture,
+                analyzer
             ), executor
         )
     }
@@ -70,15 +70,7 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
                             it, 0, 0, it.width, it.height, rotateMatrix, false
                         )
                     }
-
-                    val tmp = Bitmap.createScaledBitmap(
-                        origin, origin.width / 5, origin.height / 5, true
-                    )
-                    cont.resume(tmp)
-                    //갤러리에 저장함
-                    CoroutineScope(Dispatchers.IO).launch {
-                        imageProcessor.saveImageToGallery(origin)
-                    }
+                    cont.resume(origin)
                     super.onCaptureSuccess(image)
                 }
 
@@ -100,7 +92,7 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         surfaceProvider: Preview.SurfaceProvider,
         ratio: AspectRatioStrategy,
         cameraProviderFuture: ListenableFuture<ProcessCameraProvider>,
-        analyzer: ImageAnalysis.Analyzer
+        analyzer: Analyzer
     ) = Runnable {
         cameraProvider = cameraProviderFuture.get()
         //기본은 480XX640이라 수정이 필요함.
@@ -115,8 +107,9 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
                 ResolutionStrategy(
                     Size(640, 640), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER
                 )
-            )
-            .setAspectRatioStrategy(ratio).build()
+            ).setAspectRatioStrategy(ratio).build()
+
+
         val cameraSelector =
             CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
@@ -129,13 +122,20 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         ).setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
 
         imageAnalysis =
-            ImageAnalysis.Builder().setResolutionSelector(analyzerRatioSelector)
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888).build().apply {
-                setAnalyzer(
-                    executor, analyzer
-                )
-            }
+            ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .setResolutionSelector(analyzerRatioSelector)
+                .build()
+                .apply {
+                    setAnalyzer(
+                        executor, analyzer
+                    )
+                }
+
+
+
+
 
 
         try {
@@ -153,11 +153,8 @@ class CameraControllerImpl(private val context: Context) : CameraControllerInter
         }
     }
 
-    fun getFixedScreen(rawBitmap: Bitmap) = imageProcessor.edgeDetection(rawBitmap)
 
-    override fun getLatestImage(): Bitmap? = imageProcessor.getLatestImage()
-
-    fun setZoomLevel(zoomLevel: Float) {
+    override fun setZoomLevel(zoomLevel: Float) {
 //        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio
 //        val maxValue = camera.cameraInfo.zoomState.value!!.maxZoomRatio
 //        Log.d("MIN/MAX ZoomRatio: ","$minValue/$maxValue")

@@ -2,6 +2,7 @@ package com.example.proposeapplication.presentation
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -36,6 +37,7 @@ class MainActivity : AppCompatActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setFullScreen(this)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED //회전 고정
 
 
         setContent {

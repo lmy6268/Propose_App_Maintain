@@ -1,4 +1,4 @@
-package com.example.proposeapplication.utils
+package com.example.proposeapplication.utils.datasource.interfaces
 
 import android.graphics.Bitmap
 import androidx.camera.core.ImageAnalysis
@@ -6,7 +6,12 @@ import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.lifecycle.LifecycleOwner
 
-interface CameraControllerInterface {
+/**
+ * 카메라를 조작하는 데이터 소스
+ * */
+interface CameraDataSource {
+    /** 카메라 미리보기 조작
+     * */
     fun showPreview(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
@@ -14,7 +19,7 @@ interface CameraControllerInterface {
         analyzer: ImageAnalysis.Analyzer
     )
 
-   suspend fun takePhoto(): Bitmap?
-    fun getLatestImage(): Bitmap?
+    suspend fun takePhoto(): Bitmap?
+    fun setZoomLevel(zoomLevel: Float)
 
 }

@@ -1,12 +1,9 @@
-package com.example.proposeapplication.utils
+package com.example.proposeapplication.utils.datasource
 
 import android.content.Context
 import android.graphics.Bitmap
-import org.opencv.android.Utils
-import org.opencv.core.CvType
-import org.opencv.core.Mat
+import com.example.proposeapplication.utils.datasource.interfaces.ModelRunner
 import org.opencv.core.Size
-import org.opencv.imgproc.Imgproc
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader
 import org.pytorch.Module
@@ -14,26 +11,27 @@ import org.pytorch.torchvision.TensorImageUtils
 import java.io.File
 import java.io.FileOutputStream
 
-class TorchController(private val context: Context) {
+class ModelRunnerImpl(private val context: Context) : ModelRunner {
 
     private val resNetModule by lazy {
-        loadModule("model_resnet.ptl")
+        loadModel("model_resnet.ptl")
     }
 
     private val yoloModule by lazy {
-        loadModule(
-//            "model_yolov7_tiny.ptl"
-            "model_yolov5s.ptl"
-        )
+        loadModel("model_yolov5s.ptl")
     }
 
     private val bbPredictionModule by lazy {
-        loadModule(
-            "model_bbprediction_dqlite.ptl" //Not Working -> "com.facebook.jni.CppException: Expected Tensor but got None"
-        )
+        loadModel("model_bbprediction_dqlite.ptl")
     }
 
-    private fun loadModule(moduleAssetName: String): Module {
+
+    private val imageProcessDataSource by lazy {
+        ImageProcessDataSourceImpl()
+    }
+
+    //path를 알면 로드할 수 있음 .
+    override fun loadModel(moduleAssetName: String): Module {
         val file = File(context.filesDir, moduleAssetName)
         val path = if (file.exists() && file.length() > 0) file.absolutePath
         else context.assets.open(moduleAssetName).use { `is` ->
@@ -50,20 +48,9 @@ class TorchController(private val context: Context) {
         return LiteModuleLoader.load(path)
     }
 
-    //리사이징 메소드
-    private fun resizeBitmapWithOpenCV(bitmap: Bitmap, size: Size): Bitmap {
-        val inputImageMat = Mat(bitmap.width, bitmap.height, CvType.CV_8UC3)
-        val outputResizeBitmap =
-            Bitmap.createBitmap(size.width.toInt(), size.height.toInt(), Bitmap.Config.ARGB_8888)
-        Utils.bitmapToMat(bitmap, inputImageMat)
-        Imgproc.cvtColor(inputImageMat, inputImageMat, Imgproc.COLOR_RGBA2RGB) //알파값을 빼고 저장
-        Imgproc.resize(inputImageMat, inputImageMat, size)
-        Utils.matToBitmap(inputImageMat, outputResizeBitmap)
-        return outputResizeBitmap
-    }
 
-    fun runResNet(bitmap: Bitmap): FloatArray {
-        val resizedBitmap = resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
+    override fun runResNet(bitmap: Bitmap): FloatArray {
+        val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
 
         val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
         val stdArray = arrayOf(0.229F, 0.224F, 0.225F).toFloatArray()
@@ -76,25 +63,21 @@ class TorchController(private val context: Context) {
     }
 
     // [Bounding Box Prediction] 을 진행한다.
-    fun runBbPrediction(originBitmap: Bitmap, layoutBitmap: Bitmap): DoubleArray {
+    override fun runBbPrediction(originBitmap: Bitmap, layoutBitmap: Bitmap): DoubleArray {
         //originBitmap을 480*480으로 리사이징 한다.
-        val resizedOriginBitmap = resizeBitmapWithOpenCV(originBitmap, Size(480.0, 480.0))
+        val resizedOriginBitmap =
+            imageProcessDataSource.resizeBitmapWithOpenCV(originBitmap, Size(480.0, 480.0))
         //Input Tensor를 만든다.
         val resizeOriginInputTensor = TensorImageUtils.bitmapToFloat32Tensor(
-            resizedOriginBitmap,
-            NO_MEAN_RGB,
-            NO_STD_RGB
+            resizedOriginBitmap, NO_MEAN_RGB, NO_STD_RGB
         )
         val layoutInputTensor = TensorImageUtils.bitmapToFloat32Tensor(
-            layoutBitmap,
-            NO_MEAN_RGB,
-            NO_STD_RGB
+            layoutBitmap, NO_MEAN_RGB, NO_STD_RGB
         )
 
         //모델에 추론을 시킨다.
         val output = bbPredictionModule.forward(
-            IValue.from(resizeOriginInputTensor),
-            IValue.from(layoutInputTensor)
+            IValue.from(resizeOriginInputTensor), IValue.from(layoutInputTensor)
         )
         //결과값을 반환한다.
         val outputTensor = output.toTensor()
@@ -102,13 +85,13 @@ class TorchController(private val context: Context) {
     }
 
     //YOLO모델을 실행한다.
-    fun runYolo(bitmap: Bitmap): Pair<Size, FloatArray> {
+    override fun runYolo(bitmap: Bitmap): Pair<Size, FloatArray> {
         val mScaleSize = Size(
             bitmap.width.toFloat() / YOLO_INPUT_SIZE.width,
             bitmap.height.toFloat() / YOLO_INPUT_SIZE.height
         )
 
-        val resizedBitmap = resizeBitmapWithOpenCV(bitmap, YOLO_INPUT_SIZE)
+        val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, YOLO_INPUT_SIZE)
 //            Bitmap.createScaledBitmap(
 //            bitmap, YOLO_INPUT_SIZE.width.toInt(), YOLO_INPUT_SIZE.height.toInt(), true )
         val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
@@ -126,11 +109,17 @@ class TorchController(private val context: Context) {
         return Pair(mScaleSize, outputs)
     }
 
+
     companion object {
         private val YOLO_INPUT_SIZE = Size(640.0, 640.0) //리사이징 사이즈
         private val RESNET_INPUT_SIZE = Size(224.0, 224.0)
         private val NO_STD_RGB = floatArrayOf(1.0f, 1.0f, 1.0f)
-        private val TAG: String = TorchController::class.java.simpleName
+        private val TAG: String = ModelRunnerImpl::class.java.simpleName
         private val NO_MEAN_RGB = floatArrayOf(0.0f, 0.0f, 0.0f)
+
+        /** 모델을 다운받을 위치
+         * */
+        private const val MODEL_URL = ""
     }
+
 }

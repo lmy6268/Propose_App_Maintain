@@ -3,6 +3,7 @@ package com.example.proposeapplication.presentation.view.camera
 import android.graphics.Bitmap
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -142,6 +143,9 @@ fun Screen(
                 .align(Alignment.TopCenter)
         ) {
             if (poseRecPair != null && poseRecPair != Pair(null, null)) { //포즈 목록이 도착하면
+                
+//                Canvas(modifier = , onDraw = )
+                
                 recomPoseSizeState.intValue = poseRecPair!!.second!!.size
                 Image(
                     modifier = Modifier

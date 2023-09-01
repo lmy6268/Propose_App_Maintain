@@ -2,6 +2,7 @@ package com.example.proposeapplication.domain.usecase.camera
 
 
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageAnalysis.Analyzer
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.lifecycle.LifecycleOwner
@@ -13,7 +14,8 @@ class ShowPreviewUseCase @Inject constructor(private val repository: CameraRepos
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         ratio: AspectRatioStrategy,
-        analyzer: ImageAnalysis.Analyzer
+        analyzer: Analyzer,
+
     ) =
-        repository.initPreview(lifecycleOwner, surfaceProvider, ratio, analyzer)
+        repository.initPreview(lifecycleOwner, surfaceProvider, ratio,analyzer)
 }

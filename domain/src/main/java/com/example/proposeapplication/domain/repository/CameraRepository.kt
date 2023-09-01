@@ -10,18 +10,18 @@ import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.lifecycle.LifecycleOwner
 
 
+//카메라 기능을 담당하는 레포지토리
 interface CameraRepository {
     fun initPreview(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         ratio: AspectRatioStrategy,
-        analyzer: ImageAnalysis.Analyzer
-    )
+        analyzer: ImageAnalysis.Analyzer,
+
+
+        )
 
     suspend fun takePhoto(): Bitmap
-    suspend fun getFixedScreen(rawBitmap: Bitmap): Bitmap?
-    fun getLatestImage(): Bitmap?
     fun setZoomRatio(zoomLevel: Float)
 
-    suspend fun compositionData(bitmap: Bitmap): String
 }
