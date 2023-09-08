@@ -1,4 +1,4 @@
-package com.example.proposeapplication.utils.datasource
+package com.example.proposeapplication.data.datasource
 
 import android.content.ContentValues
 import android.content.Context
@@ -8,7 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import com.example.proposeapplication.utils.datasource.interfaces.ImageProcessDataSource
+import com.example.proposeapplication.data.datasource.interfaces.ImageProcessDataSource
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.CvType

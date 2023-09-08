@@ -7,9 +7,9 @@ import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.lifecycle.LifecycleOwner
 import com.example.proposeapplication.domain.repository.CameraRepository
-import com.example.proposeapplication.utils.datasource.CameraDataSourceImpl
-import com.example.proposeapplication.utils.datasource.FileHandleDataSourceImpl
-import com.example.proposeapplication.utils.datasource.ImageProcessDataSourceImpl
+import com.example.proposeapplication.data.datasource.CameraDataSourceImpl
+import com.example.proposeapplication.data.datasource.FileHandleDataSourceImpl
+import com.example.proposeapplication.data.datasource.ImageProcessDataSourceImpl
 import javax.inject.Inject
 import javax.inject.Singleton
 

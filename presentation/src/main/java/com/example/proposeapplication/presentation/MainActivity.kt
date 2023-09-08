@@ -84,11 +84,18 @@ class MainActivity : AppCompatActivity() {
             composable(route = page.Setting.name) {
                 SettingScreen.Screen()
             }
+            composable(route = page.ModelDownloadRequest.name) {
+
+            }
+            composable(route = page.ModelDownloadProgress.name) {
+
+            }
         }
     }
 
     enum class page {
-        Splash, //로딩화면
+        ModelDownloadProgress,//모델 다운로드 화면
+        ModelDownloadRequest, //모델 다운로드 요청 화면
         Perm, //권한 화면
         Cam, //카메라 화면
         Setting,//설정화면

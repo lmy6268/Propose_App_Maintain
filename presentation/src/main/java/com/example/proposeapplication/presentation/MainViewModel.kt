@@ -1,17 +1,16 @@
 package com.example.proposeapplication.presentation
 
-import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.proposeapplication.domain.usecase.ai.CheckForDownloadModelUseCase
+import com.example.proposeapplication.domain.usecase.ai.DownloadModelUseCase
 import com.example.proposeapplication.domain.usecase.ai.RecommendCompInfoUseCase
 import com.example.proposeapplication.domain.usecase.ai.RecommendPoseUseCase
 import com.example.proposeapplication.domain.usecase.camera.CaptureImageUseCase
@@ -19,9 +18,9 @@ import com.example.proposeapplication.domain.usecase.camera.GetLatestImageUseCas
 import com.example.proposeapplication.domain.usecase.camera.SetZoomLevelUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowFixedScreenUseCase
 import com.example.proposeapplication.domain.usecase.camera.ShowPreviewUseCase
+import com.example.proposeapplication.utils.DownloadInfo
 import com.example.proposeapplication.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -32,6 +31,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     //UseCases
+    private val checkForDownloadModelUseCase: CheckForDownloadModelUseCase,
+    private val downloadModelUseCase: DownloadModelUseCase,
     private val showPreviewUseCase: ShowPreviewUseCase,
     private val captureImageUseCase: CaptureImageUseCase,
     private val showFixedScreenUseCase: ShowFixedScreenUseCase,
@@ -40,7 +41,7 @@ class MainViewModel @Inject constructor(
     private val recommendPoseUseCase: RecommendPoseUseCase,
     private val getLatestImageUseCase: GetLatestImageUseCase
 ) : ViewModel() {
-    //Switches
+
 
     // 고정 화면 요청 on/off
     val reqFixedScreenState = MutableStateFlow(false).apply {
@@ -48,8 +49,7 @@ class MainViewModel @Inject constructor(
             collectLatest {
                 if (it) {
                     _edgeDetectBitmapState.value = null //이미지
-                    _edgeDetectBitmapState.value =
-                        showFixedScreenUseCase()
+                    _edgeDetectBitmapState.value = showFixedScreenUseCase()
                     this@apply.update { false }
                 }
             }
@@ -57,6 +57,13 @@ class MainViewModel @Inject constructor(
     }
     private val reqPoseState = MutableStateFlow(false)// 포즈 추천 요청 on/off
     private val reqCompState = MutableStateFlow(false) // 구도 추천 요청 on/off
+
+    private val viewRateList = listOf(
+        Pair(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY, 3 / 4F),
+        Pair(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY, 6 / 19F)
+    )
+    private val _viewRateIdxState = MutableStateFlow(0)
+    private val _viewRateState = MutableStateFlow(viewRateList[0])
 
 
     //Result Holder
@@ -71,14 +78,17 @@ class MainViewModel @Inject constructor(
     )
     private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
     private val _compResultState = MutableStateFlow("")
-    private val _downloadResultState = MutableStateFlow(mutableMapOf<String, Long>())
+    private val _downloadInfoState = MutableStateFlow(DownloadInfo())
+
 
     //State Getter
     val edgeDetectBitmapState = _edgeDetectBitmapState.asStateFlow() //고정 이미지의 상태를 저장해두는 변수
     val capturedBitmapState = _capturedBitmapState.asStateFlow()
     val poseResultState = _poseResultState.asStateFlow()
     val compResultState = _compResultState.asStateFlow()
-    val downloadResultState = _downloadResultState.asStateFlow()
+    val downloadInfoState = _downloadInfoState.asStateFlow()
+    val viewRateIdxState = _viewRateIdxState.asStateFlow()
+    val viewRateState = _viewRateState.asStateFlow()
 
 
     //매 프레임의 image를 수신함.
@@ -89,8 +99,7 @@ class MainViewModel @Inject constructor(
                 reqPoseState.value = false
                 _poseResultState.value = Pair(null, null)
                 viewModelScope.launch {
-                    _poseResultState.value =
-                        recommendPoseUseCase(adjustRotationInfo(image))
+                    _poseResultState.value = recommendPoseUseCase(adjustRotationInfo(image))
                 }
 
 
@@ -112,16 +121,11 @@ class MainViewModel @Inject constructor(
         ratio: AspectRatioStrategy
     ) {
         showPreviewUseCase(
-            lifecycleOwner,
-            surfaceProvider,
-            ratio,
-            analyzer = imageAnalyzer
-
+            lifecycleOwner, surfaceProvider, ratio, analyzer = imageAnalyzer
         )
     }
 
     fun getPhoto(
-
     ) {
         viewModelScope.launch {
             _capturedBitmapState.value = captureImageUseCase()
@@ -129,14 +133,12 @@ class MainViewModel @Inject constructor(
     }
 
     fun reqPoseRecommend() {
-        if (reqPoseState.value.not())
-            reqPoseState.value = true
+        if (reqPoseState.value.not()) reqPoseState.value = true
     }
 
 
     fun reqCompRecommend() {
-        if (reqCompState.value.not())
-            reqCompState.value = true
+        if (reqCompState.value.not()) reqCompState.value = true
     }
 
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
@@ -152,8 +154,32 @@ class MainViewModel @Inject constructor(
         )
     }
 
+    fun changeViewRate(idx: Int) {
+        _viewRateIdxState.value = idx
+        _viewRateState.value = viewRateList[idx]
+    }
+
+    fun testS3() {
+        viewModelScope.launch {
+            checkForDownloadModelUseCase(_downloadInfoState)
+        }
+    }
+
+    fun checkForDownloadModel() {
+        viewModelScope.launch {
+            _downloadInfoState.value = DownloadInfo(state = DownloadInfo.ON_REQUEST)
+            checkForDownloadModelUseCase(_downloadInfoState)
+        }
+    }
+
+    fun reqDownloadModel() {
+        viewModelScope.launch {
+            _downloadInfoState.value = DownloadInfo(state = DownloadInfo.ON_REQUEST)
+            downloadModelUseCase(_downloadInfoState)
+        }
+    }
+
     //최근 이미지
-    fun lastImage() =
-        getLatestImageUseCase()
+    fun lastImage() = getLatestImageUseCase()
 
 }

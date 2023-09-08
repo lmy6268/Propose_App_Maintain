@@ -1,8 +1,8 @@
-package com.example.proposeapplication.utils.datasource
+package com.example.proposeapplication.data.datasource
 
 import android.content.Context
 import android.graphics.Bitmap
-import com.example.proposeapplication.utils.datasource.interfaces.ModelRunner
+import com.example.proposeapplication.data.datasource.interfaces.ModelRunner
 import org.opencv.core.Size
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader

@@ -17,6 +17,10 @@ val typography = Typography(
     defaultFontFamily = PretendardFamily,
     h1 = TextStyle(
         fontWeight = FontWeight.Bold,
+        fontSize = 15.sp
+    ),
+    h2 = TextStyle(
+        fontWeight = FontWeight.Bold,
         fontSize = 12.sp
     )
 //    button = TextStyle(

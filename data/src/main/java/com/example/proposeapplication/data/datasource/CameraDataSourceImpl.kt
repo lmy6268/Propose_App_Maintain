@@ -1,4 +1,4 @@
-package com.example.proposeapplication.utils.datasource
+package com.example.proposeapplication.data.datasource
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -6,8 +6,10 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
 import android.util.Size
+import androidx.annotation.OptIn
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalZeroShutterLag
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.Analyzer
 import androidx.camera.core.ImageCapture
@@ -20,7 +22,7 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.example.proposeapplication.utils.datasource.interfaces.CameraDataSource
+import com.example.proposeapplication.data.datasource.interfaces.CameraDataSource
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.opencv.android.OpenCVLoader
@@ -31,12 +33,12 @@ import kotlin.coroutines.resumeWithException
 class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
     private lateinit var cameraProvider: ProcessCameraProvider
-    private lateinit var preview: Preview
-    private lateinit var imageCapture: ImageCapture
-    private lateinit var imageAnalysis: ImageAnalysis
-    private lateinit var fixedImageAnalysis: ImageAnalysis
+    private var preview: Preview? = null
+    private var imageCapture: ImageCapture? = null
+    private var imageAnalysis: ImageAnalysis? = null
     private lateinit var executor: Executor
-    private lateinit var camera: Camera
+    private var camera: Camera? = null
+    private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
 
     override fun showPreview(
         lifecycleOwner: LifecycleOwner,
@@ -45,8 +47,11 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         analyzer: Analyzer
     ) {
         OpenCVLoader.initDebug()
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-        executor = ContextCompat.getMainExecutor(context) //현재 애플리케이션의 메인 스레드의 Executor를 가져온다.
+        cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        executor = ContextCompat.getMainExecutor(context)
+
+
+        //현재 애플리케이션의 메인 스레드의 Executor를 가져온다.
         cameraProviderFuture.addListener(
             makeCameraListener(
                 lifecycleOwner,
@@ -58,8 +63,8 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         )
     }
 
-    override suspend fun takePhoto(): Bitmap = suspendCancellableCoroutine<Bitmap> { cont ->
-        imageCapture.takePicture(executor, object : ImageCapture.OnImageCapturedCallback() {
+    override suspend fun takePhoto(): Bitmap = suspendCancellableCoroutine { cont ->
+        imageCapture!!.takePicture(executor, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 image.use { imageProxy ->
                     // 원본 이미지를 획득함
@@ -86,6 +91,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     }
 
 
+    @OptIn(ExperimentalZeroShutterLag::class)
     @SuppressLint("RestrictedApi")
     private fun makeCameraListener(
         lifecycleOwner: LifecycleOwner,
@@ -95,7 +101,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         analyzer: Analyzer
     ) = Runnable {
         cameraProvider = cameraProviderFuture.get()
-        //기본은 480XX640이라 수정이 필요함.
         val ratioSelector = ResolutionSelector.Builder()
             .setResolutionStrategy(
                 ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY
@@ -124,7 +129,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         imageAnalysis =
             ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .setResolutionSelector(analyzerRatioSelector)
                 .build()
                 .apply {
@@ -133,18 +137,13 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                     )
                 }
 
-
-
-
-
-
         try {
             cameraProvider.unbindAll()
             camera = cameraProvider.bindToLifecycle(
                 lifecycleOwner, // Use the provided lifecycle owner
                 cameraSelector, preview, imageCapture, imageAnalysis
             )
-            Log.d("Camera : ", camera.cameraInfo.cameraSelector.cameraFilterSet.toString())
+            Log.d("CameraStatus: ", camera!!.cameraInfo.cameraState.value.toString())
             // Now you have the CameraControl instance if you need it
         } catch (exc: Exception) {
             // Handle camera initialization error
@@ -158,6 +157,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 //        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio
 //        val maxValue = camera.cameraInfo.zoomState.value!!.maxZoomRatio
 //        Log.d("MIN/MAX ZoomRatio: ","$minValue/$maxValue")
-        camera.cameraControl.setZoomRatio(zoomLevel)
+        camera!!.cameraControl.setZoomRatio(zoomLevel)
     }
 }

@@ -135,8 +135,9 @@ object CameraModules {
         text: List<String>,
         type: String,
         isExpandedState: MutableState<Boolean>,
-        selectedState: MutableIntState?,
-        modifier: Modifier = Modifier
+        modifier: Modifier = Modifier,
+        viewRateIdx: Int,
+        onClick: (Int) -> Unit,
     ) {
         Box(modifier = modifier
             .apply {
@@ -151,12 +152,15 @@ object CameraModules {
 
         ) {
 
-            if (isExpandedState.value) Row(Modifier.fillMaxWidth()) {
+            if (isExpandedState.value) Row(
+                Modifier
+                    .fillMaxWidth()
+                    .offset(x = 20.dp)
+            ) {
                 Box(
                     Modifier.background(
                         color = Color(0x80FAFAFA), shape = RoundedCornerShape(30.dp)
                     )
-
                 ) {
                     //닫는 버튼
                     IconButton(modifier = Modifier.heightIn(30.dp),
@@ -179,14 +183,14 @@ object CameraModules {
                             .padding(horizontal = 40.dp),
                         horizontalArrangement = Arrangement.SpaceAround,
                     ) {
-                        for (i in text.indices) {
+                        for (idx in text.indices) {
                             Text(modifier = Modifier.clickable(indication = null,
                                 interactionSource = remember { MutableInteractionSource() }) {
-                                selectedState!!.intValue = i
+                                onClick(idx)
                             },
-                                text = text[i],
+                                text = text[idx],
                                 fontSize = 12.sp,
-                                fontWeight = if (i == selectedState!!.intValue) FontWeight.Bold else FontWeight.Light,
+                                fontWeight = if (viewRateIdx == idx) FontWeight.Bold else FontWeight.Light,
                                 textAlign = TextAlign.Center
                             )
 
@@ -205,12 +209,11 @@ object CameraModules {
                     tint = Color.Unspecified,
                     contentDescription = type
                 )
-                if (selectedState != null) {
-                    Text(
-                        text = text[selectedState.intValue], //화면 비 글씨 표기
-                        fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
-                    )
-                }
+                Text(
+                    text = text[viewRateIdx], //화면 비 글씨 표기
+                    fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
+                )
+
             }
 
         }
@@ -221,22 +224,21 @@ object CameraModules {
     fun UpperButtons(
         modifier: Modifier = Modifier,
         navController: NavHostController,
-        selectedViewRateIdxState: MutableIntState,
-        selectedModeIdxState: MutableIntState,
+        viewRateIdx: Int,
         mainColor: Color = MaterialTheme.colors.primary,
         mainTextColor: Color = MaterialTheme.colors.onPrimary,
         subColor: Color = MaterialTheme.colors.onSecondary,
-        subTextColor: Color = MaterialTheme.colors.onSecondary
+        subTextColor: Color = MaterialTheme.colors.onSecondary,
+        selectedModeIdxState: MutableIntState,
+        viewRateClickEvent: (Int) -> Unit
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
         }
         val viewRateList = stringArrayResource(id = R.array.view_rates)
-
-
         Row(
             modifier = modifier
-                .padding(20.dp)
+                .padding(10.dp)
                 .fillMaxWidth()
                 .height(50.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -246,8 +248,10 @@ object CameraModules {
             ExpandableButton(
                 text = viewRateList.toList(),
                 type = "비율",
-                isExpandedState,
-                selectedViewRateIdxState,
+                viewRateIdx = viewRateIdx,
+                isExpandedState = isExpandedState,
+                onClick = viewRateClickEvent
+
             )
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
@@ -291,11 +295,13 @@ object CameraModules {
 
     @Composable
     fun LowerButtons(
+        captureBtnClickState: MutableState<Boolean>,
         selectedModeIdxState: MutableIntState,
         modifier: Modifier = Modifier,
         isPressedFixedBtn: MutableState<Boolean>,
         capturedThumbnailBitmap: Bitmap, //캡쳐된 이미지의 썸네일을 받아옴.
-        mainViewModel: MainViewModel
+        mainViewModel: MainViewModel,
+        poseBtnClickEvent: () -> Unit
     ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isPressed by interactionSource.collectIsPressedAsState()
@@ -330,7 +336,7 @@ object CameraModules {
             Row(horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally)) {
                 if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1)
                     IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
-                        mainViewModel.reqPoseRecommend()
+                        poseBtnClickEvent()
                     }) {
                         Icon(
                             painterResource(id = R.drawable.based_circle),
@@ -345,24 +351,24 @@ object CameraModules {
                             text = "포즈\n추천"
                         )
                     }
-                if (selectedModeIdxState.intValue == 2 || selectedModeIdxState.intValue == 1)
-                    IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
-                        mainViewModel.reqCompRecommend()
-                    }) {
-                        Icon(
-                            painterResource(id = R.drawable.based_circle),
-                            tint = Color(0x80000000),
-                            contentDescription = "background",
-
-                            )
-                        Text(
-                            style = TextStyle(
-                                color = Color.White,
-                                fontSize = 10.sp
-                            ),
-                            text = "구도\n추천"
-                        )
-                    }
+//                if (selectedModeIdxState.intValue == 2 || selectedModeIdxState.intValue == 1)
+//                    IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
+//                        mainViewModel.reqCompRecommend()
+//                    }) {
+//                        Icon(
+//                            painterResource(id = R.drawable.based_circle),
+//                            tint = Color(0x80000000),
+//                            contentDescription = "background",
+//
+//                            )
+//                        Text(
+//                            style = TextStyle(
+//                                color = Color.White,
+//                                fontSize = 10.sp
+//                            ),
+//                            text = "구도\n추천"
+//                        )
+//                    }
 
                 Row {
                     listOf("1", "2").forEachIndexed { index, str ->
@@ -383,7 +389,7 @@ object CameraModules {
                             )
                             Text(
                                 text = if (index == zoomState.intValue) "${str}X" else str,
-                                style = MaterialTheme.typography.h1,
+                                style = MaterialTheme.typography.h2,
                                 fontWeight = if (index == zoomState.intValue) FontWeight.Bold else FontWeight.Light,
                                 color = if (index == zoomState.intValue) Color(0xFFFFFFFF) else Color(
                                     0xFF000000
@@ -432,6 +438,7 @@ object CameraModules {
                     interactionSource = interactionSource
                 ) {
                     mainViewModel.getPhoto()
+                    captureBtnClickState.value = true
                 }) {
                     Icon(
                         modifier = Modifier.size(80.dp),
@@ -576,12 +583,12 @@ object CameraModules {
 @Preview
 @Composable
 fun PreviewExpandableBtn() {
-    ExpandableButton(text = listOf("Test", "TT"),
+    ExpandableButton(
+        text = listOf("Test", "TT"),
         type = "테스트",
         isExpandedState = remember { mutableStateOf(false) },
-        selectedState = remember {
-            mutableIntStateOf(0)
-        })
+        viewRateIdx = 0,
+    ) {}
 }
 
 @Preview

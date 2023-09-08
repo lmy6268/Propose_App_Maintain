@@ -17,9 +17,7 @@ interface CameraRepository {
         surfaceProvider: Preview.SurfaceProvider,
         ratio: AspectRatioStrategy,
         analyzer: ImageAnalysis.Analyzer,
-
-
-        )
+    )
 
     suspend fun takePhoto(): Bitmap
     fun setZoomRatio(zoomLevel: Float)

@@ -1,4 +1,4 @@
-package com.example.proposeapplication.utils.datasource.interfaces
+package com.example.proposeapplication.data.datasource.interfaces
 
 import android.graphics.Bitmap
 import androidx.camera.core.ImageAnalysis
