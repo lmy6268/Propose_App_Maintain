@@ -1,15 +1,13 @@
 package com.example.proposeapplication.data
 
 import android.content.Context
-import android.graphics.Bitmap
+import androidx.annotation.OptIn
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
-import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.lifecycle.LifecycleOwner
-import com.example.proposeapplication.domain.repository.CameraRepository
 import com.example.proposeapplication.data.datasource.CameraDataSourceImpl
-import com.example.proposeapplication.data.datasource.FileHandleDataSourceImpl
 import com.example.proposeapplication.data.datasource.ImageProcessDataSourceImpl
+import com.example.proposeapplication.domain.repository.CameraRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,20 +18,29 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     private val cameraDataSource by lazy {
         CameraDataSourceImpl(applicationContext)
     }
+    private val imageProcessDataSourceImpl by lazy {
+        ImageProcessDataSourceImpl()
+    }
 
 
-    override fun initPreview(
+    override fun initCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
-        ratio: AspectRatioStrategy,
+        aspectRatio: Int,
+        previewRotation: Int,
         analyzer: ImageAnalysis.Analyzer,
 
-    ) = cameraDataSource.showPreview(
-        lifecycleOwner, surfaceProvider, ratio,analyzer
+        ) = cameraDataSource.initCamera(
+        lifecycleOwner, surfaceProvider, aspectRatio, previewRotation, analyzer
     )
 
-
-    override suspend fun takePhoto(): Bitmap = cameraDataSource.takePhoto()
+    @OptIn(androidx.camera.core.ExperimentalGetImage::class)
+    override suspend fun takePhoto() =
+        cameraDataSource.takePhoto().let { data ->
+            data.use {
+                imageProcessDataSourceImpl.imageToBitmap(data.image!!,data.imageInfo.rotationDegrees)
+            }
+        }
 
 
     override fun setZoomRatio(zoomLevel: Float) =

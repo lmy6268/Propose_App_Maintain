@@ -9,7 +9,10 @@ class ShowFixedScreenUseCase @Inject constructor(
     private val imageRepository: ImageRepository,
     private val cameraRepository: CameraRepository
 ) {
-    suspend operator fun invoke() = imageRepository.getFixedScreen(cameraRepository.takePhoto())
+    suspend operator fun invoke() =
+        imageRepository.getFixedScreen(
+            cameraRepository.takePhoto()
+        )
 
 
 }

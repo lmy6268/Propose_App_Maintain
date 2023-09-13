@@ -17,7 +17,8 @@ class CaptureImageUseCase @Inject constructor(
     suspend operator fun invoke() =
         suspendCoroutine { cont ->
             CoroutineScope(Dispatchers.IO).launch {
-                val resizedImage = imageRepository.saveImageToGallery(cameraRepository.takePhoto()) // 원본 저장하면, 썸네일 뽑아주기
+                val tmp = cameraRepository.takePhoto()
+                val resizedImage = imageRepository.saveImageToGallery(tmp) // 원본 저장하면, 썸네일 뽑아주기
                 cont.resume(resizedImage)
             }
 

@@ -27,18 +27,14 @@ object PermScreen {
     @Composable
     //권한 설정화면
     fun PermScreen(
-        navController: NavHostController,
-        multiplePermissionsState: MultiplePermissionsState
+        multiplePermissionsState: MultiplePermissionsState,
+        moveToCamera: () -> Unit
     ) {
         val needToCheck = remember { mutableStateOf(false) }
         //https://hanyeop.tistory.com/452 참고함.
         LaunchedEffect(Unit) {
             if (needToCheck.value) {
-                if (multiplePermissionsState.allPermissionsGranted) navController.navigate(
-                    MainActivity.page.Cam.name
-                ) {
-                    popUpTo(MainActivity.page.Perm.name) { inclusive = true }
-                }
+                if (multiplePermissionsState.allPermissionsGranted) moveToCamera()
                 else needToCheck.value = false
             }
         }

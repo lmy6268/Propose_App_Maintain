@@ -10,9 +10,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -30,16 +33,18 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,27 +53,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavHostController
-import com.example.proposeapplication.presentation.MainViewModel
 import com.example.proposeapplication.presentation.R
 import com.example.proposeapplication.presentation.ui.PretendardFamily
 import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
 import com.example.proposeapplication.presentation.view.camera.CameraModules.ExpandableButton
+import com.example.proposeapplication.utils.pose.PoseData
 import kotlinx.coroutines.delay
 
 
@@ -259,8 +264,7 @@ object CameraModules {
                     selectedModeIdxState,
                 )
                 NormalButton(
-                    buttonName = "설정",
-                    iconDrawableId = R.drawable.settings
+                    buttonName = "설정", iconDrawableId = R.drawable.settings
                 ) {
                     //설정화면으로 이동
                 }
@@ -293,105 +297,114 @@ object CameraModules {
         }
     }
 
+    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     @Composable
     fun LowerButtons(
-        captureBtnClickState: MutableState<Boolean>,
         selectedModeIdxState: MutableIntState,
         modifier: Modifier = Modifier,
-        isPressedFixedBtn: MutableState<Boolean>,
-        capturedThumbnailBitmap: Bitmap, //캡쳐된 이미지의 썸네일을 받아옴.
-        mainViewModel: MainViewModel,
-        poseBtnClickEvent: () -> Unit
+        capturedImageBitmap: Bitmap, //캡쳐된 이미지의 썸네일을 받아옴.
+        fixedButtonPressedEvent: () -> Unit = {}, //고정 버튼 누름 이벤트 인식
+        poseBtnClickEvent: () -> Unit = {},
+        captureImageEvent: () -> Unit = { },
+        zoomInOutEvent: (Float) -> Unit = {}
     ) {
+        val isFixedBtnPressed = remember {
+            mutableStateOf(false)
+        }
+        val fixedBtnImage =
+            if (isFixedBtnPressed.value) R.drawable.fixbutton_fixed
+            else R.drawable.fixbutton_unfixed
         val interactionSource = remember { MutableInteractionSource() }
         val isPressed by interactionSource.collectIsPressedAsState()
         val isFocused by interactionSource.collectIsFocusedAsState()
-        val isCaptured = remember {
-            mutableStateOf(false)
-        }
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult()
         ) {
 
         }
 
+
         //현재 줌 상태
         val zoomState = remember {
-            mutableIntStateOf(0)
+            mutableStateOf("")
         }
 
         //버튼 이미지 배치
         val buttonImg = if (isPressed) R.drawable.ic_shutter_pressed
         else if (isFocused) R.drawable.ic_shutter_focused
         else R.drawable.ic_shutter_normal
-        val fixedButtonImg = if (isPressedFixedBtn.value) R.drawable.fixbutton_fixed
-        else R.drawable.fixbutton_unfixed
 
         Column(
-            modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = modifier,
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterVertically)
-
         ) {
             //첫번째 단
-            Row(horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally)) {
-                if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1)
-                    IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
+            Row(
+                horizontalArrangement = Arrangement.SpaceAround,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1) IconButton(
+                    modifier = Modifier.heightIn(15.dp),
+                    onClick = {
                         poseBtnClickEvent()
                     }) {
-                        Icon(
-                            painterResource(id = R.drawable.based_circle),
-                            tint = Color(0x80000000),
-                            contentDescription = "background",
-                        )
-                        Text(
-                            style = TextStyle(
-                                color = Color.White,
-                                fontSize = 10.sp
-                            ),
-                            text = "포즈\n추천"
-                        )
-                    }
-//                if (selectedModeIdxState.intValue == 2 || selectedModeIdxState.intValue == 1)
-//                    IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
-//                        mainViewModel.reqCompRecommend()
-//                    }) {
-//                        Icon(
-//                            painterResource(id = R.drawable.based_circle),
-//                            tint = Color(0x80000000),
-//                            contentDescription = "background",
-//
-//                            )
-//                        Text(
-//                            style = TextStyle(
-//                                color = Color.White,
-//                                fontSize = 10.sp
-//                            ),
-//                            text = "구도\n추천"
-//                        )
-//                    }
+                    Icon(
+                        painterResource(id = R.drawable.based_circle),
+                        tint = Color(
+                            0x80000000
+                        ),
+                        contentDescription = "background",
+                    )
+                    Text(
+                        style = TextStyle(
+                            color = Color.White, fontSize = 10.sp
+                        ), text = "포즈\n추천"
+                    )
+                }
+                else IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
+
+                }) {
+                    Icon(
+                        painterResource(id = R.drawable.based_circle),
+                        tint = Color(
+                            0x00000000
+                        ),
+                        modifier = Modifier.size(15.dp),
+                        contentDescription = "background",
+                    )
+                    Text(
+                        style = TextStyle(
+                            color = Color(
+                                0x00000000
+                            ), fontSize = 10.sp
+                        ), text = "포즈\n추천"
+                    )
+                }
+
 
                 Row {
-                    listOf("1", "2").forEachIndexed { index, str ->
+                    listOf("1", "2").forEach { str ->
                         IconButton(
                             onClick = {
-                                zoomState.intValue = index
-                                mainViewModel.setZoomLevel(str.toFloat())
+                                zoomState.value = str
+                                zoomInOutEvent(str.toFloat())
                             },
                         ) {
                             Icon(
                                 modifier = Modifier.apply {
-                                    if (index == zoomState.intValue) sizeIn(50.dp)
+                                    if (str == zoomState.value) sizeIn(50.dp)
                                     else sizeIn(10.dp)
                                 },
                                 painter = painterResource(id = R.drawable.based_circle),
-                                tint = if (index == zoomState.intValue) Color(0xFF000000) else Color.Unspecified,
+                                tint = if (str == zoomState.value) Color(0xFF000000) else Color.Unspecified,
                                 contentDescription = "줌버튼"
                             )
                             Text(
-                                text = if (index == zoomState.intValue) "${str}X" else str,
+                                text = if (str == zoomState.value) "${str}X" else str,
                                 style = MaterialTheme.typography.h2,
-                                fontWeight = if (index == zoomState.intValue) FontWeight.Bold else FontWeight.Light,
-                                color = if (index == zoomState.intValue) Color(0xFFFFFFFF) else Color(
+                                fontWeight = if (str == zoomState.value) FontWeight.Bold else FontWeight.Light,
+                                color = if (str == zoomState.value) Color(0xFFFFFFFF) else Color(
                                     0xFF000000
                                 ),
                             )
@@ -399,12 +412,29 @@ object CameraModules {
 
                     }
                 }
+                IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
+
+                }) {
+                    Icon(
+                        painterResource(id = R.drawable.based_circle),
+                        tint = Color(0x80000000),
+                        contentDescription = "background",
+                    )
+                    Text(
+                        style = TextStyle(
+                            color = Color.White, fontSize = 10.sp
+                        ), text = "따오기"
+                    )
+                }
 
 
             }
             //두번쨰 단
             Row(
-                horizontalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(
+                    30.dp,
+                    Alignment.CenterHorizontally
+                ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 //캡쳐 썸네일 이미지 뷰 -> 원형으로 표사
@@ -423,13 +453,7 @@ object CameraModules {
                             openGallery(launcher)
                         },
                     contentScale = ContentScale.Crop,
-                    bitmap =
-                    capturedThumbnailBitmap.asImageBitmap()
-//                        .let {
-//                        //가장 최근 이미지를 화면에 띄워주는 로직
-//                        mainViewModel.lastImage() ?: it
-//                    }.asImageBitmap(),
-                    ,
+                    bitmap = capturedImageBitmap.asImageBitmap(),
                     contentDescription = "캡쳐된 이미지"
                 )
                 //캡쳐 버튼
@@ -437,8 +461,7 @@ object CameraModules {
                     indication = null, //Ripple 효과 제거
                     interactionSource = interactionSource
                 ) {
-                    mainViewModel.getPhoto()
-                    captureBtnClickState.value = true
+                    captureImageEvent()
                 }) {
                     Icon(
                         modifier = Modifier.size(80.dp),
@@ -453,11 +476,12 @@ object CameraModules {
                     indication = null, // Remove ripple effect
                     interactionSource = MutableInteractionSource()
                 ) {
-                    isPressedFixedBtn.value = !isPressedFixedBtn.value
+                    isFixedBtnPressed.value = !isFixedBtnPressed.value
+                    fixedButtonPressedEvent()
                 }) {
                     Icon(
                         modifier = Modifier.size(60.dp),
-                        painter = painterResource(id = fixedButtonImg),
+                        painter = painterResource(id = fixedBtnImage),
                         tint = Color.Unspecified,
                         contentDescription = "고정버튼"
                     )
@@ -551,21 +575,132 @@ object CameraModules {
 
     }
 
-
-    //생명주기 추적
     @Composable
-    fun rememberLifecycleEvent(lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current): Lifecycle.Event {
-        var state by remember { mutableStateOf(Lifecycle.Event.ON_ANY) }
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                state = event
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
+    fun PoseResultScreen(
+        modifier: Modifier = Modifier,
+        cameraDisplaySize: State<IntSize>,
+        cameraDisplayPxSize: State<IntSize>,
+        lowerBarDisplayPxSize: State<IntSize>,
+        upperButtonsRowSize: State<IntSize>,
+        poseResultData: Pair<DoubleArray?, List<PoseData>?>?,
+        onVisibilityEvent: () -> Unit
+    ) {
+        val selectedPoseState = remember {
+            mutableIntStateOf(0)
         }
-        return state
+
+        val offset = remember {
+            mutableStateOf(
+                Offset(
+                    cameraDisplayPxSize.value.width / 2f,
+                    cameraDisplayPxSize.value.height / 2f
+                )
+            )
+        }
+        val zoom = remember {
+            mutableFloatStateOf(1F)
+        }
+
+        val transformState =
+            rememberTransformableState { zoomChange, offsetChange, _ ->
+                if (zoom.floatValue * zoomChange in 0.5f..2f) zoom.floatValue *= zoomChange
+                val tmp = offset.value + offsetChange
+                if (tmp.x in -1f..cameraDisplayPxSize.value.width.toFloat() - 1
+                    && tmp.y in -1f..cameraDisplayPxSize.value.height.toFloat() - lowerBarDisplayPxSize.value.height.toFloat() + 20F
+                )
+                    offset.value += offsetChange
+            }
+
+        Box(modifier = modifier) {
+            //만약에 포즈를 추천 중이라면
+            if (poseResultData == null) {
+                CircularProgressIndicator(
+                    modifier = Modifier.sizeIn(30.dp).align(Alignment.Center)
+                )
+            }
+            //만약에 포즈 추천이 완료되었다면
+            else {
+                Box(
+                    Modifier.size(
+                        cameraDisplaySize.value.width.dp,
+                        cameraDisplaySize.value.height.dp
+                    )
+                ) {
+                    IconButton(
+                        onClick = {
+                            onVisibilityEvent()
+                        },
+                        modifier = Modifier
+                            .size(50.dp)
+                            .offset(x = 0.dp, y = upperButtonsRowSize.value.height.dp)
+                            .align(Alignment.TopEnd)
+
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.based_circle),
+                            contentDescription = "배경",
+                            tint = Color.White
+                        )
+                        Icon(
+                            painter = painterResource(id = R.drawable.close),
+                            contentDescription = "포즈 추천 닫기"
+                        )
+                    }
+
+                    IconButton(modifier = Modifier
+                        .size(50.dp)
+                        .offset(x = (-20).dp)
+                        .align(
+                            Alignment.CenterEnd
+                        ), onClick = {
+                        if (selectedPoseState.intValue in 0 until poseResultData.second!!.size) selectedPoseState.intValue += 1
+                        else selectedPoseState.intValue = 0
+                    }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.based_circle),
+                            contentDescription = "배경",
+                            tint = Color.White
+                        )
+                        Icon(
+                            painter = painterResource(id = R.drawable.refresh),
+                            contentDescription = "배경"
+                        )
+                    }
+                }
+
+                Canvas(
+                    modifier = Modifier
+                        .graphicsLayer(
+                            scaleX = zoom.floatValue,
+                            scaleY = zoom.floatValue,
+                            translationX = offset.value.x,
+                            translationY = offset.value.y
+                        )
+                        .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
+                        .transformable(state = transformState)
+                ) {
+                    if (poseResultData.first!!.isNotEmpty()) {
+//                        offset = offset.copy(
+//                            (poseRecPair!!.first!![0] * size.width).toFloat(),
+//                            (poseRecPair!!.first!![0] * size.height).toFloat()
+//                        )
+//                    }
+
+//                    drawImage(
+//                        image = BitmapFactory.decodeResource(
+//                            context.resources,
+//                            poseRecPair!!.second!![nextRecomPoseState.intValue].poseDrawableId
+//                        ).asImageBitmap(),
+//                    )
+                        drawRect(
+                            Color.White,
+                            size = Size(200F, 200F)
+                        )
+                    }
+                }
+            }
+
+        }
     }
 
 
@@ -601,7 +736,7 @@ fun PreviewMode() {
 @Preview
 @Composable
 fun PreviewLower() {
-//    LowerButtons(isPressedFixedBtn =, capturedThumbnailBitmap =, mainViewModel =)
+//    LowerButtons(isPressedFixedBtn =,capturedImageBitmap =, mainViewModel =)
 }
 
 
