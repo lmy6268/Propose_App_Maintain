@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace 'com.example.proposeapplication.utils'
+    namespace 'com.hanadulset.pro_poseapp.utils'
 }
 
 dependencies {

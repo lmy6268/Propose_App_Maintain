@@ -1,8 +1,8 @@
-package com.example.proposeapplication
+package com.hanadulset.pro_poseapp
 
 import androidx.lifecycle.ViewModel
-import com.example.proposeapplication.domain.usecase.PermissionCheckUseCase
-import com.example.proposeapplication.domain.usecase.PermissionRequestUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.PermissionCheckUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.PermissionRequestUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 

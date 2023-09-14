@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace 'com.example.proposeapplication.domain'
+    namespace 'com.hanadulset.pro_poseapp.domain'
 }
 
 dependencies {

@@ -1,4 +1,4 @@
-package com.example.proposeapplication.base
+package com.hanadulset.pro_poseapp.base
 
 import android.content.Context
 import android.os.Build
