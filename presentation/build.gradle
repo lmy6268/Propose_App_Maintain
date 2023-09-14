@@ -16,7 +16,7 @@ android {
         kotlinCompilerVersion '1.8.0'
     }
 
-    namespace 'com.example.proposeapplication.presentation'
+    namespace 'com.hanadulset.pro_poseapp.presentation'
 }
 
 dependencies {
