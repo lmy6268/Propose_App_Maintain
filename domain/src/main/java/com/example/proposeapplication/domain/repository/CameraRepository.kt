@@ -18,7 +18,7 @@ interface CameraRepository {
         analyzer: ImageAnalysis.Analyzer,
     )
 
-    suspend fun takePhoto(): Bitmap
+    suspend fun takePhoto(isFixedRequest: Boolean): Any
     fun setZoomRatio(zoomLevel: Float)
 
 }

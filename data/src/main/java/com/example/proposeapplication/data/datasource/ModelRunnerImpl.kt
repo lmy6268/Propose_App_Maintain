@@ -2,28 +2,23 @@ package com.example.proposeapplication.data.datasource
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import com.example.proposeapplication.data.datasource.interfaces.ModelRunner
 import org.opencv.core.Size
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader
 import org.pytorch.Module
+import org.pytorch.Tensor
 import org.pytorch.torchvision.TensorImageUtils
 import java.io.File
 import java.io.FileOutputStream
 
 class ModelRunnerImpl(private val context: Context) : ModelRunner {
 
-    private val resNetModule by lazy {
-        loadModel("model_resnet.ptl")
-    }
-
-    private val yoloModule by lazy {
-        loadModel("model_yolov5s.ptl")
-    }
-
-    private val bbPredictionModule by lazy {
-        loadModel("model_bbprediction_dqlite.ptl")
-    }
+    private lateinit var resNetModule: Module
+    private lateinit var yoloModule: Module
+    private lateinit var bbPredictionModule: Module
+    private lateinit var vapNetModule: Module
 
 
     private val imageProcessDataSource by lazy {
@@ -32,19 +27,21 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
 
     //path를 알면 로드할 수 있음 .
     override fun loadModel(moduleAssetName: String): Module {
-        val file = File(context.filesDir, moduleAssetName)
-        val path = if (file.exists() && file.length() > 0) file.absolutePath
-        else context.assets.open(moduleAssetName).use { `is` ->
-            FileOutputStream(file).use { os ->
-                val buffer = ByteArray(4 * 1024)
-                var read: Int
-                while (`is`.read(buffer).also { read = it } != -1) {
-                    os.write(buffer, 0, read)
-                }
-                os.flush()
-            }
+        val file = File(context.dataDir, moduleAssetName)
+        val path =
+//            if (file.exists() && file.length() > 0)
             file.absolutePath
-        }
+//        else context.assets.open(moduleAssetName).use { `is` ->
+//            FileOutputStream(file).use { os ->
+//                val buffer = ByteArray(4 * 1024)
+//                var read: Int
+//                while (`is`.read(buffer).also { read = it } != -1) {
+//                    os.write(buffer, 0, read)
+//                }
+//                os.flush()
+//            }
+//            file.absolutePath
+//        }
         return LiteModuleLoader.load(path)
     }
 
@@ -107,6 +104,40 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
 //            }
 //        }.toFloatArray()
         return Pair(mScaleSize, outputs)
+    }
+
+    //모델을 예열한다.
+    override fun preRun() {
+        resNetModule = loadModel("model_resnet.ptl")
+        yoloModule = loadModel("model_yolov5s.ptl")
+        bbPredictionModule = loadModel("model_bbprediction_dqlite.ptl")
+        vapNetModule = loadModel("vapnet.ptl")
+    }
+
+    override fun runVapNet(bitmap: Bitmap) {
+        val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
+
+        val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
+        val stdArray = arrayOf(0.229F, 0.224F, 0.225F).toFloatArray()
+
+        val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
+            resizedBitmap, meanArray, stdArray
+        )
+        val output = vapNetModule
+            .forward(IValue.from(inputTensor))
+        val outputTuple = output.toTuple()
+        val (suggestion, adjustment, magnitude) = Triple<FloatArray, FloatArray, FloatArray>(
+            outputTuple[0].toTensor().dataAsFloatArray,
+            outputTuple[1].toTensor().dataAsFloatArray,
+            outputTuple[2].toTensor().dataAsFloatArray
+        )
+        Log.d("VapNet Result : ", "${suggestion.toList()} , ${adjustment.toList()}, ${magnitude.toList()}")
+//        val threshold = 0.98
+//        if (suggestion[0] > threshold) {
+//            val idx = adjustment.toList().indexOf(adjustment.max())
+//            val magOutPut = magnitude[idx]
+//            Log.d("VapNet Result : ", "idx - $idx, magOutPut - $magOutPut")
+//        }
     }
 
 

@@ -22,7 +22,7 @@ interface CameraDataSource {
         analyzer: ImageAnalysis.Analyzer
     )
 
-    suspend fun takePhoto(): ImageProxy
+    suspend fun takePhoto(isFixedRequest: Boolean): Any
     fun setZoomLevel(zoomLevel: Float)
 
 }

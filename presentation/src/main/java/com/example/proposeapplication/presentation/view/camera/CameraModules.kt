@@ -1,7 +1,8 @@
 package com.example.proposeapplication.presentation.view.camera
 
 import android.content.Intent
-import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -59,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.TextStyle
@@ -74,6 +76,8 @@ import com.example.proposeapplication.presentation.ui.PretendardFamily
 import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
 import com.example.proposeapplication.presentation.view.camera.CameraModules.ExpandableButton
 import com.example.proposeapplication.utils.pose.PoseData
+import com.skydoves.landscapist.CircularReveal
+import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
 
 
@@ -302,7 +306,7 @@ object CameraModules {
     fun LowerButtons(
         selectedModeIdxState: MutableIntState,
         modifier: Modifier = Modifier,
-        capturedImageBitmap: Bitmap, //캡쳐된 이미지의 썸네일을 받아옴.
+        capturedImageBitmap: Uri?, //캡쳐된 이미지의 썸네일을 받아옴.
         fixedButtonPressedEvent: () -> Unit = {}, //고정 버튼 누름 이벤트 인식
         poseBtnClickEvent: () -> Unit = {},
         captureImageEvent: () -> Unit = { },
@@ -326,7 +330,7 @@ object CameraModules {
 
         //현재 줌 상태
         val zoomState = remember {
-            mutableStateOf("")
+            mutableStateOf("1")
         }
 
         //버튼 이미지 배치
@@ -438,7 +442,9 @@ object CameraModules {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 //캡쳐 썸네일 이미지 뷰 -> 원형으로 표사
-                Image(
+
+                GlideImage(
+                    imageModel = capturedImageBitmap,
                     modifier = Modifier
                         .size(60.dp)
                         .clip(CircleShape)
@@ -453,7 +459,7 @@ object CameraModules {
                             openGallery(launcher)
                         },
                     contentScale = ContentScale.Crop,
-                    bitmap = capturedImageBitmap.asImageBitmap(),
+                    circularReveal = CircularReveal(duration = 250),
                     contentDescription = "캡쳐된 이미지"
                 )
                 //캡쳐 버튼
@@ -585,6 +591,7 @@ object CameraModules {
         poseResultData: Pair<DoubleArray?, List<PoseData>?>?,
         onVisibilityEvent: () -> Unit
     ) {
+        val context = LocalContext.current
         val selectedPoseState = remember {
             mutableIntStateOf(0)
         }
@@ -615,7 +622,9 @@ object CameraModules {
             //만약에 포즈를 추천 중이라면
             if (poseResultData == null) {
                 CircularProgressIndicator(
-                    modifier = Modifier.sizeIn(30.dp).align(Alignment.Center)
+                    modifier = Modifier
+                        .sizeIn(30.dp)
+                        .align(Alignment.Center)
                 )
             }
             //만약에 포즈 추천이 완료되었다면
@@ -679,7 +688,7 @@ object CameraModules {
                         .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
                         .transformable(state = transformState)
                 ) {
-                    if (poseResultData.first!!.isNotEmpty()) {
+//                    if (poseResultData.first!!.isNotEmpty()) {
 //                        offset = offset.copy(
 //                            (poseRecPair!!.first!![0] * size.width).toFloat(),
 //                            (poseRecPair!!.first!![0] * size.height).toFloat()
@@ -688,15 +697,15 @@ object CameraModules {
 
 //                    drawImage(
 //                        image = BitmapFactory.decodeResource(
-//                            context.resources,
-//                            poseRecPair!!.second!![nextRecomPoseState.intValue].poseDrawableId
+//                            context.resources, poseResultData.second!![selectedPoseState.intValue
+//                            ].poseDrawableId
 //                        ).asImageBitmap(),
 //                    )
                         drawRect(
                             Color.White,
                             size = Size(200F, 200F)
                         )
-                    }
+//                    }
                 }
             }
 

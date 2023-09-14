@@ -1,6 +1,7 @@
 package com.example.proposeapplication.presentation
 
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -45,17 +46,18 @@ class CameraViewModel @Inject constructor(
 
     private val viewRateList = listOf(
         Pair(AspectRatio.RATIO_4_3, 3 / 4F),
-        Pair(AspectRatio.RATIO_16_9, 6 / 19F)
+        Pair(AspectRatio.RATIO_16_9, 9 / 16F)
     )
     private val _viewRateIdxState = MutableStateFlow(0)
     private val _viewRateState = MutableStateFlow(viewRateList[0].first)
     private val _aspectRatioState = MutableStateFlow(viewRateList[0].second)
 
 
-    private val _capturedBitmapState = MutableStateFlow( //캡쳐된 이미지 상태
-        Bitmap.createBitmap(
-            100, 100, Bitmap.Config.ARGB_8888
-        )
+    private val _capturedBitmapState = MutableStateFlow<Uri?>( //캡쳐된 이미지 상태
+//        Bitmap.createBitmap(
+//            100, 100, Bitmap.Config.ARGB_8888
+//        )
+        null
     )
     private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
     private val _compResultState = MutableStateFlow("")
@@ -80,6 +82,7 @@ class CameraViewModel @Inject constructor(
             //포즈 선정 로직
             if (reqPoseState.value) {
                 reqPoseState.value = false
+//                _poseResultState.value = null
                 viewModelScope.launch {
                     _poseResultState.value = recommendPoseUseCase(
                         image = image.image!!,

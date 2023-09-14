@@ -11,7 +11,7 @@ class ShowFixedScreenUseCase @Inject constructor(
 ) {
     suspend operator fun invoke() =
         imageRepository.getFixedScreen(
-            cameraRepository.takePhoto()
+            cameraRepository.takePhoto(isFixedRequest = true) as Bitmap
         )
 
 

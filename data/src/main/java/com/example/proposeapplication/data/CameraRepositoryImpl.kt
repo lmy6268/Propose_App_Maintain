@@ -1,8 +1,10 @@
 package com.example.proposeapplication.data
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.annotation.OptIn
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import com.example.proposeapplication.data.datasource.CameraDataSourceImpl
@@ -35,12 +37,18 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     )
 
     @OptIn(androidx.camera.core.ExperimentalGetImage::class)
-    override suspend fun takePhoto() =
-        cameraDataSource.takePhoto().let { data ->
-            data.use {
-                imageProcessDataSourceImpl.imageToBitmap(data.image!!,data.imageInfo.rotationDegrees)
+    override suspend fun takePhoto(isFixedRequest: Boolean) =
+        cameraDataSource.takePhoto(isFixedRequest)
+            .let { data ->
+                if (data is ImageProxy)
+                    data.use {
+                        imageProcessDataSourceImpl.imageToBitmap(
+                            data.image!!,
+                            data.imageInfo.rotationDegrees
+                        )
+                    }
+                else data
             }
-        }
 
 
     override fun setZoomRatio(zoomLevel: Float) =

@@ -1,7 +1,12 @@
 package com.example.proposeapplication.data.datasource
 
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.Camera
@@ -14,16 +19,23 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.R
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.example.proposeapplication.data.datasource.interfaces.CameraDataSource
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.opencv.android.OpenCVLoader
+import java.text.SimpleDateFormat
+import java.util.Locale
 import java.util.concurrent.ExecutionException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
@@ -69,31 +81,39 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             }, executor)
         } else bindCameraUseCases(
             surfaceProvider = surfaceProvider,
-            previewRotation = aspectRatio,
+            previewRotation = previewRotation,
             lifecycleOwner = lifecycleOwner,
             analyzer = analyzer,
-            aspectRatio = previewRotation
+            aspectRatio = aspectRatio
         )
 
     }
 
 
-    override suspend fun takePhoto() = suspendCancellableCoroutine { cont ->
-        imageCapture!!.takePicture(executor,
-            object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    // 원본 이미지를 획득함
-                    cont.resume(image)
-                    super.onCaptureSuccess(image)
-                }
+    override suspend fun takePhoto(isFixedRequest: Boolean) = suspendCancellableCoroutine { cont ->
+        if (isFixedRequest) { //고정 이미지인 경우엔 이미지를 얻어야함.
+            imageCapture!!.takePicture(executor,
+                object : ImageCapture.OnImageCapturedCallback() {
+                    override fun onCaptureSuccess(image: ImageProxy) {
+                        // 원본 이미지를 획득함
+                        cont.resume(image)
+                        super.onCaptureSuccess(image)
+                    }
 
-                //에러가 나는 경우 에러를 반환한다.
-                override fun onError(exception: ImageCaptureException) {
-                    cont.resumeWithException(exception)
-                    super.onError(exception)
-                }
+                    //에러가 나는 경우 에러를 반환한다.
+                    override fun onError(exception: ImageCaptureException) {
+                        cont.resumeWithException(exception)
+                        super.onError(exception)
+                    }
 
-            })
+                })
+        } else {
+            CoroutineScope(Dispatchers.IO).launch {
+                cont.resume(saveImageAndSendUri())
+            }
+        }
+
+
     }
 
 
@@ -128,7 +148,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             ImageAnalysis.Builder()
                 .setTargetAspectRatio(aspectRatio)
                 .setTargetRotation(previewRotation)
-                .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_RGBA_8888)
+//                .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build().apply {
                     setAnalyzer(
                         executor, analyzer
@@ -156,11 +176,52 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         }
     }
 
+    private suspend fun saveImageAndSendUri(): Uri = suspendCoroutine { cont ->
+        val sdf = SimpleDateFormat(
+            FILE_NAME,
+            Locale.KOREA
+        ).format(System.currentTimeMillis())
+        val name = "IMG_${sdf}.jpg"
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, PHOTO_TYPE)
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/${APP_NAME}")
+            }
+        }
+        val outputOptions = ImageCapture.OutputFileOptions
+            .Builder(
+                context.contentResolver,
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                contentValues
+            )
+            .build()
+        imageCapture!!.takePicture(
+            outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
+                override fun onError(exc: ImageCaptureException) {
+                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                }
+
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    val savedUri = output.savedUri!!
+                    Log.d(TAG, "Photo capture succeeded: $savedUri")
+
+                    cont.resume(savedUri)
+                }
+            })
+    }
 
     override fun setZoomLevel(zoomLevel: Float) {
 //        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio
 //        val maxValue = camera.cameraInfo.zoomState.value!!.maxZoomRatio
 //        Log.d("MIN/MAX ZoomRatio: ","$minValue/$maxValue")
         camera!!.cameraControl.setZoomRatio(zoomLevel)
+    }
+
+    companion object {
+        private const val PHOTO_TYPE = "image/jpeg"
+        private const val FILE_NAME = "yyyy_MM_dd_HH_mm_ss_SSS"
+        private const val APP_NAME = "Pro_Pose"
+        private val TAG = this::class.simpleName
     }
 }

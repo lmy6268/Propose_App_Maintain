@@ -2,12 +2,11 @@ package com.example.proposeapplication.presentation.view.camera
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.net.Uri
+import android.widget.Toast
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,33 +15,23 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -50,12 +39,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavHostController
 import com.example.proposeapplication.presentation.CameraViewModel
-import com.example.proposeapplication.presentation.R
 import com.example.proposeapplication.presentation.view.camera.CameraModules.CompositionArrow
 import com.example.proposeapplication.presentation.view.camera.CameraModules.LowerButtons
 import com.example.proposeapplication.presentation.view.camera.CameraModules.PoseResultScreen
 import com.example.proposeapplication.presentation.view.camera.CameraModules.UpperButtons
 import com.example.proposeapplication.utils.pose.PoseData
+import com.mutualmobile.composesensors.rememberAccelerometerSensorState
+import com.mutualmobile.composesensors.rememberRotationVectorSensorState
 import kotlinx.coroutines.flow.Flow
 
 
@@ -80,7 +70,8 @@ fun Screen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val localDensity = LocalDensity.current
-
+    val accelerationState = rememberAccelerometerSensorState()
+    val rotationState = rememberRotationVectorSensorState()
 
     //요청된 고정 화면에 대한 결과값을 가지고 있는 State 변수
     val resFixedScreenState by cameraViewModel.fixedScreenState.collectAsState()
@@ -98,7 +89,7 @@ fun Screen(
         mutableStateOf(false)
     }
 
-    val capturedThumbnailBitmap: Bitmap by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
+    val capturedThumbnailBitmap: Uri? by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
     val compResultDirection: String by cameraViewModel.compResultState.collectAsState()
     val viewRateIdxState by cameraViewModel.viewRateIdxState.collectAsStateWithLifecycleRemember(
         initial = 0
@@ -155,7 +146,7 @@ fun Screen(
             previewView
         },
             modifier = Modifier
-                .fillMaxWidth()
+//                .fillMaxWidth()
                 .aspectRatio(aspectRatioState)
                 .animateContentSize { initialValue, targetValue -> }
                 .onGloballyPositioned { coordinates ->
@@ -191,10 +182,10 @@ fun Screen(
                 lowerBarDisplayPxSize = lowerBarDisplayPxSize,
                 upperButtonsRowSize = upperButtonsRowSize,
                 modifier = Modifier
-                    .size(
-                        cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
-                    )
-//                .aspectRatio(viewRateState.second)
+//                    .size(
+//                        cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
+//                    )
+                    .aspectRatio(aspectRatioState)
                     .align(Alignment.TopCenter),
                 poseResultData = poseRecPair,
                 onVisibilityEvent = {
@@ -202,131 +193,6 @@ fun Screen(
                 }
             )
         }
-
-
-//        Box(
-//            Modifier
-//                .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
-////                .aspectRatio(viewRateState.second)
-//                .align(Alignment.TopCenter)
-//        ) {
-//
-//
-//            if (poseRecPair != Pair(
-//                    null, null
-//                ) && poseCloseState.value.not()
-//            ) { //포즈 목록이 도착하면
-//                recomPoseSizeState.intValue = poseRecPair.second!!.size
-//
-//                var offset by remember {
-//                    mutableStateOf(
-//                        Offset(
-//                            cameraDisplayPxSize.value.width / 2f,
-//                            cameraDisplayPxSize.value.height / 2f
-//                        )
-//                    )
-//                }
-//                var zoom by remember {
-//                    mutableFloatStateOf(1F)
-//                }
-//
-//                val transformState =
-//                    rememberTransformableState { zoomChange, offsetChange, _ ->
-//                        if (zoom * zoomChange in 0.5f..2f) zoom *= zoomChange
-//                        val tmp = offset + offsetChange
-//                        if (tmp.x in -1f..cameraDisplayPxSize.value.width.toFloat() - 1
-//                            && tmp.y in -1f..cameraDisplayPxSize.value.height.toFloat() - lowerBarDisplayPxSize.value.height.toFloat() + 20F
-//                        )
-//                            offset += offsetChange
-//                    }
-//
-//                Canvas(
-//                    modifier = Modifier
-//                        .graphicsLayer(
-//                            scaleX = zoom,
-//                            scaleY = zoom,
-//                            translationX = offset.x,
-//                            translationY = offset.y
-//                        )
-//                        .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
-//                        .transformable(state = transformState)
-//
-//                ) {
-////                    if (poseRecPair!!.first!!.isNotEmpty()) {
-////                        offset = offset.copy(
-////                            (poseRecPair!!.first!![0] * size.width).toFloat(),
-////                            (poseRecPair!!.first!![0] * size.height).toFloat()
-////                        )
-////                    }
-//
-////                    drawImage(
-////                        image = BitmapFactory.decodeResource(
-////                            context.resources,
-////                            poseRecPair!!.second!![nextRecomPoseState.intValue].poseDrawableId
-////                        ).asImageBitmap(),
-////                    )
-//                    drawRect(
-//                        Color.White,
-//                        size = Size(200F, 200F)
-//                    )
-//
-//                }
-//                //다음 포즈 선택 버튼
-//                if ((selectedModeIdxState.intValue in 0..1) && recomPoseSizeState.intValue > 0)
-//                    Box(
-//                        Modifier.size(
-//                            cameraDisplaySize.value.width.dp,
-//                            cameraDisplaySize.value.height.dp
-//                        )
-//                    ) {
-//                        IconButton(
-//                            onClick = {
-//                                poseCloseState.value = true
-//                            },
-//                            modifier = Modifier
-//                                .size(50.dp)
-//                                .offset(x = 0.dp, y = upperButtonsRowSize.value.height.dp)
-//                                .align(Alignment.TopEnd)
-//
-//                        ) {
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.based_circle),
-//                                contentDescription = "배경",
-//                                tint = Color.White
-//                            )
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.close),
-//                                contentDescription = "포즈 추천 닫기"
-//                            )
-//                        }
-//
-//                        IconButton(modifier = Modifier
-//                            .size(50.dp)
-//                            .offset(x = (-20).dp)
-//                            .align(
-//                                Alignment.CenterEnd
-//                            ), onClick = {
-//                            if (nextRecomPoseState.intValue in 0 until recomPoseSizeState.intValue - 1) nextRecomPoseState.intValue += 1
-//                            else nextRecomPoseState.intValue = 0
-//                        }) {
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.based_circle),
-//                                contentDescription = "배경",
-//                                tint = Color.White
-//                            )
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.refresh),
-//                                contentDescription = "배경"
-//                            )
-//                        }
-//                    }
-//
-//            } else if (poseRecPair == Pair(null, null)) {
-//                CircularProgressIndicator(
-//                    modifier = Modifier.align(Alignment.Center),
-//                )
-//            }
-//        }
 
 
         //상단 버튼들
