@@ -4,12 +4,20 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ModelRunner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.opencv.core.Size
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader
 import org.pytorch.Module
 import org.pytorch.torchvision.TensorImageUtils
 import java.io.File
+import java.io.FileOutputStream
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 
 class ModelRunnerImpl(private val context: Context) : ModelRunner {
 
@@ -25,21 +33,22 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
 
     //path를 알면 로드할 수 있음 .
     override fun loadModel(moduleAssetName: String): Module {
+
         val file = File(context.dataDir, moduleAssetName)
         val path =
-//            if (file.exists() && file.length() > 0)
-            file.absolutePath
-//        else context.assets.open(moduleAssetName).use { `is` ->
-//            FileOutputStream(file).use { os ->
-//                val buffer = ByteArray(4 * 1024)
-//                var read: Int
-//                while (`is`.read(buffer).also { read = it } != -1) {
-//                    os.write(buffer, 0, read)
-//                }
-//                os.flush()
-//            }
-//            file.absolutePath
-//        }
+            if (file.exists() && file.length() > 0)
+                file.absolutePath
+            else context.assets.open(moduleAssetName).use { `is` ->
+                FileOutputStream(file).use { os ->
+                    val buffer = ByteArray(4 * 1024)
+                    var read: Int
+                    while (`is`.read(buffer).also { read = it } != -1) {
+                        os.write(buffer, 0, read)
+                    }
+                    os.flush()
+                }
+                file.absolutePath
+            }
         return LiteModuleLoader.load(path)
     }
 
@@ -105,14 +114,18 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
     }
 
     //모델을 예열한다.
-    override fun preRun() {
-        resNetModule = loadModel("model_resnet.ptl")
-        yoloModule = loadModel("model_yolov5s.ptl")
-        bbPredictionModule = loadModel("model_bbprediction_dqlite.ptl")
-        vapNetModule = loadModel("vapnet.ptl")
+    override suspend fun preRun() = suspendCoroutine {
+        CoroutineScope(Dispatchers.Main).launch {
+            resNetModule = loadModel("model_resnet.ptl")
+//            yoloModule = loadModel("model_yolov5s.ptl")
+//            bbPredictionModule = loadModel("model_bbprediction_dqlite.ptl")
+            vapNetModule = loadModel("vapnet.ptl")
+            it.resume(true)
+        }
     }
 
-    override fun runVapNet(bitmap: Bitmap) {
+
+    override fun runVapNet(bitmap: Bitmap): String {
         val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
 
         val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
@@ -129,15 +142,40 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
             outputTuple[1].toTensor().dataAsFloatArray,
             outputTuple[2].toTensor().dataAsFloatArray
         )
-        Log.d("VapNet Result : ", "${suggestion.toList()} , ${adjustment.toList()}, ${magnitude.toList()}")
-//        val threshold = 0.98
-//        if (suggestion[0] > threshold) {
-//            val idx = adjustment.toList().indexOf(adjustment.max())
-//            val magOutPut = magnitude[idx]
-//            Log.d("VapNet Result : ", "idx - $idx, magOutPut - $magOutPut")
-//        }
+//       return "${suggestion.toList()} , ${adjustment.toList()}, ${magnitude.toList()}"
+        val threshold = 0.65
+        val list = listOf("Left", "Right", "Up", "Down")
+        val result = if (suggestion[0] > threshold) {
+            val idx = adjustment.toList().indexOf(adjustment.max())
+            val magOutPut = magnitude[idx]
+            "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})"
+        } else "Good! \n" +
+                " (suggestion:${suggestion.toList()[0]})"
+        Log.d(
+            "이미지 테스트 결과: ",
+            "suggestion: ${suggestion.toList()}, \n adjustment: ${adjustment.toList()}, \n magnitude: ${magnitude.toList()}"
+        )
+        return result
     }
 
+    fun convert1DTo3D(
+        inputArray: FloatArray,
+        depth: Int,
+        rows: Int,
+        cols: Int
+    ): Array<Array<FloatArray>> {
+        val result = Array(depth) { Array(rows) { FloatArray(cols) } }
+
+        for (i in 0 until depth) {
+            for (j in 0 until rows) {
+                for (k in 0 until cols) {
+                    result[i][j][k] = inputArray[i * rows * cols + j * cols + k]
+                }
+            }
+        }
+
+        return result
+    }
 
     companion object {
         private val YOLO_INPUT_SIZE = Size(640.0, 640.0) //리사이징 사이즈

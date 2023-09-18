@@ -193,6 +193,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                 contentValues
             )
             .build()
+
         imageCapture!!.takePicture(
             outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
                 override fun onError(exc: ImageCaptureException) {

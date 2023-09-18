@@ -28,6 +28,8 @@ dependencies {
     //Navigation
     implementation 'androidx.navigation:navigation-ui-ktx:2.6.0'
 
+
+
     //ViewModelScope
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
 
@@ -72,4 +74,6 @@ dependencies {
 
     //Sensor
     implementation 'com.mutualmobile:composesensors:1.1.1'
+
+    implementation 'androidx.core:core-splashscreen:1.1.0-alpha02'
 }

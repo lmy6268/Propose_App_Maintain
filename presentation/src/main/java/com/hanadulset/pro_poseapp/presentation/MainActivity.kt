@@ -7,17 +7,22 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
-import com.hanadulset.pro_poseapp.presentation.ui.MainTheme
-import com.hanadulset.pro_poseapp.presentation.view.MainScreen
+import com.hanadulset.pro_poseapp.presentation.ui_components.MainTheme
+import com.hanadulset.pro_poseapp.presentation.core.MainScreen
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
+import com.hanadulset.pro_poseapp.presentation.feature.splash.SplashViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val cameraViewModel: CameraViewModel by viewModels()
+    private val splashViewModel: SplashViewModel by viewModels()
 
     //전체화면 적용
     private fun setFullScreen(context: Context) {
@@ -47,6 +52,7 @@ class MainActivity : AppCompatActivity() {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -56,8 +62,21 @@ class MainActivity : AppCompatActivity() {
 
         setContent {
             MainTheme {
-                MainScreen.MainScreen(cameraViewModel)
+                MainScreen.MainScreen(cameraViewModel, splashViewModel = splashViewModel)
             }
         }
+        this.onBackPressedDispatcher.addCallback(this, callback)
+    }
+
+    private val callback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            // 뒤로 버튼 이벤트 처리
+            finish()
+        }
+    }
+
+    override fun onDestroy() {
+
+        super.onDestroy()
     }
 }

@@ -10,7 +10,6 @@ import javax.inject.Inject
 
 class ShowPreviewUseCase @Inject constructor(
     private val repository: CameraRepository,
-    private val imageRepository: ImageRepository
 ) {
     operator fun invoke(
         lifecycleOwner: LifecycleOwner,
@@ -25,7 +24,5 @@ class ShowPreviewUseCase @Inject constructor(
         aspectRatio,
         previewRotation,
         analyzer
-    ).apply {
-        imageRepository.preRunModel()
-    }
+    )
 }

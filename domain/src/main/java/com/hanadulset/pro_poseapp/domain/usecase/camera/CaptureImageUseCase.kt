@@ -16,11 +16,12 @@ class CaptureImageUseCase @Inject constructor(
 ) {
     suspend operator fun invoke() =
         suspendCoroutine { cont ->
+            cameraRepository.sendCameraSound()
             CoroutineScope(Dispatchers.IO).launch {
 //                val uri =
 //                val resizedImage = imageRepository.saveImageToGallery(tmp) // 원본 저장하면, 썸네일 뽑아주기
 //                imageRepository.testS3()
-                cont.resume( cameraRepository.takePhoto(isFixedRequest = false) as Uri)
+                cont.resume(cameraRepository.takePhoto(isFixedRequest = false) as Uri)
             }
 
         }

@@ -18,4 +18,5 @@ interface CameraRepository {
     suspend fun takePhoto(isFixedRequest: Boolean): Any
     fun setZoomRatio(zoomLevel: Float)
 
+    fun sendCameraSound()
 }

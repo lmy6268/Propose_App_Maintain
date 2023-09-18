@@ -48,9 +48,8 @@ object AppModule {
         @Provides
         fun provideShowPreviewUseCase(
             cameraRepository: CameraRepository,
-            imageRepository: ImageRepository
         ): ShowPreviewUseCase =
-            ShowPreviewUseCase(cameraRepository,imageRepository)
+            ShowPreviewUseCase(cameraRepository)
 
         @ViewModelScoped
         @Provides
