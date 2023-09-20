@@ -22,23 +22,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.MultiplePermissionsState
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.splash.SplashScreen.Splash
 
 object SplashScreen {
 
+    @OptIn(ExperimentalPermissionsApi::class)
     @Composable
     fun Screen(
-        splashViewModel: SplashViewModel = hiltViewModel(),
+        splashViewModel: SplashViewModel,
+        multiplePermissionsState: MultiplePermissionsState? = null,
+        onNeedToCheckPermission: () -> Unit = {},
         onAfterLoadAllData: () -> Unit
     ) {
-
-        splashViewModel.preLoadModel()
-
-
         val modelLoadedState by splashViewModel.modelLoadedState.collectAsState()
-        LaunchedEffect(modelLoadedState){
-            if(modelLoadedState) onAfterLoadAllData()
+        LaunchedEffect(modelLoadedState) {
+            splashViewModel.preLoadModel()
+            if (modelLoadedState) onAfterLoadAllData()
         }
         if (modelLoadedState.not()) Splash()
     }
@@ -64,11 +66,11 @@ object SplashScreen {
                     .align(Alignment.BottomCenter)
                     .padding(vertical = 100.dp),
                 text = APP_NAME, style =
-//                MaterialTheme.typography.h1
-                TextStyle(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+                MaterialTheme.typography.h1
+//                TextStyle(
+//                    fontWeight = FontWeight.Bold,
+//                    fontSize = 15.sp
+//                )
             )
         }
 

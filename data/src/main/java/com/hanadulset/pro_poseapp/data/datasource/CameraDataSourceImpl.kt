@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.CameraDataSource
 import com.google.common.util.concurrent.ListenableFuture
+import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,13 +49,13 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     private var cameraProvider: ProcessCameraProvider? = null
     private var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>? = null
 
-    override fun initCamera(
+    override suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,
         previewRotation: Int,
         analyzer: Analyzer
-    ) {
+    ): CameraState = suspendCoroutine { cont ->
         if (!isOPENCVInit) isOPENCVInit = OpenCVLoader.initDebug()
         if (cameraProviderFuture == null && cameraProvider == null) {
             cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -62,11 +63,11 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                 try {
                     cameraProvider = cameraProviderFuture!!.get()
                 } catch (e: InterruptedException) {
+                    cont.resume(CameraState(CAMERA_INIT_ERROR, e, e.message))
                     Log.e(this::class.java.name, "Error starting camera")
-                    return@addListener
                 } catch (e: ExecutionException) {
+                    cont.resume(CameraState(CAMERA_INIT_ERROR, e, e.message))
                     Log.e(this::class.java.name, "Error starting camera")
-                    return@addListener
                 }
                 bindCameraUseCases(
                     surfaceProvider = surfaceProvider,
@@ -83,7 +84,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             analyzer = analyzer,
             aspectRatio = aspectRatio
         )
-
+        cont.resume(CameraState(CAMERA_INIT_COMPLETE))
     }
 
 
@@ -221,5 +222,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         private const val FILE_NAME = "yyyy_MM_dd_HH_mm_ss_SSS"
         private const val APP_NAME = "Pro_Pose"
         private val TAG = this::class.simpleName
+        const val CAMERA_INIT_COMPLETE = 0
+        const val CAMERA_INIT_ERROR = 1
     }
 }

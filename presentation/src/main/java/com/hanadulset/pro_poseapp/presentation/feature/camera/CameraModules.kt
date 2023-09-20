@@ -229,7 +229,6 @@ object CameraModules {
     @Composable
     fun UpperButtons(
         modifier: Modifier = Modifier,
-        navController: NavHostController,
         viewRateIdx: Int,
         mainColor: Color = MaterialTheme.colors.primary,
         mainTextColor: Color = MaterialTheme.colors.onPrimary,
@@ -511,6 +510,9 @@ object CameraModules {
         val roll = remember {
             mutableFloatStateOf(0f)
         }
+        val yaw = remember {
+            mutableFloatStateOf(0f)
+        }
         LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
             val gravity = arrayOf(
                 gravitySensorState.xForce,
@@ -541,7 +543,6 @@ object CameraModules {
                     )
                     .align(
                         BiasAlignment(
-                            // [3]
                             horizontalBias = (roll.floatValue),
                             verticalBias = (pitch.floatValue),
                         )

@@ -30,7 +30,7 @@ object PermScreen {
     ) {
         val needToCheck = remember { mutableStateOf(false) }
         //https://hanyeop.tistory.com/452 참고함.
-        LaunchedEffect(Unit) {
+        LaunchedEffect(needToCheck.value) {
             if (needToCheck.value) {
                 if (multiplePermissionsState.allPermissionsGranted) moveToCamera()
                 else needToCheck.value = false

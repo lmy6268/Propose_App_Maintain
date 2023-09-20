@@ -10,8 +10,10 @@ import android.media.Image
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ImageProcessDataSource
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
+import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Point
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 import java.io.ByteArrayOutputStream
@@ -88,6 +90,7 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
                 Matrix().apply { postRotate(rotation.toFloat()) },
                 true
             )
+//            res = rotatedBitmap(res, rotation)
         }
         return res
     }
@@ -122,5 +125,21 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
 
     }
 
+    private fun rotatedBitmap(bitmap: Bitmap, rotation: Int): Bitmap {
+        val mat = Mat(bitmap.width, bitmap.height, CvType.CV_8UC4)
+        Utils.bitmapToMat(bitmap, mat)
+        val centerPoint = Point(mat.width() / 2.0, mat.height() / 2.0)
+        val M = Imgproc.getRotationMatrix2D(
+            centerPoint,
+            rotation.toDouble(),
+            1.0
+        )
+        Imgproc.warpAffine(mat, mat, M, Size(0.0, 0.0))
+        Utils.matToBitmap(
+            mat,
+            Bitmap.createBitmap(mat.width(), mat.height(), Bitmap.Config.ARGB_8888)
+        )
+        return bitmap
+    }
 
 }

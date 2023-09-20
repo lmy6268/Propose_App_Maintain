@@ -32,7 +32,7 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     }
 
 
-    override fun initCamera(
+    override suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,

@@ -21,6 +21,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
+import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +55,9 @@ class CameraViewModel @Inject constructor(
         Pair(AspectRatio.RATIO_4_3, 3 / 4F),
         Pair(AspectRatio.RATIO_16_9, 9 / 16F)
     )
+
+    private val _previewState = MutableStateFlow(CameraState(CameraState.CAMERA_INIT_NOTHING))
+
     private val _viewRateIdxState = MutableStateFlow(0)
     private val _viewRateState = MutableStateFlow(viewRateList[0].first)
     private val _aspectRatioState = MutableStateFlow(viewRateList[0].second)
@@ -81,6 +85,7 @@ class CameraViewModel @Inject constructor(
     val aspectRatioState = _aspectRatioState.asStateFlow()
     val viewRateState = _viewRateState.asStateFlow()
     val fixedScreenState = _fixedScreenState.asStateFlow()
+    val previewState = _previewState.asStateFlow()
 
     val testOBject = MutableStateFlow("")
 
@@ -125,13 +130,16 @@ class CameraViewModel @Inject constructor(
         aspectRatio: Int,
         previewRotation: Int
     ) {
-        showPreviewUseCase(
-            lifecycleOwner, surfaceProvider,
-            aspectRatio = aspectRatio,
-            analyzer = imageAnalyzer,
-            previewRotation = previewRotation
-        )
-
+        _previewState.value =
+            _previewState.value.copy(cameraStateId = CameraState.CAMERA_INIT_ON_PROCESS) // OnProgress
+        viewModelScope.launch {
+            _previewState.value = showPreviewUseCase(
+                lifecycleOwner, surfaceProvider,
+                aspectRatio = aspectRatio,
+                analyzer = imageAnalyzer,
+                previewRotation = previewRotation
+            )
+        }
     }
 
     fun getPhoto(

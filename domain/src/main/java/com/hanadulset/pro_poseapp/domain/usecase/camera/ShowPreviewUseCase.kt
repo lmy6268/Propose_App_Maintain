@@ -11,7 +11,7 @@ import javax.inject.Inject
 class ShowPreviewUseCase @Inject constructor(
     private val repository: CameraRepository,
 ) {
-    operator fun invoke(
+    suspend operator fun invoke(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,

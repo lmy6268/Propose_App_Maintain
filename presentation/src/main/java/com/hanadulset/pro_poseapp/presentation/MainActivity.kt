@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
+import androidx.navigation.compose.rememberNavController
 import com.hanadulset.pro_poseapp.presentation.ui_components.MainTheme
 import com.hanadulset.pro_poseapp.presentation.core.MainScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
@@ -61,18 +62,16 @@ class MainActivity : AppCompatActivity() {
 
 
         setContent {
+            val navController = rememberNavController()  //화면 네비게이션 기능을 관리하는 컨트롤러
             MainTheme {
-                MainScreen.MainScreen(cameraViewModel, splashViewModel = splashViewModel)
+                MainScreen.MainScreen(
+                    navController,
+                    cameraViewModel,
+                    splashViewModel = splashViewModel
+                )
             }
         }
-        this.onBackPressedDispatcher.addCallback(this, callback)
-    }
 
-    private val callback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            // 뒤로 버튼 이벤트 처리
-            finish()
-        }
     }
 
     override fun onDestroy() {

@@ -3,6 +3,7 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
+import android.view.View
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -43,6 +44,7 @@ import androidx.navigation.NavHostController
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.LowerButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.UpperButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
+import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.flow.Flow
 
@@ -63,8 +65,6 @@ fun <T> Flow<T>.collectAsStateWithLifecycleRemember(
 @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun Screen(
-    preRunView: PreviewView,
-    navController: NavHostController,
     cameraViewModel: CameraViewModel,
     onClickSettingBtnEvent: () -> Unit
 ) {
@@ -94,6 +94,19 @@ fun Screen(
     val selectedPoseId = remember {
         mutableStateOf<Int?>(null)
     }
+    val previewView = remember {
+        val preview = PreviewView(context)
+        preview.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        preview.scaleType = PreviewView.ScaleType.FILL_CENTER
+        preview
+    }
+    val previewState by cameraViewModel.previewState.collectAsState()
+
+//    DisposableEffect(key1 = preRunView) {
+//        onDispose {
+//            preRunView.removeAllViews()
+//        }
+//    }
 
 
     val capturedThumbnailBitmap: Uri? by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
@@ -107,11 +120,9 @@ fun Screen(
     val viewRateState by cameraViewModel.viewRateState.collectAsState()
     val testS3State by cameraViewModel.testOBject.collectAsState()
 
-    val previewView = remember {
-        preRunView.apply {
-            this.scaleType = PreviewView.ScaleType.FILL_CENTER
-        }
-    }
+//    val previewView = remember {
+//        preRunView.apply { Log.d("preview Accelerated: ", this.isHardwareAccelerated.toString()) }
+//    }
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) {
@@ -165,8 +176,7 @@ fun Screen(
 
 
         LaunchedEffect(viewRateState) {
-            if (isInitState.value.not()) isInitState.value = true
-            else cameraViewModel.showPreview(
+            cameraViewModel.showPreview(
                 lifecycleOwner,
                 previewView.surfaceProvider,
                 viewRateState,
@@ -174,30 +184,32 @@ fun Screen(
             )
         }
 
-        AndroidView(factory = {
-            previewView
-        },
-            modifier = Modifier
-//                .fillMaxWidth()
-                .aspectRatio(aspectRatioState)
-                .animateContentSize { initialValue, targetValue -> }
 
-                .onGloballyPositioned { coordinates ->
-                    with(localDensity) {
-                        cameraDisplaySize.value = coordinates.size.let {
-                            IntSize(
-                                it.width.toDp().value.toInt(), it.height.toDp().value.toInt()
-                            )
-                        }
-                        cameraDisplayPxSize.value = coordinates.size.let {
-                            IntSize(it.width, it.height)
+        if (previewState.cameraStateId == CameraState.CAMERA_INIT_COMPLETE)
+            AndroidView(factory = {
+                previewView
+            },
+                modifier = Modifier
+//                .fillMaxWidth()
+                    .aspectRatio(aspectRatioState)
+                    .animateContentSize { initialValue, targetValue -> }
+
+                    .onGloballyPositioned { coordinates ->
+                        with(localDensity) {
+                            cameraDisplaySize.value = coordinates.size.let {
+                                IntSize(
+                                    it.width.toDp().value.toInt(), it.height.toDp().value.toInt()
+                                )
+                            }
+                            cameraDisplayPxSize.value = coordinates.size.let {
+                                IntSize(it.width, it.height)
+                            }
                         }
                     }
-                }
-                .align(Alignment.TopCenter)
-        ) {
+                    .align(Alignment.TopCenter)
+            ) {
 
-        }
+            }
 
 //        AnimatedVisibility(
 //            visible = shutterAnimationState.value,
@@ -210,12 +222,12 @@ fun Screen(
 //                    .background(Color(0x50FFFFFF))
 //            )
 //        }
-        CameraModules.HorizonAndVerticalCheckScreen(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-//                .aspectRatio(viewRateState.second)
-                .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
-        )
+//        CameraModules.HorizonAndVerticalCheckScreen(
+//            modifier = Modifier
+//                .align(Alignment.TopCenter)
+////                .aspectRatio(viewRateState.second)
+//                .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
+//        )
 
         //엣지 화면
         ShowEdgeImage(
@@ -265,7 +277,6 @@ fun Screen(
                     }
                 }
             },
-            navController = navController,
             viewRateIdx = viewRateIdxState,
             mainColor = MaterialTheme.colors.primary,
             selectedModeIdxState = selectedModeIdxState,
