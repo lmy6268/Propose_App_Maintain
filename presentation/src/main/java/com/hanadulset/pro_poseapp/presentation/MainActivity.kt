@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -17,13 +16,13 @@ import androidx.navigation.compose.rememberNavController
 import com.hanadulset.pro_poseapp.presentation.ui_components.MainTheme
 import com.hanadulset.pro_poseapp.presentation.core.MainScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
-import com.hanadulset.pro_poseapp.presentation.feature.splash.SplashViewModel
+import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val cameraViewModel: CameraViewModel by viewModels()
-    private val splashViewModel: SplashViewModel by viewModels()
+    private val prepareServiceViewModel: PrepareServiceViewModel by viewModels()
 
     //전체화면 적용
     private fun setFullScreen(context: Context) {
@@ -67,7 +66,7 @@ class MainActivity : AppCompatActivity() {
                 MainScreen.MainScreen(
                     navController,
                     cameraViewModel,
-                    splashViewModel = splashViewModel
+                    prepareServiceViewModel = prepareServiceViewModel
                 )
             }
         }

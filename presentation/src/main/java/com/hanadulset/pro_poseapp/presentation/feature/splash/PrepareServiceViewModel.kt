@@ -1,6 +1,5 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.PreLoadModelUseCase
@@ -11,33 +10,33 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SplashViewModel @Inject constructor(
+class PrepareServiceViewModel @Inject constructor(
     private val preLoadModelUseCase: PreLoadModelUseCase,
 
-) : ViewModel() {
+    ) : ViewModel() {
 
     private val _totalLoadedState = MutableStateFlow(false)
     private val _modelLoadedState = MutableStateFlow(false)
-    val modelLoadedState = _modelLoadedState.asStateFlow()
+//    val modelLoadedState = _modelLoadedState.asStateFlow()
     val totalLoadedState = _totalLoadedState.asStateFlow()
 
-    fun preLoadModel() {
+    private fun preLoadModel() {
         _modelLoadedState.value = false
         viewModelScope.launch {
             _modelLoadedState.value = preLoadModelUseCase()
+            checkLoadAllPreRunMethod()
         }
-        checkLoadAllPreRunMethod()
+
     }
 
     private fun checkLoadAllPreRunMethod() {
         if (_modelLoadedState.value) _totalLoadedState.value = true
     }
 
-    fun preLoadMethods(){
+    fun preLoadMethods() {
         preLoadModel()
 
     }
-
 
 
 }

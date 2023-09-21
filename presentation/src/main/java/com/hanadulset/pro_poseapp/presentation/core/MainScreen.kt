@@ -3,46 +3,47 @@ package com.hanadulset.pro_poseapp.presentation.core
 import android.Manifest
 import android.app.Activity
 import android.os.Build
-import android.util.Log
-import android.view.View
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHost
 import androidx.navigation.NavHostController
-import androidx.navigation.Navigation
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navigation
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
-import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.hanadulset.pro_poseapp.presentation.core.permission.PermScreen
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
+import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
 import com.hanadulset.pro_poseapp.presentation.feature.setting.SettingScreen
-import com.hanadulset.pro_poseapp.presentation.feature.splash.SplashScreen
-import com.hanadulset.pro_poseapp.presentation.feature.splash.SplashViewModel
+import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens
+import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
+import kotlinx.coroutines.delay
 
 object MainScreen {
-    enum class page {
+    enum class Page {
         ModelDownloadProgress,//모델 다운로드 화면
         ModelDownloadRequest, //모델 다운로드 요청 화면
         Perm, //권한 화면
         Cam, //카메라 화면
         Setting,//설정화면
         Splash, //스플래시 화면
+        CloseAsk, //종료 요청
+        AppLoading //앱 로딩화면
     }
+
+    enum class Graph {
+        NotPermissionAllowed,
+        PermissionAllowed,
+        UsingCamera,
+
+    }
+
 
     private val PERMISSIONS_REQUIRED = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) arrayOf(
         Manifest.permission.CAMERA,
@@ -57,14 +58,15 @@ object MainScreen {
     fun MainScreen(
         navHostController: NavHostController,
         cameraViewModel: CameraViewModel,
-        splashViewModel: SplashViewModel
+        prepareServiceViewModel: PrepareServiceViewModel
     ) {
         Surface(
             modifier = Modifier.fillMaxSize()
         ) {
             ContainerView(
                 navController = navHostController,
-                cameraViewModel = cameraViewModel, splashViewModel = splashViewModel
+                cameraViewModel = cameraViewModel,
+                prepareServiceViewModel = prepareServiceViewModel
             )
         }
     }
@@ -76,89 +78,113 @@ object MainScreen {
     @Composable
     private fun ContainerView(
         navController: NavHostController,
-        cameraViewModel: CameraViewModel, splashViewModel: SplashViewModel
+        cameraViewModel: CameraViewModel,
+        prepareServiceViewModel: PrepareServiceViewModel
     ) {
 
         val multiplePermissionsState =
             rememberMultiplePermissionsState(permissions = PERMISSIONS_REQUIRED.toList()) {}
 
+        val activity = LocalContext.current as Activity
+        val isPermissionAllowed = multiplePermissionsState.allPermissionsGranted
         NavHost(
             navController = navController, //전환을 담당
-            startDestination = page.Splash.name //시작 지점
+            //시작 지점
+            startDestination = if (isPermissionAllowed) Graph.PermissionAllowed.name
+            else Graph.NotPermissionAllowed.name
         ) {
-            prepareToUseGraph(
-                routeName = "prepare",
+            notPermissionAllowGraph(
+                routeName = Graph.NotPermissionAllowed.name,
                 navHostController = navController,
-                splashViewModel = splashViewModel,
+                prepareServiceViewModel = prepareServiceViewModel,
                 multiplePermissionsState = multiplePermissionsState
             )
-            usingCameraGraph(
-                routeName = "usingCamera",
+            permissionAllowedGraph(
+                routeName = Graph.PermissionAllowed.name,
+                prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navController,
-                cameraViewModel = cameraViewModel
             )
+            usingCameraGraph(
+                routeName = Graph.UsingCamera.name,
+                navHostController = navController,
+                cameraViewModel = cameraViewModel,
+                activeActivity = activity
+            )
+        }
+    }
 
-
-            //스플래시 화면
-            composable(route = page.Splash.name) {
-                SplashScreen.Screen(splashViewModel) {
-                    navController.navigate(
-                        route = if (multiplePermissionsState.allPermissionsGranted.not()) page.Perm.name
-                        else page.Cam.name
-                    ) {
+    //권한이 허가되지 않은 경우
+    @OptIn(ExperimentalPermissionsApi::class)
+    private fun NavGraphBuilder.notPermissionAllowGraph(
+        routeName: String,
+        navHostController: NavHostController,
+        prepareServiceViewModel: PrepareServiceViewModel,
+        multiplePermissionsState: MultiplePermissionsState
+    ) {
+        navigation(startDestination = Page.Splash.name, route = routeName) {
+            composable(route = Page.Splash.name) {
+                //여기서부터는 Composable 영역
+                PrepareServiceScreens.SplashScreen()
+                LaunchedEffect(Unit) {
+                    //1초 뒤에 앱 로딩 화면으로 넘어감.
+                    delay(1000)
+                    navHostController.navigate(route = Page.Perm.name) {
+                        //백스택에서 스플래시 화면을 제거한다.
+                        popUpTo(Page.Splash.name) { inclusive = true }
                     }
                 }
             }
-            composable(route = page.Cam.name) {
-                Screen(cameraViewModel) {
-                    navController.navigate(route = page.Setting.name) {
-                        popUpTo(page.Cam.name)
-                    }
-                }
+            composable(route = Page.Perm.name) {
+                //여기서부터는 Composable 영역
+                PermScreen.PermScreen(
+                    multiplePermissionsState = multiplePermissionsState,
+                    permissionAllowed = {
+                        navHostController.navigate(route = Graph.UsingCamera.name)
+                    })
             }
-            // 권한 설정 화면
-            composable(route = page.Perm.name) {
-
-                PermScreen.PermScreen(multiplePermissionsState) {
-                    navController.navigate(page.Splash.name) {
-                        popUpTo(page.Perm.name) {
-                            inclusive = true
+            composable(route = Page.AppLoading.name) {
+                //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
+                PrepareServiceScreens.AppLoadingScreen(
+                    prepareServiceViewModel = prepareServiceViewModel,
+                    onAfterLoadedEvent = {
+                        navHostController.navigate(Graph.UsingCamera.name) {
+                            //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
+                            popUpTo(route = Page.AppLoading.name) { inclusive = true }
                         }
-                    }
-                }
+                    })
             }
         }
     }
 
-    //앱을 사용하기 전에 동작하는 그래프
-    @OptIn(ExperimentalPermissionsApi::class)
-    fun NavGraphBuilder.prepareToUseGraph(
+
+    private fun NavGraphBuilder.permissionAllowedGraph(
         routeName: String,
         navHostController: NavHostController,
-        splashViewModel: SplashViewModel,
-        multiplePermissionsState: MultiplePermissionsState
+        prepareServiceViewModel: PrepareServiceViewModel
     ) {
-        navigation(startDestination = page.Splash.name, route = routeName) {
-            composable(route = page.Splash.name) {
+        navigation(startDestination = Page.Splash.name, route = routeName) {
+            composable(route = Page.Splash.name) {
                 //여기서부터는 Composable 영역
-
-                //Splash
-                // 1. 허가 여부 확인
-                // 2. 허가된 경우 진행 절차
-                SplashScreen.Screen(splashViewModel = splashViewModel,
-                    onAfterLoadAllData = {
-
-                    },
-                    onNeedToCheckPermission = {
-                        navHostController.navigate(page.Perm.name) {
-
-                        }
+                PrepareServiceScreens.SplashScreen()
+                LaunchedEffect(Unit) {
+                    //1초 뒤에 앱 로딩 화면으로 넘어감.
+                    delay(500)
+                    navHostController.navigate(route = Page.AppLoading.name) {
+                        //백스택에서 스플래시 화면을 제거한다.
+                        popUpTo(Page.Splash.name) { inclusive = true }
                     }
-                )
+                }
             }
-            composable(route = page.Perm.name) {
-                //여기서부터는 Composable 영역
-
+            composable(route = Page.AppLoading.name) {
+                //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
+                PrepareServiceScreens.AppLoadingScreen(
+                    prepareServiceViewModel = prepareServiceViewModel,
+                    onAfterLoadedEvent = {
+                        navHostController.navigate(Graph.UsingCamera.name) {
+                            //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
+                            popUpTo(route = Page.AppLoading.name) { inclusive = true }
+                        }
+                    })
             }
         }
 
@@ -169,22 +195,34 @@ object MainScreen {
     private fun NavGraphBuilder.usingCameraGraph(
         routeName: String,
         navHostController: NavHostController,
-        cameraViewModel: CameraViewModel
+        cameraViewModel: CameraViewModel,
+        activeActivity: Activity
     ) {
-        navigation(startDestination = page.Cam.name, route = routeName) {
+        navigation(startDestination = Page.Cam.name, route = routeName) {
             //카메라 화면
-            composable(route = page.Cam.name) {
-                Screen(cameraViewModel) {
-                    navHostController.navigate(route = page.Setting.name) {
-                        popUpTo(page.Cam.name)
+            composable(route = Page.Cam.name) {
+                Screen(cameraViewModel, onBackPressedEvent = {
+                    !navHostController.popBackStack() //뒤로가기 불가
+                }, showBackContinueDialog = {
+                    activeActivity.finish() //앱 종료
+//                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
+                }, onClickSettingBtnEvent = {
+                    navHostController.navigate(route = Page.Setting.name) {
+                        popUpTo(Page.Cam.name) //백스택의 최상단에 Cam 화면이 있을 때까지 비운다.
                     }
-                }
+                })
             }
 
+            //앱 종료 여부 파악 화면
+            composable(route = Page.CloseAsk.name) {
+
+            }
             //설정 화면
-            composable(route = page.Setting.name) {
+            composable(route = Page.Setting.name) {
                 SettingScreen.Screen()
             }
+
+
         }
     }
 }

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.view.View
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,6 +67,8 @@ fun <T> Flow<T>.collectAsStateWithLifecycleRemember(
 @Composable
 fun Screen(
     cameraViewModel: CameraViewModel,
+    onBackPressedEvent: () -> Boolean,
+    showBackContinueDialog: () -> Unit,
     onClickSettingBtnEvent: () -> Unit
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -137,6 +140,10 @@ fun Screen(
     if (isUpdated.value.not()) {
         isUpdated.value = true
     }
+//
+//    BackHandler(onBackPressedEvent()) {
+//        showBackContinueDialog()
+//    }
 
     LaunchedEffect(compResultDirection) {
         if (compResultDirection != "") Toast.makeText(

@@ -26,13 +26,13 @@ object PermScreen {
     //권한 설정화면
     fun PermScreen(
         multiplePermissionsState: MultiplePermissionsState,
-        moveToCamera: () -> Unit
+        permissionAllowed: () -> Unit
     ) {
         val needToCheck = remember { mutableStateOf(false) }
         //https://hanyeop.tistory.com/452 참고함.
         LaunchedEffect(needToCheck.value) {
             if (needToCheck.value) {
-                if (multiplePermissionsState.allPermissionsGranted) moveToCamera()
+                if (multiplePermissionsState.allPermissionsGranted) permissionAllowed()
                 else needToCheck.value = false
             }
         }
