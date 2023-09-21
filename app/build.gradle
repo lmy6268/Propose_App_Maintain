@@ -34,5 +34,6 @@ dependencies {
     kapt "com.google.dagger:hilt-compiler:2.44"
 
     implementation 'androidx.core:core-splashscreen:1.1.0-alpha02'
-
+    //이미지 크롭
+    implementation("com.vanniktech:android-image-cropper:4.5.0")
 }

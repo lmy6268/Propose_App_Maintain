@@ -39,9 +39,14 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityOptionsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import androidx.navigation.NavHostController
+import com.canhub.cropper.CropImage
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.LowerButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.UpperButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
@@ -126,13 +131,34 @@ fun Screen(
 //    val previewView = remember {
 //        preRunView.apply { Log.d("preview Accelerated: ", this.isHardwareAccelerated.toString()) }
 //    }
+    val cropImageLauncher =
+        rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
+            if (result.isSuccessful) {
+                // Use the returned uri.
+                val uriContent = result.uriContent
+                cameraViewModel.getPoseFromImage(uriContent)
+            } else {
+                // An error occurred.
+                val exception = result.error
+            }
+
+        }
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
             if (uri != null) {
-                cameraViewModel.getPoseFromImage(uri)
+                val cropOptions = CropImageContractOptions(
+                    uri, CropImageOptions(
+                        aspectRatioX = 3,
+                        aspectRatioY = 4,
+                        fixAspectRatio = true
+                    )
+                )
+                cropImageLauncher.launch(cropOptions)
+//                cameraViewModel.getPoseFromImage(uri)
 //                isPressedFixedBtn.value = false
             }
         }
+
 
     val poseRecPair: Pair<DoubleArray?, List<PoseData>?>? by cameraViewModel.poseResultState.collectAsState()
 

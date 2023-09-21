@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraphBuilder
@@ -41,7 +43,6 @@ object MainScreen {
         NotPermissionAllowed,
         PermissionAllowed,
         UsingCamera,
-
     }
 
 
@@ -84,6 +85,7 @@ object MainScreen {
 
         val multiplePermissionsState =
             rememberMultiplePermissionsState(permissions = PERMISSIONS_REQUIRED.toList()) {}
+        val srcDataUpToDateState = remember { mutableStateOf(false) } //데이터가 최신인지 파악하는 상태변수
 
         val activity = LocalContext.current as Activity
         val isPermissionAllowed = multiplePermissionsState.allPermissionsGranted
@@ -122,18 +124,10 @@ object MainScreen {
         multiplePermissionsState: MultiplePermissionsState
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
-            composable(route = Page.Splash.name) {
-                //여기서부터는 Composable 영역
-                PrepareServiceScreens.SplashScreen()
-                LaunchedEffect(Unit) {
-                    //1초 뒤에 앱 로딩 화면으로 넘어감.
-                    delay(1000)
-                    navHostController.navigate(route = Page.Perm.name) {
-                        //백스택에서 스플래시 화면을 제거한다.
-                        popUpTo(Page.Splash.name) { inclusive = true }
-                    }
-                }
-            }
+            runSplashScreen(
+                navHostController,
+                Page.Perm.name
+            )
             composable(route = Page.Perm.name) {
                 //여기서부터는 Composable 영역
                 PermScreen.PermScreen(
@@ -142,17 +136,11 @@ object MainScreen {
                         navHostController.navigate(route = Graph.UsingCamera.name)
                     })
             }
-            composable(route = Page.AppLoading.name) {
-                //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
-                PrepareServiceScreens.AppLoadingScreen(
-                    prepareServiceViewModel = prepareServiceViewModel,
-                    onAfterLoadedEvent = {
-                        navHostController.navigate(Graph.UsingCamera.name) {
-                            //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
-                            popUpTo(route = Page.AppLoading.name) { inclusive = true }
-                        }
-                    })
-            }
+            runAppLoadingScreen(
+                navHostController = navHostController,
+                prepareServiceViewModel = prepareServiceViewModel,
+                nextPage = Graph.UsingCamera.name
+            )
         }
     }
 
@@ -163,29 +151,15 @@ object MainScreen {
         prepareServiceViewModel: PrepareServiceViewModel
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
-            composable(route = Page.Splash.name) {
-                //여기서부터는 Composable 영역
-                PrepareServiceScreens.SplashScreen()
-                LaunchedEffect(Unit) {
-                    //1초 뒤에 앱 로딩 화면으로 넘어감.
-                    delay(500)
-                    navHostController.navigate(route = Page.AppLoading.name) {
-                        //백스택에서 스플래시 화면을 제거한다.
-                        popUpTo(Page.Splash.name) { inclusive = true }
-                    }
-                }
-            }
-            composable(route = Page.AppLoading.name) {
-                //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
-                PrepareServiceScreens.AppLoadingScreen(
-                    prepareServiceViewModel = prepareServiceViewModel,
-                    onAfterLoadedEvent = {
-                        navHostController.navigate(Graph.UsingCamera.name) {
-                            //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
-                            popUpTo(route = Page.AppLoading.name) { inclusive = true }
-                        }
-                    })
-            }
+            runSplashScreen(
+                navHostController,
+                Page.AppLoading.name
+            )
+            runAppLoadingScreen(
+                navHostController = navHostController,
+                prepareServiceViewModel = prepareServiceViewModel,
+                nextPage = Graph.UsingCamera.name
+            )
         }
 
 
@@ -225,10 +199,43 @@ object MainScreen {
 
         }
     }
-}
 
-//@Preview
-//@Composable
-//fun Test() {
-//    MainScreen.MainScreen()
-//}
+    private fun NavGraphBuilder.runSplashScreen(
+        navHostController: NavHostController,
+        nextPage: String
+    ) {
+        val splashPage = Page.Splash.name
+        composable(route = splashPage) {
+            //여기서부터는 Composable 영역
+            PrepareServiceScreens.SplashScreen()
+            LaunchedEffect(Unit) {
+                //1초 뒤에 앱 로딩 화면으로 넘어감.
+                delay(500)
+                navHostController.navigate(route = nextPage) {
+                    //백스택에서 스플래시 화면을 제거한다.
+                    popUpTo(splashPage) { inclusive = true }
+                }
+            }
+        }
+    }
+
+    private fun NavGraphBuilder.runAppLoadingScreen(
+        navHostController: NavHostController,
+        prepareServiceViewModel: PrepareServiceViewModel,
+        nextPage: String
+    ) {
+        val appLoadingPage = Page.AppLoading.name
+        composable(route = appLoadingPage) {
+            //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
+            PrepareServiceScreens.AppLoadingScreen(
+                prepareServiceViewModel = prepareServiceViewModel,
+                onAfterLoadedEvent = {
+                    navHostController.navigate(nextPage) {
+                        //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
+                        popUpTo(route = appLoadingPage) { inclusive = true }
+                    }
+                })
+        }
+    }
+
+}

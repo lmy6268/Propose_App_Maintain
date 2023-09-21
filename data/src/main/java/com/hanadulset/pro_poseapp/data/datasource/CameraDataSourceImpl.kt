@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutionException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlin.system.measureTimeMillis
 
 class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
@@ -107,7 +108,19 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                 })
         } else {
             CoroutineScope(Dispatchers.IO).launch {
-                cont.resume(saveImageAndSendUri())
+                var uri: Uri
+                //시간 테스트
+                Log.d(
+                    "Time Elapse to save image: ", "${
+                        measureTimeMillis {
+                            uri = saveImageAndSendUri()
+                        }
+                    }ms"
+                )
+
+                cont.resume(uri)
+
+
             }
         }
 
@@ -176,7 +189,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
     private suspend fun saveImageAndSendUri(): Uri = suspendCoroutine { cont ->
         val sdf = SimpleDateFormat(
-            FILE_NAME,
+            DATE_FORMAT,
             Locale.KOREA
         ).format(System.currentTimeMillis())
         val name = "IMG_${sdf}.jpg"
@@ -219,7 +232,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
     companion object {
         private const val PHOTO_TYPE = "image/jpeg"
-        private const val FILE_NAME = "yyyy_MM_dd_HH_mm_ss_SSS"
+        private const val DATE_FORMAT = "yyyy_MM_dd_HH_mm_ss_SSS"
         private const val APP_NAME = "Pro_Pose"
         private val TAG = this::class.simpleName
         const val CAMERA_INIT_COMPLETE = 0
