@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.data.datasource.interfaces
 
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
@@ -21,5 +22,5 @@ interface CameraDataSource {
 
     suspend fun takePhoto(isFixedRequest: Boolean): Any
     fun setZoomLevel(zoomLevel: Float)
-
+    fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long)
 }

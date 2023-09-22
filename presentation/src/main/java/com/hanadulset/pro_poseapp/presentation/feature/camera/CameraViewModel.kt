@@ -5,7 +5,9 @@ import android.net.Uri
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
+import androidx.compose.ui.geometry.Size
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +19,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.CaptureImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.GetLatestImageUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.SetFocusUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
@@ -43,7 +46,8 @@ class CameraViewModel @Inject constructor(
     private val recommendPoseUseCase: RecommendPoseUseCase,
     private val getLatestImageUseCase: GetLatestImageUseCase,
     private val preLoadModelUseCase: PreLoadModelUseCase,
-    private val getPoseFromImageUseCase: GetPoseFromImageUseCase
+    private val getPoseFromImageUseCase: GetPoseFromImageUseCase,
+    private val setFocusUseCase: SetFocusUseCase
 
 ) : ViewModel() {
 
@@ -52,8 +56,8 @@ class CameraViewModel @Inject constructor(
     private val reqCompState = MutableStateFlow(false) // 구도 추천 요청 on/off
 
     private val viewRateList = listOf(
-        Pair(AspectRatio.RATIO_4_3, 3 / 4F),
-        Pair(AspectRatio.RATIO_16_9, 9 / 16F)
+        Pair(AspectRatio.RATIO_4_3, Size(3F, 4F)),
+        Pair(AspectRatio.RATIO_16_9, Size(9F, 16F))
     )
 
     private val _previewState = MutableStateFlow(CameraState(CameraState.CAMERA_INIT_NOTHING))
@@ -64,9 +68,6 @@ class CameraViewModel @Inject constructor(
 
 
     private val _capturedBitmapState = MutableStateFlow<Uri?>( //캡쳐된 이미지 상태
-//        Bitmap.createBitmap(
-//            100, 100, Bitmap.Config.ARGB_8888
-//        )
         null
     )
     private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
@@ -206,5 +207,7 @@ class CameraViewModel @Inject constructor(
 
     //최근 이미지
     fun lastImage() = getLatestImageUseCase()
-
+    fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
+        setFocusUseCase(meteringPoint, durationMilliSeconds)
+    }
 }

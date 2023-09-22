@@ -3,38 +3,49 @@ package com.hanadulset.pro_poseapp.data.datasource
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalZeroShutterLag
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.Analyzer
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleOwner
-import com.hanadulset.pro_poseapp.data.datasource.interfaces.CameraDataSource
 import com.google.common.util.concurrent.ListenableFuture
+import com.hanadulset.pro_poseapp.data.datasource.interfaces.CameraDataSource
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.opencv.android.OpenCVLoader
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
+import java.time.Duration
 import java.util.Locale
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlin.system.measureTimeMillis
+
 
 class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
@@ -109,6 +120,21 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         } else {
             CoroutineScope(Dispatchers.IO).launch {
                 var uri: Uri
+                imageCapture!!.takePicture(executor,
+                    object : ImageCapture.OnImageCapturedCallback() {
+                        override fun onCaptureSuccess(image: ImageProxy) {
+                            // 원본 이미지를 획득함
+                            cont.resume(image)
+                            super.onCaptureSuccess(image)
+                        }
+
+                        //에러가 나는 경우 에러를 반환한다.
+                        override fun onError(exception: ImageCaptureException) {
+                            cont.resumeWithException(exception)
+                            super.onError(exception)
+                        }
+
+                    })
                 //시간 테스트
                 Log.d(
                     "Time Elapse to save image: ", "${
@@ -223,12 +249,23 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             })
     }
 
+
     override fun setZoomLevel(zoomLevel: Float) {
 //        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio
 //        val maxValue = camera.cameraInfo.zoomState.value!!.maxZoomRatio
 //        Log.d("MIN/MAX ZoomRatio: ","$minValue/$maxValue")
         camera!!.cameraControl.setZoomRatio(zoomLevel)
     }
+
+    override fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
+//        camera!!.cameraControl.startFocusAndMetering()
+        camera!!.cameraControl.startFocusAndMetering(
+            FocusMeteringAction.Builder(meteringPoint)
+                .setAutoCancelDuration(durationMilliSeconds, TimeUnit.MILLISECONDS)
+                .build()
+        )
+    }
+
 
     companion object {
         private const val PHOTO_TYPE = "image/jpeg"

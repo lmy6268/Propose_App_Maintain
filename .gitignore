@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+/utils/src/main/res/values/string.xml
+/utils/src/main/assets/
+/utils/src/main/res/drawable/

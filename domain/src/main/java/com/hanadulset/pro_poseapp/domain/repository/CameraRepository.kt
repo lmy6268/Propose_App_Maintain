@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.domain.repository
 
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
@@ -20,4 +21,5 @@ interface CameraRepository {
     fun setZoomRatio(zoomLevel: Float)
 
     fun sendCameraSound()
+    fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long)
 }

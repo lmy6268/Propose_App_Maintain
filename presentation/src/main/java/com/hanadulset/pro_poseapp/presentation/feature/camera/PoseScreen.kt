@@ -59,8 +59,8 @@ object PoseScreen {
         poseDataList: List<PoseData>,
         clickedItemIndexState: Int, //버튼을 클릭했을 때 그 버튼의 인덱스
         pageCount: Int = poseDataList.size,
-        lowerBarDisplayPxSize: State<IntSize>,
-        cameraDisplayPxSize: State<IntSize>,
+        lowerBarDisplayPxSize: IntSize,
+        cameraDisplayPxSize: IntSize,
         onPoseChangeEvent: (PoseData) -> Unit
     ) {
         val pagerState = rememberPagerState(pageCount = { pageCount })
@@ -86,9 +86,10 @@ object PoseScreen {
 
     @Composable
     fun PoseItem(
+        modifier: Modifier = Modifier,
         poseData: PoseData,
-        lowerBarDisplayPxSize: State<IntSize>,
-        cameraDisplayPxSize: State<IntSize>,
+        lowerBarDisplayPxSize: IntSize,
+        cameraDisplayPxSize: IntSize,
         onPoseChangeEvent: (PoseData) -> Unit
     ) {
         val context = LocalContext.current
@@ -96,7 +97,8 @@ object PoseScreen {
         val offset = remember {
             mutableStateOf(
                 Offset(
-                    cameraDisplayPxSize.value.width / 2f, cameraDisplayPxSize.value.height / 2f
+//                    -(cameraDisplayPxSize.width / 2f), -(cameraDisplayPxSize.height / 2f)
+                    0f, 0f
                 )
             )
         }
@@ -107,11 +109,15 @@ object PoseScreen {
         val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
             if (zoom.floatValue * zoomChange in 0.5f..2f) zoom.floatValue *= zoomChange
             val tmp = offset.value + offsetChange
-            if (tmp.x in -1f..cameraDisplayPxSize.value.width.toFloat() - 1 && tmp.y in -1f..cameraDisplayPxSize.value.height.toFloat() - lowerBarDisplayPxSize.value.height.toFloat() + 20F) offset.value += offsetChange
+            if (tmp.x in -(cameraDisplayPxSize.width / 2f)..(cameraDisplayPxSize.width / 2f)
+                && tmp.y in -(cameraDisplayPxSize.height / 2f)..(cameraDisplayPxSize.height / 2f)
+            )
+                offset.value += offsetChange
         }
 
         Canvas( //그림 1
             modifier = Modifier
+//                .background(Color.White)
                 .size(200.dp)
                 .graphicsLayer(
                     scaleX = zoom.floatValue,
@@ -119,6 +125,7 @@ object PoseScreen {
                     translationX = offset.value.x,
                     translationY = offset.value.y
                 )
+//                .offset(offset.value.x.dp, offset.value.y.dp)
                 .transformable(state = transformState)
 
         ) {
@@ -130,7 +137,8 @@ object PoseScreen {
 //                    }
 
             drawImage(
-                image = BitmapFactory.decodeResource(context.resources,
+                image = BitmapFactory.decodeResource(
+                    context.resources,
                     poseData.poseDrawableId.apply {
                         onPoseChangeEvent(poseData)
                     }).asImageBitmap(),
@@ -173,11 +181,9 @@ object PoseScreen {
                 LaunchedEffect(key1 = clickedItemIndexState) {
                     if (idx == clickedItemIndexState) lazyRowState.animateScrollToItem(idx)
                 }
-                MenuModule(text = item,
-                    isSelected = clickedItemIndexState == idx,
-                    onClickEvent = {
-                        onItemClickEvent(idx)
-                    })
+                MenuModule(text = item, isSelected = clickedItemIndexState == idx, onClickEvent = {
+                    onItemClickEvent(idx)
+                })
             }
         }
 
@@ -228,106 +234,18 @@ object PoseScreen {
             }
             //만약에 포즈 추천이 완료되었다면
             else {
-//                    Box(
-//                        modifier.size(
-//                            cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
-//                        )
-//                    ) {
-//                        IconButton(
-//                            onClick = {
-//                                onVisibilityEvent()
-//                            },
-//                            modifier = Modifier
-//                                .size(50.dp)
-//                                .offset(x = 0.dp, y = upperButtonsRowSize.value.height.dp)
-//                                .align(Alignment.TopEnd)
-//
-//                        ) {
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.based_circle),
-//                                contentDescription = "배경",
-//                                tint = Color.White
-//                            )
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.close),
-//                                contentDescription = "포즈 추천 닫기"
-//                            )
-//                        }
-//
-//                        IconButton(modifier = Modifier
-//                            .size(50.dp)
-//                            .offset(x = (-20).dp)
-//                            .align(
-//                                Alignment.CenterEnd
-//                            ), onClick = {
-//                            if (selectedPoseState.intValue in 0 until poseResultData.second!!.size) selectedPoseState.intValue += 1
-//                            else selectedPoseState.intValue = 0
-//                        }) {
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.based_circle),
-//                                contentDescription = "배경",
-//                                tint = Color.White
-//                            )
-//                            Icon(
-//                                painter = painterResource(id = R.drawable.refresh),
-//                                contentDescription = "배경"
-//                            )
-//                        }
-//                    }
                 ScrollableRecommendPoseScreen(
                     modifier = Modifier
                         .size(
                             cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
                         )
-                        ,
-                    poseDataList = poseResultData.second!!,
+//                        .background(Color.Black),
+                    , poseDataList = poseResultData.second!!,
                     clickedItemIndexState = clickedItemIndexState,
-                    cameraDisplayPxSize = cameraDisplayPxSize,
-                    lowerBarDisplayPxSize = lowerBarDisplayPxSize,
+                    cameraDisplayPxSize = cameraDisplayPxSize.value,
+                    lowerBarDisplayPxSize = lowerBarDisplayPxSize.value,
                     onPoseChangeEvent = onPoseChangeEvent
                 )
-//                    Box( //도화지
-//                        modifier = Modifier.size(
-//                            cameraDisplaySize.value.width.dp,
-//                            cameraDisplaySize.value.height.dp
-//                        )
-//                    ) {
-//                        Canvas( //그림 1
-//                            modifier = Modifier
-//                                .size(200.dp)
-//                                .graphicsLayer(
-//                                    scaleX = zoom.floatValue,
-//                                    scaleY = zoom.floatValue,
-//                                    translationX = offset.value.x,
-//                                    translationY = offset.value.y
-//                                )
-//                                .transformable(state = transformState)
-//
-//                        ) {
-////                    if (poseResultData.first!!.isNotEmpty()) {
-////                        offset = offset.copy(
-////                            (poseRecPair!!.first!![0] * size.width).toFloat(),
-////                            (poseRecPair!!.first!![0] * size.height).toFloat()
-////                        )
-////                    }
-//                            val selectedPoseData =
-//                                poseResultData.second!![selectedPoseState.intValue]
-//                            drawImage(
-//                                image = BitmapFactory.decodeResource(
-//                                    context.resources,
-//                                    selectedPoseData.poseDrawableId.apply {
-//                                        onPoseChangeEvent(selectedPoseData)
-//                                    }
-//                                ).asImageBitmap(),
-//                            )
-////                            drawRect(
-////                                Color.White,
-////                                size = Size(200F, 200F)
-////                            )
-//                        }
-//                    }
-//
-//
             }
 
         }

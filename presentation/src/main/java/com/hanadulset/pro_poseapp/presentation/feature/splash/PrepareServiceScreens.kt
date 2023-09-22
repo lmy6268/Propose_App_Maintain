@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
+import com.hanadulset.pro_poseapp.utils.camera.CameraState
 
 object PrepareServiceScreens {
     private const val APP_NAME = "Pro_Pose"
@@ -61,15 +62,18 @@ object PrepareServiceScreens {
 
     @Composable
     fun AppLoadingScreen(
+        previewState: CameraState,
         prepareServiceViewModel: PrepareServiceViewModel,
         onAfterLoadedEvent: () -> Unit
     ) {
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
         LaunchedEffect(totalLoadedState) {
-            prepareServiceViewModel.preLoadMethods()
+            if (!totalLoadedState) prepareServiceViewModel.preLoadMethods()
         }
-        if (!totalLoadedState) InnerAppLoadingScreen()
-        else onAfterLoadedEvent()
+        InnerAppLoadingScreen()
+        if (totalLoadedState && previewState.cameraStateId == CameraState.CAMERA_INIT_COMPLETE) onAfterLoadedEvent()
+
+
     }
 
     //로딩 중일 때 보여주는 화면
