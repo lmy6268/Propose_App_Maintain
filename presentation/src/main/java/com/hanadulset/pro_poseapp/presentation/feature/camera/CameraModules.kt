@@ -3,7 +3,6 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 import android.content.Intent
 import android.hardware.SensorManager
 import android.net.Uri
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -11,8 +10,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,21 +25,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
@@ -52,8 +56,10 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -64,9 +70,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat.startActivity
-import androidx.core.net.toFile
-import androidx.navigation.NavHostController
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.CompositionArrow
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.ExpandableButton
@@ -76,7 +79,6 @@ import com.mutualmobile.composesensors.rememberMagneticFieldSensorState
 import com.skydoves.landscapist.CircularReveal
 import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
-import java.io.File
 
 
 object CameraModules {
@@ -219,7 +221,6 @@ object CameraModules {
                     text = text[viewRateIdx], //화면 비 글씨 표기
                     fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
                 )
-
             }
 
         }
@@ -271,6 +272,93 @@ object CameraModules {
                     onSettingEvent()
                 }
 
+            }
+        }
+
+
+    }
+
+    @Composable
+    fun CompositionScreen(
+        modifier: Modifier = Modifier
+    ) {
+        val gravitySensorState = rememberGravitySensorState()
+        val magneticFieldSensorState = rememberMagneticFieldSensorState()
+        val pitch = remember {
+            mutableFloatStateOf(0f)
+        }
+        val roll = remember {
+            mutableFloatStateOf(0f)
+        }
+        val yaw = remember {
+            mutableFloatStateOf(0f)
+        }
+        LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
+            val gravity = arrayOf(
+                gravitySensorState.xForce,
+                gravitySensorState.yForce,
+                gravitySensorState.zForce
+            ).toFloatArray()
+            val geomagnetic = arrayOf(
+                magneticFieldSensorState.xStrength,
+                magneticFieldSensorState.yStrength,
+                magneticFieldSensorState.zStrength
+            ).toFloatArray()
+            val r = FloatArray(9)
+            val i = FloatArray(9)
+            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
+                val orientation = FloatArray(3)
+                SensorManager.getOrientation(r, orientation)
+                pitch.floatValue = orientation[1]
+                roll.floatValue = orientation[2]
+            }
+        }
+        Canvas(
+            modifier = modifier
+                .size(50.dp)
+        ) {
+            drawLine(Color.White,Offset(-50F, 0F),Offset(150F, 0F), strokeWidth = 5F)
+            drawCircle(
+                color = Color.White,
+                center = Offset(50F, 0F),
+                style = Stroke(
+                    width = 5.dp.toPx()
+                )
+            )
+        }
+    }
+
+    @Composable
+    fun FocusRing(
+        duration: Long,
+        modifier: Modifier = Modifier,
+        color: Color,
+        pointer: Offset?
+    ) {
+
+        if (pointer != null) {
+            val animationSize = remember {
+                AnimationState(100F)
+            }
+            LaunchedEffect(animationSize) {
+                animationSize.animateTo(
+                    targetValue = 80F,
+                    animationSpec = tween(durationMillis = 500)
+                )
+
+            }
+            Canvas(
+                modifier = modifier
+                    .size(animationSize.value.dp)
+
+            ) {
+                drawCircle(
+                    color = color,
+                    center = pointer,
+                    style = Stroke(
+                        width = 5.dp.toPx()
+                    )
+                )
             }
         }
 
@@ -388,16 +476,17 @@ object CameraModules {
                 Row {
                     listOf("1", "2").forEach { str ->
                         IconButton(
+                            modifier = Modifier.apply {
+                                if (str == zoomState.value) size(50.dp)
+                                else size(10.dp)
+                            },
                             onClick = {
                                 zoomState.value = str
                                 zoomInOutEvent(str.toFloat())
                             },
                         ) {
                             Icon(
-                                modifier = Modifier.apply {
-                                    if (str == zoomState.value) sizeIn(50.dp)
-                                    else sizeIn(10.dp)
-                                },
+
                                 painter = painterResource(id = R.drawable.based_circle),
                                 tint = if (str == zoomState.value) Color(0xFF000000) else Color.Unspecified,
                                 contentDescription = "줌버튼"
@@ -692,6 +781,18 @@ fun PreviewLower() {
 @Composable
 fun PreviewArrow() {
     CompositionArrow("R")
+}
+
+@Preview(widthDp = 250, heightDp = 360)
+@Composable
+fun TestFocusRing() {
+    Surface(Modifier.fillMaxSize()) {
+        CameraModules.FocusRing(
+            color = Color(0xFF000000),
+            pointer = Offset(20F, 20F),
+            duration = 1000L
+        )
+    }
 }
 
 

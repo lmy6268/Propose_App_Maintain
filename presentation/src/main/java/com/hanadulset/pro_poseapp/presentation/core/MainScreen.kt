@@ -3,14 +3,20 @@ package com.hanadulset.pro_poseapp.presentation.core
 import android.Manifest
 import android.app.Activity
 import android.os.Build
+import android.view.View
+import androidx.camera.core.AspectRatio
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -25,6 +31,7 @@ import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
 import com.hanadulset.pro_poseapp.presentation.feature.setting.SettingScreen
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
+import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 
 object MainScreen {
@@ -88,7 +95,27 @@ object MainScreen {
         val srcDataUpToDateState = remember { mutableStateOf(false) } //데이터가 최신인지 파악하는 상태변수
 
         val activity = LocalContext.current as Activity
+        val lifecycleOwner = LocalLifecycleOwner.current
         val isPermissionAllowed = multiplePermissionsState.allPermissionsGranted
+        val context = LocalContext.current
+        val previewView = remember {
+            val preview = PreviewView(context)
+            preview.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            preview.scaleType = PreviewView.ScaleType.FILL_CENTER
+            preview
+        }
+        val previewState by cameraViewModel.previewState.collectAsState()
+        val cameraPreviewInit: () -> CameraState = {
+            cameraViewModel.showPreview(
+                lifecycleOwner = lifecycleOwner,
+                surfaceProvider = previewView.surfaceProvider,
+                aspectRatio = AspectRatio.RATIO_4_3,
+                previewRotation = previewView.rotation.toInt()
+            )
+            previewState
+        }
+
+
         NavHost(
             navController = navController, //전환을 담당
             //시작 지점
@@ -96,20 +123,23 @@ object MainScreen {
             else Graph.NotPermissionAllowed.name
         ) {
             notPermissionAllowGraph(
-                routeName = Graph.NotPermissionAllowed.name,
-                navHostController = navController,
-                prepareServiceViewModel = prepareServiceViewModel,
-                multiplePermissionsState = multiplePermissionsState
+                Graph.NotPermissionAllowed.name,
+                navController,
+                prepareServiceViewModel,
+                multiplePermissionsState,
+                cameraPreviewInit
             )
             permissionAllowedGraph(
                 routeName = Graph.PermissionAllowed.name,
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navController,
+                cameraInit = cameraPreviewInit
             )
             usingCameraGraph(
                 routeName = Graph.UsingCamera.name,
                 navHostController = navController,
                 cameraViewModel = cameraViewModel,
+                previewView = previewView,
                 activeActivity = activity
             )
         }
@@ -121,7 +151,8 @@ object MainScreen {
         routeName: String,
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
-        multiplePermissionsState: MultiplePermissionsState
+        multiplePermissionsState: MultiplePermissionsState,
+        cameraInit: () -> CameraState
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -139,7 +170,8 @@ object MainScreen {
             runAppLoadingScreen(
                 navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
-                nextPage = Graph.UsingCamera.name
+                nextPage = Graph.UsingCamera.name,
+                cameraInitState = cameraInit
             )
         }
     }
@@ -148,7 +180,8 @@ object MainScreen {
     private fun NavGraphBuilder.permissionAllowedGraph(
         routeName: String,
         navHostController: NavHostController,
-        prepareServiceViewModel: PrepareServiceViewModel
+        prepareServiceViewModel: PrepareServiceViewModel,
+        cameraInit: () -> CameraState
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -158,7 +191,8 @@ object MainScreen {
             runAppLoadingScreen(
                 navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
-                nextPage = Graph.UsingCamera.name
+                nextPage = Graph.UsingCamera.name,
+                cameraInitState = cameraInit
             )
         }
 
@@ -169,22 +203,27 @@ object MainScreen {
     private fun NavGraphBuilder.usingCameraGraph(
         routeName: String,
         navHostController: NavHostController,
+        previewView: PreviewView,
         cameraViewModel: CameraViewModel,
         activeActivity: Activity
     ) {
         navigation(startDestination = Page.Cam.name, route = routeName) {
             //카메라 화면
-            composable(route = Page.Cam.name) {
+            composable(
+                route = Page.Cam.name
+            ) {
+
                 Screen(cameraViewModel, onBackPressedEvent = {
                     !navHostController.popBackStack() //뒤로가기 불가
                 }, showBackContinueDialog = {
                     activeActivity.finish() //앱 종료
 //                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
-                }, onClickSettingBtnEvent = {
-                    navHostController.navigate(route = Page.Setting.name) {
-                        popUpTo(Page.Cam.name) //백스택의 최상단에 Cam 화면이 있을 때까지 비운다.
-                    }
-                })
+                }, previewView = previewView,
+                    onClickSettingBtnEvent = {
+                        navHostController.navigate(route = Page.Setting.name) {
+                            popUpTo(Page.Cam.name) //백스택의 최상단에 Cam 화면이 있을 때까지 비운다.
+                        }
+                    })
             }
 
             //앱 종료 여부 파악 화면
@@ -222,12 +261,15 @@ object MainScreen {
     private fun NavGraphBuilder.runAppLoadingScreen(
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
-        nextPage: String
+        nextPage: String,
+        cameraInitState: () -> CameraState
     ) {
         val appLoadingPage = Page.AppLoading.name
         composable(route = appLoadingPage) {
+
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
+                previewState = cameraInitState(),
                 prepareServiceViewModel = prepareServiceViewModel,
                 onAfterLoadedEvent = {
                     navHostController.navigate(nextPage) {

@@ -3,9 +3,8 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
-import android.view.View
+import android.view.MotionEvent
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.MaterialTheme
@@ -29,9 +29,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -39,19 +43,16 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.app.ActivityOptionsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
-import androidx.navigation.NavHostController
-import com.canhub.cropper.CropImage
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.LowerButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.UpperButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 
 
@@ -67,16 +68,17 @@ fun <T> Flow<T>.collectAsStateWithLifecycleRemember(
     return flowLifecycleAware.collectAsState(initial)
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @SuppressLint("SuspiciousIndentation")
 @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun Screen(
     cameraViewModel: CameraViewModel,
+    previewView: PreviewView,
     onBackPressedEvent: () -> Boolean,
     showBackContinueDialog: () -> Unit,
     onClickSettingBtnEvent: () -> Unit
 ) {
-    val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val localDensity = LocalDensity.current
 
@@ -96,27 +98,14 @@ fun Screen(
     val poseScreenVisibleState = remember {
         mutableStateOf(false)
     }
-    val isInitState = remember {
-        mutableStateOf(false)
-    }
     val selectedPoseId = remember {
         mutableStateOf<Int?>(null)
     }
-    val previewView = remember {
-        val preview = PreviewView(context)
-        preview.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-        preview.scaleType = PreviewView.ScaleType.FILL_CENTER
-        preview
+    val isFirstLaunch = remember {
+        mutableStateOf(true)
     }
-    val previewState by cameraViewModel.previewState.collectAsState()
 
-//    DisposableEffect(key1 = preRunView) {
-//        onDispose {
-//            preRunView.removeAllViews()
-//        }
-//    }
-
-
+    val lifecycleOwner = LocalLifecycleOwner.current
     val capturedThumbnailBitmap: Uri? by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
     val compResultDirection: String by cameraViewModel.compResultState.collectAsState()
     val viewRateIdxState by cameraViewModel.viewRateIdxState.collectAsStateWithLifecycleRemember(
@@ -128,9 +117,7 @@ fun Screen(
     val viewRateState by cameraViewModel.viewRateState.collectAsState()
     val testS3State by cameraViewModel.testOBject.collectAsState()
 
-//    val previewView = remember {
-//        preRunView.apply { Log.d("preview Accelerated: ", this.isHardwareAccelerated.toString()) }
-//    }
+
     val cropImageLauncher =
         rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
             if (result.isSuccessful) {
@@ -148,14 +135,12 @@ fun Screen(
             if (uri != null) {
                 val cropOptions = CropImageContractOptions(
                     uri, CropImageOptions(
-                        aspectRatioX = 3,
-                        aspectRatioY = 4,
+                        aspectRatioX = aspectRatioState.width.toInt(),
+                        aspectRatioY = aspectRatioState.height.toInt(),
                         fixAspectRatio = true
                     )
                 )
                 cropImageLauncher.launch(cropOptions)
-//                cameraViewModel.getPoseFromImage(uri)
-//                isPressedFixedBtn.value = false
             }
         }
 
@@ -166,10 +151,7 @@ fun Screen(
     if (isUpdated.value.not()) {
         isUpdated.value = true
     }
-//
-//    BackHandler(onBackPressedEvent()) {
-//        showBackContinueDialog()
-//    }
+
 
     LaunchedEffect(compResultDirection) {
         if (compResultDirection != "") Toast.makeText(
@@ -207,9 +189,14 @@ fun Screen(
             mutableStateOf(false)
         }
 
+        val focusRingState = remember {
+            mutableStateOf<Offset?>(null)
+        }
+
 
         LaunchedEffect(viewRateState) {
-            cameraViewModel.showPreview(
+            if (isFirstLaunch.value) isFirstLaunch.value = false
+            else cameraViewModel.showPreview(
                 lifecycleOwner,
                 previewView.surfaceProvider,
                 viewRateState,
@@ -217,32 +204,63 @@ fun Screen(
             )
         }
 
+        LaunchedEffect(key1 = focusRingState.value) {
+            if (focusRingState.value != null) {
+                delay(1000)
+                focusRingState.value = null
+            }
+        }
 
-        if (previewState.cameraStateId == CameraState.CAMERA_INIT_COMPLETE)
-            AndroidView(factory = {
-                previewView
-            },
-                modifier = Modifier
+        AndroidView(factory = {
+            previewView
+        },
+            modifier = Modifier
 //                .fillMaxWidth()
-                    .aspectRatio(aspectRatioState)
-                    .animateContentSize { initialValue, targetValue -> }
-
-                    .onGloballyPositioned { coordinates ->
-                        with(localDensity) {
-                            cameraDisplaySize.value = coordinates.size.let {
-                                IntSize(
-                                    it.width.toDp().value.toInt(), it.height.toDp().value.toInt()
-                                )
-                            }
-                            cameraDisplayPxSize.value = coordinates.size.let {
-                                IntSize(it.width, it.height)
-                            }
+                .animateContentSize { _, _ -> }
+                .onGloballyPositioned { coordinates ->
+                    with(localDensity) {
+                        cameraDisplaySize.value = coordinates.size.let {
+                            IntSize(
+                                it.width.toDp().value.toInt(), it.height.toDp().value.toInt()
+                            )
+                        }
+                        cameraDisplayPxSize.value = coordinates.size.let {
+                            IntSize(it.width, it.height)
                         }
                     }
-                    .align(Alignment.TopCenter)
-            ) {
+                }
+                .pointerInteropFilter {
+                    when (it.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            val pointer = Offset(it.x, it.y)
+                            focusRingState.value = pointer.copy()
+                            cameraViewModel.setFocus(
+                                previewView.meteringPointFactory.createPoint(
+                                    it.x, it.y
+                                ), 2000L
+                            )
+                            return@pointerInteropFilter true
+                        }
 
-            }
+                        else -> {
+                            false
+                        }
+                    }
+                }
+                .aspectRatio(aspectRatioState.width / aspectRatioState.height)
+                .align(Alignment.TopCenter)
+
+
+        ) {
+
+        }
+
+        CameraModules.FocusRing(
+            modifier = Modifier.align(Alignment.TopStart),
+            color = Color.White, pointer = focusRingState.value,
+            duration = 2000L
+        )
+
 
 //        AnimatedVisibility(
 //            visible = shutterAnimationState.value,
@@ -281,7 +299,7 @@ fun Screen(
 //                    .size(
 //                        cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
 //                    )
-                    .aspectRatio(aspectRatioState)
+                    .aspectRatio(aspectRatioState.width / aspectRatioState.height)
                     .align(Alignment.TopCenter),
                 poseResultData = poseRecPair,
                 onPoseChangeEvent = {
@@ -319,7 +337,12 @@ fun Screen(
                 cameraViewModel.changeViewRate(idx)
             })
 
-
+        if (selectedModeIdxState.intValue in 1..2)
+            CameraModules.CompositionScreen(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(0.dp, (cameraDisplaySize.value.height / 2).dp)
+            )
 //        CompositionArrow(
 //            arrowDirection = compResultDirection,
 //            modifier = Modifier

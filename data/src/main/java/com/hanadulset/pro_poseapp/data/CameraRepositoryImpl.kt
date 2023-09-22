@@ -5,17 +5,24 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaActionSound
 import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Parcelable
 import android.provider.MediaStore.Video.Media
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import com.hanadulset.pro_poseapp.data.datasource.CameraDataSourceImpl
+import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.system.measureTimeMillis
 
 @Singleton
 class CameraRepositoryImpl @Inject constructor(private val applicationContext: Context) :
@@ -30,7 +37,9 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     private val shutterSoundManager by lazy {
         MediaActionSound()
     }
-
+    private val fileHandleDataSourceImpl by lazy {
+        FileHandleDataSourceImpl(context = applicationContext)
+    }
 
     override suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
@@ -45,17 +54,53 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
 
     @OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override suspend fun takePhoto(isFixedRequest: Boolean) =
-        cameraDataSource.takePhoto(isFixedRequest)
+        cameraDataSource.takePhoto(true)
             .let { data ->
-                if (data is ImageProxy)
-                    data.use {
-                        imageProcessDataSourceImpl.imageToBitmap(
-                            data.image!!,
-                            data.imageInfo.rotationDegrees
-                        )
+                val res: Parcelable
+                val elapseTime = measureTimeMillis {
+                    if (isFixedRequest) {
+                        res = (data as ImageProxy).use {
+                            imageProcessDataSourceImpl.imageToBitmap(
+                                data.image!!,
+                                data.imageInfo.rotationDegrees
+                            )
+                        }
+                    } else {
+                        res = (data as ImageProxy).use {
+                            fileHandleDataSourceImpl.saveImageToGallery(
+                                imageProcessDataSourceImpl.imageToBitmap(
+                                    it.image!!,
+                                    it.imageInfo.rotationDegrees
+                                )
+                            )
+                        }
                     }
-                else data
+                }
+                Log.d(
+                    "Time Elapse to $isFixedRequest image: ", "$elapseTime ms"
+                )
+                res
             }
+//    data ->
+//    return if (isFixedRequest) {
+//        (data as ImageProxy).use {
+//            imageProcessDataSourceImpl.imageToBitmap(
+//                it.image!!,
+//                it.imageInfo.rotationDegrees
+//            )
+//        }
+//    }
+//    else {
+//        (data as ImageProxy).use {
+//            fileHandleDataSourceImpl.saveImageToGallery(
+//                imageProcessDataSourceImpl.imageToBitmap(
+//                    it.image!!,
+//                    it.imageInfo.rotationDegrees
+//                )
+//            )
+//        }
+//    }
+//}
 
 
     override fun setZoomRatio(zoomLevel: Float) =
@@ -64,6 +109,10 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override fun sendCameraSound() {
 
         shutterSoundManager.play(MediaActionSound.SHUTTER_CLICK)
+    }
+
+    override fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
+        cameraDataSource.setFocus(meteringPoint, durationMilliSeconds)
     }
 
 }
