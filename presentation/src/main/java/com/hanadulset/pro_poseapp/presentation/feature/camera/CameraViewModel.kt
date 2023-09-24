@@ -36,8 +36,6 @@ import javax.inject.Inject
 @HiltViewModel
 class CameraViewModel @Inject constructor(
     //UseCases
-    private val checkForDownloadModelUseCase: CheckForDownloadModelUseCase,
-    private val downloadModelUseCase: DownloadModelUseCase,
     private val showPreviewUseCase: ShowPreviewUseCase,
     private val captureImageUseCase: CaptureImageUseCase,
     private val showFixedScreenUseCase: ShowFixedScreenUseCase,
@@ -45,7 +43,6 @@ class CameraViewModel @Inject constructor(
     private val recommendCompInfoUseCase: RecommendCompInfoUseCase,
     private val recommendPoseUseCase: RecommendPoseUseCase,
     private val getLatestImageUseCase: GetLatestImageUseCase,
-    private val preLoadModelUseCase: PreLoadModelUseCase,
     private val getPoseFromImageUseCase: GetPoseFromImageUseCase,
     private val setFocusUseCase: SetFocusUseCase
 
@@ -72,7 +69,6 @@ class CameraViewModel @Inject constructor(
     )
     private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
     private val _compResultState = MutableStateFlow("")
-    private val _downloadInfoState = MutableStateFlow(DownloadInfo())
     private val _fixedScreenState = MutableStateFlow<Bitmap?>(null)
 
 
@@ -81,7 +77,7 @@ class CameraViewModel @Inject constructor(
     val capturedBitmapState = _capturedBitmapState.asStateFlow()
     val poseResultState = _poseResultState.asStateFlow()
     val compResultState = _compResultState.asStateFlow()
-    val downloadInfoState = _downloadInfoState.asStateFlow()
+
     val viewRateIdxState = _viewRateIdxState.asStateFlow()
     val aspectRatioState = _aspectRatioState.asStateFlow()
     val viewRateState = _viewRateState.asStateFlow()
@@ -165,28 +161,6 @@ class CameraViewModel @Inject constructor(
         _viewRateIdxState.value = idx
         _viewRateState.value = viewRateList[idx].first
         _aspectRatioState.value = viewRateList[idx].second
-    }
-
-    fun testS3() {
-        testOBject.value = ""
-        viewModelScope.launch {
-            if (preLoadModelUseCase()) testOBject.value =
-                checkForDownloadModelUseCase(_downloadInfoState)
-        }
-    }
-
-    fun checkForDownloadModel() {
-        viewModelScope.launch {
-            _downloadInfoState.value = DownloadInfo(state = DownloadInfo.ON_REQUEST)
-            checkForDownloadModelUseCase(_downloadInfoState)
-        }
-    }
-
-    fun reqDownloadModel() {
-        viewModelScope.launch {
-            _downloadInfoState.value = DownloadInfo(state = DownloadInfo.ON_REQUEST)
-            downloadModelUseCase(_downloadInfoState)
-        }
     }
 
     fun controlFixedScreen(isRequest: Boolean) {

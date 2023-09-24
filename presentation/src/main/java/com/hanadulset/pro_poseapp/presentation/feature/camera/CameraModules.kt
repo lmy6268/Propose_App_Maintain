@@ -1,20 +1,22 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.content.Context
 import android.content.Intent
 import android.hardware.SensorManager
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import android.view.OrientationEventListener
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,6 +52,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -60,8 +63,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.TextStyle
@@ -79,6 +84,7 @@ import com.mutualmobile.composesensors.rememberMagneticFieldSensorState
 import com.skydoves.landscapist.CircularReveal
 import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 
 
 object CameraModules {
@@ -280,53 +286,137 @@ object CameraModules {
 
     @Composable
     fun CompositionScreen(
-        modifier: Modifier = Modifier
+        modifier: Modifier = Modifier,
+        screenWidth: Int,
+        context: Context
     ) {
-        val gravitySensorState = rememberGravitySensorState()
-        val magneticFieldSensorState = rememberMagneticFieldSensorState()
-        val pitch = remember {
-            mutableFloatStateOf(0f)
+        val radius = 50F
+        val shortLineLength = 100F
+        val centroid = remember {
+            Offset(50F, 0F)
         }
-        val roll = remember {
-            mutableFloatStateOf(0f)
+        val rotationState = remember {
+            mutableFloatStateOf(90F)
         }
-        val yaw = remember {
-            mutableFloatStateOf(0f)
+        val end1Offset = remember {
+            mutableStateOf(Offset((centroid.x - radius) - 15F, centroid.y))
         }
-        LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
-            val gravity = arrayOf(
-                gravitySensorState.xForce,
-                gravitySensorState.yForce,
-                gravitySensorState.zForce
-            ).toFloatArray()
-            val geomagnetic = arrayOf(
-                magneticFieldSensorState.xStrength,
-                magneticFieldSensorState.yStrength,
-                magneticFieldSensorState.zStrength
-            ).toFloatArray()
-            val r = FloatArray(9)
-            val i = FloatArray(9)
-            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
-                val orientation = FloatArray(3)
-                SensorManager.getOrientation(r, orientation)
-                pitch.floatValue = orientation[1]
-                roll.floatValue = orientation[2]
-            }
+        val start1Offset = remember {
+            mutableStateOf(Offset(end1Offset.value.x - shortLineLength, 0F))
         }
-        Canvas(
-            modifier = modifier
-                .size(50.dp)
-        ) {
-            drawLine(Color.White,Offset(-50F, 0F),Offset(150F, 0F), strokeWidth = 5F)
-            drawCircle(
-                color = Color.White,
-                center = Offset(50F, 0F),
-                style = Stroke(
-                    width = 5.dp.toPx()
-                )
+
+        val start2Offset = remember {
+            mutableStateOf(Offset((centroid.x + radius) + 15F, 0F))
+        }
+        val end2Offset = remember {
+            mutableStateOf(Offset(start2Offset.value.x + shortLineLength, 0F))
+        }
+
+        val animation = remember {
+            Animatable(0F)
+        }
+
+
+
+
+        LaunchedEffect(key1 = rotationState.floatValue) {
+            animation.animateTo(
+                rotationState.floatValue,
+                animationSpec = tween(100, easing = LinearEasing)
             )
         }
+
+        val rotationEventListener = rememberUpdatedState {
+            var previousOrientation = -1
+            var cumulativeRotation = 0
+
+            object : OrientationEventListener(context.applicationContext) {
+                override fun onOrientationChanged(orientation: Int) {
+                    // -1이 나오면 측정을 중지한다.
+                    if (orientation != -1) {
+                        if (previousOrientation != -1) {
+                            val deltaOrientation = orientation - previousOrientation
+
+                            // 방향을 결정하여 누적된 각도를 관리한다.
+                            cumulativeRotation += deltaOrientation
+
+                            // 누적된 각도를 [-180, 180] 범위로 제한한다.
+                            if (cumulativeRotation > 180) {
+                                cumulativeRotation -= 360
+                            } else if (cumulativeRotation < -180) {
+                                cumulativeRotation += 360
+                            }
+
+                            // cumulativeRotation에는 [-180, 180] 범위의 누적 각도가 저장된다.
+                            rotationState.floatValue = cumulativeRotation.toFloat()
+                            Log.d("rotation State:", rotationState.floatValue.toString())
+                        }
+
+                        previousOrientation = orientation
+                    } else {
+                        previousOrientation = -1
+                    }
+                }
+            }
+        }
+
+
+
+
+        DisposableEffect(Unit) {
+            rotationEventListener.value().enable() //시작
+            onDispose {
+                rotationEventListener.value().disable()//종료
+            }
+        }
+
+
+
+
+
+        Canvas(
+            modifier = modifier
+                .size(50.dp),
+        ) {
+            //회전을 감지 한다.
+            rotate(
+                animation.value,
+                pivot = centroid //회전 기준점
+            ) {
+                if (animation.value == 0F || animation.value == 180F) {
+                    drawLine(
+                        start = Offset(-screenWidth / 2F - 20F, 0F),
+                        end = Offset(screenWidth / 2F, 0F),
+                        strokeWidth = 8F,
+                        color = Color.Yellow
+                    )
+                } else {
+                    drawLine(
+                        Color.White,
+                        start1Offset.value,
+                        end1Offset.value,
+                        strokeWidth = 5F
+                    )
+                    drawLine(
+                        Color.White,
+                        start2Offset.value,
+                        end2Offset.value,
+                        strokeWidth = 5F
+                    )
+                }
+
+                drawCircle(
+                    color = Color.White,
+                    center = centroid,
+                    style = Stroke(
+                        width = 5.dp.toPx()
+                    )
+                )
+            }
+
+        }
     }
+
 
     @Composable
     fun FocusRing(
@@ -343,9 +433,8 @@ object CameraModules {
             LaunchedEffect(animationSize) {
                 animationSize.animateTo(
                     targetValue = 80F,
-                    animationSpec = tween(durationMillis = 500)
+                    animationSpec = tween(durationMillis = 300)
                 )
-
             }
             Canvas(
                 modifier = modifier
@@ -795,6 +884,27 @@ fun TestFocusRing() {
     }
 }
 
+@Preview(
+    backgroundColor = 0xFF000000,
+    showSystemUi = true
+)
+@Composable
+fun TestCompositionScreen() {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(color = Color.Black)
+    ) {
+        val density = LocalDensity.current
+        val context = LocalContext.current
+        CameraModules.CompositionScreen(
+            modifier = Modifier.align(Alignment.Center), screenWidth = with(density) {
+                411.dp.toPx().toInt()
+            },
+            context
+        )
+    }
+}
 
 
 

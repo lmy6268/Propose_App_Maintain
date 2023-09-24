@@ -3,6 +3,8 @@ package com.hanadulset.pro_poseapp.presentation.feature.splash
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.PreLoadModelUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.ai.CheckForDownloadModelUseCase
+import com.hanadulset.pro_poseapp.utils.DownloadInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,13 +13,14 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PrepareServiceViewModel @Inject constructor(
+    private val checkDownloadModelUseCase: CheckForDownloadModelUseCase,
     private val preLoadModelUseCase: PreLoadModelUseCase,
 
     ) : ViewModel() {
-
+    private val _downloadInfoState = MutableStateFlow(DownloadInfo())
+    val downloadInfoState = _downloadInfoState.asStateFlow()
     private val _totalLoadedState = MutableStateFlow(false)
     private val _modelLoadedState = MutableStateFlow(false)
-//    val modelLoadedState = _modelLoadedState.asStateFlow()
     val totalLoadedState = _totalLoadedState.asStateFlow()
 
     private fun preLoadModel() {

@@ -266,7 +266,6 @@ object MainScreen {
     ) {
         val appLoadingPage = Page.AppLoading.name
         composable(route = appLoadingPage) {
-
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
                 previewState = cameraInitState(),

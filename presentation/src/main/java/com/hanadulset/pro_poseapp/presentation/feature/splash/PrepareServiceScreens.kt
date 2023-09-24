@@ -11,9 +11,11 @@ import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
+import kotlinx.coroutines.flow.asStateFlow
 
 object PrepareServiceScreens {
     private const val APP_NAME = "Pro_Pose"
@@ -50,11 +53,11 @@ object PrepareServiceScreens {
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(vertical = 100.dp),
-                text = APP_NAME, style =
+                text = APP_NAME,
+                style =
 //                MaterialTheme.typography.h1
                 TextStyle(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp
                 )
             )
         }
@@ -66,12 +69,14 @@ object PrepareServiceScreens {
         prepareServiceViewModel: PrepareServiceViewModel,
         onAfterLoadedEvent: () -> Unit
     ) {
+
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
-        LaunchedEffect(totalLoadedState) {
-            if (!totalLoadedState) prepareServiceViewModel.preLoadMethods()
+
+        LaunchedEffect(Unit) {
+            prepareServiceViewModel.preLoadMethods()
         }
-        InnerAppLoadingScreen()
         if (totalLoadedState && previewState.cameraStateId == CameraState.CAMERA_INIT_COMPLETE) onAfterLoadedEvent()
+        else InnerAppLoadingScreen()
 
 
     }
@@ -106,8 +111,7 @@ object PrepareServiceScreens {
                     text = "앱 로딩 중...", style =
 //                MaterialTheme.typography.h1
                     TextStyle(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontWeight = FontWeight.Bold, fontSize = 15.sp
                     )
                 )
             }

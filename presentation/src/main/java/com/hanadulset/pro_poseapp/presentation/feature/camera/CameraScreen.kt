@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
 import android.view.MotionEvent
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -54,6 +56,8 @@ import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseRes
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 
 @Composable
@@ -337,12 +341,17 @@ fun Screen(
                 cameraViewModel.changeViewRate(idx)
             })
 
-        if (selectedModeIdxState.intValue in 1..2)
+        if (selectedModeIdxState.intValue in 1..2) {
+
             CameraModules.CompositionScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset(0.dp, (cameraDisplaySize.value.height / 2).dp)
+                    .offset(0.dp, (cameraDisplaySize.value.height / 2).dp),
+                screenWidth = cameraDisplayPxSize.value.width,
+                context = context
             )
+        }
+
 //        CompositionArrow(
 //            arrowDirection = compResultDirection,
 //            modifier = Modifier
