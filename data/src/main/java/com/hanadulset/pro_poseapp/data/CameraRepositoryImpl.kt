@@ -53,31 +53,22 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     )
 
     @OptIn(androidx.camera.core.ExperimentalGetImage::class)
-    override suspend fun takePhoto(isFixedRequest: Boolean) =
-        cameraDataSource.takePhoto(true)
+    override suspend fun takePhoto() =
+        cameraDataSource.takePhoto()
             .let { data ->
-                val res: Parcelable
+                val res: Uri
                 val elapseTime = measureTimeMillis {
-                    if (isFixedRequest) {
-                        res = (data as ImageProxy).use {
-                            imageProcessDataSourceImpl.imageToBitmap(
-                                data.image!!,
-                                data.imageInfo.rotationDegrees
+                    res = data.use {
+                        fileHandleDataSourceImpl.saveImageToGallery(
+                            imageProcessDataSourceImpl.convertCaptureImageToBitmap(
+                                it.image!!,
+                                it.imageInfo.rotationDegrees
                             )
-                        }
-                    } else {
-                        res = (data as ImageProxy).use {
-                            fileHandleDataSourceImpl.saveImageToGallery(
-                                imageProcessDataSourceImpl.imageToBitmap(
-                                    it.image!!,
-                                    it.imageInfo.rotationDegrees
-                                )
-                            )
-                        }
+                        )
                     }
                 }
                 Log.d(
-                    "Time Elapse to $isFixedRequest image: ", "$elapseTime ms"
+                    "Time Elapse to image: ", "$elapseTime ms"
                 )
                 res
             }

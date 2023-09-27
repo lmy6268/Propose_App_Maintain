@@ -112,14 +112,9 @@ fun Screen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val capturedThumbnailBitmap: Uri? by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
     val compResultDirection: String by cameraViewModel.compResultState.collectAsState()
-    val viewRateIdxState by cameraViewModel.viewRateIdxState.collectAsStateWithLifecycleRemember(
-        initial = 0
-    )
-    val aspectRatioState by cameraViewModel.aspectRatioState.collectAsStateWithLifecycleRemember(
-        initial = cameraViewModel.aspectRatioState.replayCache[0]
-    )
+    val viewRateIdxState by cameraViewModel.viewRateIdxState.collectAsState()
+    val aspectRatioState by cameraViewModel.aspectRatioState.collectAsState()
     val viewRateState by cameraViewModel.viewRateState.collectAsState()
-    val testS3State by cameraViewModel.testOBject.collectAsState()
 
 
     val cropImageLauncher =
@@ -164,10 +159,7 @@ fun Screen(
             Toast.LENGTH_SHORT
         ).show()
     }
-    LaunchedEffect(testS3State) {
-        if (testS3State != "") Toast.makeText(context, "버전 아이디: $testS3State", Toast.LENGTH_SHORT)
-            .show()
-    }
+
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -219,7 +211,6 @@ fun Screen(
             previewView
         },
             modifier = Modifier
-//                .fillMaxWidth()
                 .animateContentSize { _, _ -> }
                 .onGloballyPositioned { coordinates ->
                     with(localDensity) {
@@ -253,8 +244,6 @@ fun Screen(
                 }
                 .aspectRatio(aspectRatioState.width / aspectRatioState.height)
                 .align(Alignment.TopCenter)
-
-
         ) {
 
         }
@@ -289,7 +278,6 @@ fun Screen(
             capturedEdgesBitmap = resFixedScreenState,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-//                .aspectRatio(viewRateState.second)
                 .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
         )
 
@@ -300,10 +288,10 @@ fun Screen(
                 lowerBarDisplayPxSize = lowerBarDisplayPxSize,
                 upperButtonsRowSize = upperButtonsRowSize,
                 modifier = Modifier
-//                    .size(
-//                        cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
-//                    )
-                    .aspectRatio(aspectRatioState.width / aspectRatioState.height)
+                    .size(
+                        cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
+                    )
+//                    .aspectRatio(aspectRatioState.width / aspectRatioState.height)
                     .align(Alignment.TopCenter),
                 poseResultData = poseRecPair,
                 onPoseChangeEvent = {
@@ -315,6 +303,7 @@ fun Screen(
                 },
 
                 )
+
         }
 
 

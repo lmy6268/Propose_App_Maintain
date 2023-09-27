@@ -286,27 +286,25 @@ object CameraModules {
 
     @Composable
     fun CompositionScreen(
-        modifier: Modifier = Modifier,
-        screenWidth: Int,
-        context: Context
+        modifier: Modifier = Modifier, screenWidth: Int, context: Context
     ) {
-        val radius = 50F
-        val shortLineLength = 100F
+        val radius = 30F
+        val shortLineLength = 30F
         val centroid = remember {
             Offset(50F, 0F)
         }
         val rotationState = remember {
-            mutableFloatStateOf(90F)
+            mutableFloatStateOf(-1F)
         }
         val end1Offset = remember {
-            mutableStateOf(Offset((centroid.x - radius) - 15F, centroid.y))
+            mutableStateOf(Offset((centroid.x - radius), centroid.y))
         }
         val start1Offset = remember {
             mutableStateOf(Offset(end1Offset.value.x - shortLineLength, 0F))
         }
 
         val start2Offset = remember {
-            mutableStateOf(Offset((centroid.x + radius) + 15F, 0F))
+            mutableStateOf(Offset((centroid.x + radius), 0F))
         }
         val end2Offset = remember {
             mutableStateOf(Offset(start2Offset.value.x + shortLineLength, 0F))
@@ -316,48 +314,33 @@ object CameraModules {
             Animatable(0F)
         }
 
+        val angleThreshold = 5F
 
-
-
-        LaunchedEffect(key1 = rotationState.floatValue) {
-            animation.animateTo(
-                rotationState.floatValue,
-                animationSpec = tween(100, easing = LinearEasing)
-            )
-        }
-
+        //아직 이슈가 있음.
         val rotationEventListener = rememberUpdatedState {
-            var previousOrientation = -1
-            var cumulativeRotation = 0
-
             object : OrientationEventListener(context.applicationContext) {
                 override fun onOrientationChanged(orientation: Int) {
                     // -1이 나오면 측정을 중지한다.
                     if (orientation != -1) {
-                        if (previousOrientation != -1) {
-                            val deltaOrientation = orientation - previousOrientation
+                        rotationState.floatValue = when (orientation.toFloat()) {
+                            in 180F - angleThreshold..180F -> -180F
+                            in 0F..angleThreshold -> -0F
+                            in 360F-angleThreshold .. 360F -> -360F
 
-                            // 방향을 결정하여 누적된 각도를 관리한다.
-                            cumulativeRotation += deltaOrientation
 
-                            // 누적된 각도를 [-180, 180] 범위로 제한한다.
-                            if (cumulativeRotation > 180) {
-                                cumulativeRotation -= 360
-                            } else if (cumulativeRotation < -180) {
-                                cumulativeRotation += 360
-                            }
-
-                            // cumulativeRotation에는 [-180, 180] 범위의 누적 각도가 저장된다.
-                            rotationState.floatValue = cumulativeRotation.toFloat()
-                            Log.d("rotation State:", rotationState.floatValue.toString())
+                            else -> -orientation.toFloat()
                         }
 
-                        previousOrientation = orientation
-                    } else {
-                        previousOrientation = -1
+                        Log.d("rotation State:", orientation.toString())
                     }
                 }
             }
+        }
+
+        LaunchedEffect(Unit) {
+            animation.animateTo(
+                rotationState.floatValue, animationSpec = tween(16, easing = LinearEasing)
+            )
         }
 
 
@@ -365,53 +348,50 @@ object CameraModules {
 
         DisposableEffect(Unit) {
             rotationEventListener.value().enable() //시작
+
             onDispose {
                 rotationEventListener.value().disable()//종료
             }
         }
 
-
-
-
-
         Canvas(
-            modifier = modifier
-                .size(50.dp),
+            modifier = modifier.size(50.dp),
         ) {
             //회전을 감지 한다.
             rotate(
-                animation.value,
-                pivot = centroid //회전 기준점
+                rotationState.floatValue, pivot = centroid //회전 기준점
             ) {
-                if (animation.value == 0F || animation.value == 180F) {
+                if (rotationState.floatValue == 0.0F || rotationState.floatValue in listOf(
+                        -180F,
+                        180F
+                    )
+                ) {
                     drawLine(
-                        start = Offset(-screenWidth / 2F - 20F, 0F),
-                        end = Offset(screenWidth / 2F, 0F),
+                        start = Offset(start1Offset.value.x - 30F, 0F),
+                        end = Offset(end2Offset.value.x + 30F, 0F),
                         strokeWidth = 8F,
                         color = Color.Yellow
                     )
+                    drawCircle(
+                        color = Color.Yellow, radius = radius, center = centroid, style = Stroke(
+                            width = 3.dp.toPx()
+                        )
+                    )
                 } else {
                     drawLine(
-                        Color.White,
-                        start1Offset.value,
-                        end1Offset.value,
-                        strokeWidth = 5F
+                        Color.White, start1Offset.value, end1Offset.value, strokeWidth = 5F
                     )
                     drawLine(
-                        Color.White,
-                        start2Offset.value,
-                        end2Offset.value,
-                        strokeWidth = 5F
+                        Color.White, start2Offset.value, end2Offset.value, strokeWidth = 5F
+                    )
+                    drawCircle(
+                        color = Color.White, radius = radius, center = centroid, style = Stroke(
+                            width = 3.dp.toPx()
+                        )
                     )
                 }
 
-                drawCircle(
-                    color = Color.White,
-                    center = centroid,
-                    style = Stroke(
-                        width = 5.dp.toPx()
-                    )
-                )
+
             }
 
         }
@@ -420,10 +400,7 @@ object CameraModules {
 
     @Composable
     fun FocusRing(
-        duration: Long,
-        modifier: Modifier = Modifier,
-        color: Color,
-        pointer: Offset?
+        duration: Long, modifier: Modifier = Modifier, color: Color, pointer: Offset?
     ) {
 
         if (pointer != null) {
@@ -432,19 +409,15 @@ object CameraModules {
             }
             LaunchedEffect(animationSize) {
                 animationSize.animateTo(
-                    targetValue = 80F,
-                    animationSpec = tween(durationMillis = 300)
+                    targetValue = 80F, animationSpec = tween(durationMillis = 300)
                 )
             }
             Canvas(
-                modifier = modifier
-                    .size(animationSize.value.dp)
+                modifier = modifier.size(animationSize.value.dp)
 
             ) {
                 drawCircle(
-                    color = color,
-                    center = pointer,
-                    style = Stroke(
+                    color = color, center = pointer, style = Stroke(
                         width = 5.dp.toPx()
                     )
                 )
@@ -540,8 +513,7 @@ object CameraModules {
                         ), text = "포즈\n추천"
                     )
                 }
-                else IconButton(
-                    modifier = Modifier.heightIn(15.dp),
+                else IconButton(modifier = Modifier.heightIn(15.dp),
                     enabled = false,
                     onClick = {}) {
                     Icon(
@@ -693,9 +665,7 @@ object CameraModules {
         }
         LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
             val gravity = arrayOf(
-                gravitySensorState.xForce,
-                gravitySensorState.yForce,
-                gravitySensorState.zForce
+                gravitySensorState.xForce, gravitySensorState.yForce, gravitySensorState.zForce
             ).toFloatArray()
             val geomagnetic = arrayOf(
                 magneticFieldSensorState.xStrength,
@@ -716,8 +686,7 @@ object CameraModules {
             Canvas(
                 modifier = Modifier
                     .offset(
-                        x = roll.floatValue.dp,
-                        y = -pitch.floatValue.dp
+                        x = roll.floatValue.dp, y = -pitch.floatValue.dp
                     )
                     .align(
                         BiasAlignment(
@@ -728,8 +697,7 @@ object CameraModules {
 
                 ) {
                 drawRect(
-                    color = Color.White,
-                    size = Size(300F, 400F)
+                    color = Color.White, size = Size(300F, 400F)
                 )
             }
         }
@@ -877,16 +845,13 @@ fun PreviewArrow() {
 fun TestFocusRing() {
     Surface(Modifier.fillMaxSize()) {
         CameraModules.FocusRing(
-            color = Color(0xFF000000),
-            pointer = Offset(20F, 20F),
-            duration = 1000L
+            color = Color(0xFF000000), pointer = Offset(20F, 20F), duration = 1000L
         )
     }
 }
 
 @Preview(
-    backgroundColor = 0xFF000000,
-    showSystemUi = true
+    backgroundColor = 0xFF000000, showSystemUi = true
 )
 @Composable
 fun TestCompositionScreen() {
@@ -900,8 +865,7 @@ fun TestCompositionScreen() {
         CameraModules.CompositionScreen(
             modifier = Modifier.align(Alignment.Center), screenWidth = with(density) {
                 411.dp.toPx().toInt()
-            },
-            context
+            }, context
         )
     }
 }

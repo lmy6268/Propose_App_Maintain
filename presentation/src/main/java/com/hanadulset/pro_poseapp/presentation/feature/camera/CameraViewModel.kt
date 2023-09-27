@@ -1,10 +1,15 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.PixelFormat
+import android.media.Image
 import android.net.Uri
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Size
@@ -29,7 +34,10 @@ import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import java.nio.ByteBuffer
 import javax.inject.Inject
 
 @ExperimentalGetImage
@@ -48,7 +56,7 @@ class CameraViewModel @Inject constructor(
 
 ) : ViewModel() {
 
-
+    private val reqFixState = MutableStateFlow(false)// 포즈 추천 요청 on/off
     private val reqPoseState = MutableStateFlow(false)// 포즈 추천 요청 on/off
     private val reqCompState = MutableStateFlow(false) // 구도 추천 요청 on/off
 
@@ -58,6 +66,7 @@ class CameraViewModel @Inject constructor(
     )
 
     private val _previewState = MutableStateFlow(CameraState(CameraState.CAMERA_INIT_NOTHING))
+
 
     private val _viewRateIdxState = MutableStateFlow(0)
     private val _viewRateState = MutableStateFlow(viewRateList[0].first)
@@ -84,11 +93,15 @@ class CameraViewModel @Inject constructor(
     val fixedScreenState = _fixedScreenState.asStateFlow()
     val previewState = _previewState.asStateFlow()
 
-    val testOBject = MutableStateFlow("")
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer {
         it.use { image ->
+            if (reqFixState.value) {
+                reqFixState.value = false
+                val res =  showFixedScreenUseCase(image)
+                _fixedScreenState.value = res
+            }
             //포즈 선정 로직
             if (reqPoseState.value) {
                 reqPoseState.value = false
@@ -99,7 +112,6 @@ class CameraViewModel @Inject constructor(
                         rotation = image.imageInfo.rotationDegrees
                     )
                 }
-
             }
             //구도 추천 로직
             if (reqCompState.value) {
@@ -113,11 +125,6 @@ class CameraViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-
-    private fun getImageFromAnalyzer() {
-
     }
 
 
@@ -155,6 +162,7 @@ class CameraViewModel @Inject constructor(
         if (reqCompState.value.not()) reqCompState.value = true
     }
 
+
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
 
     fun changeViewRate(idx: Int) {
@@ -164,12 +172,8 @@ class CameraViewModel @Inject constructor(
     }
 
     fun controlFixedScreen(isRequest: Boolean) {
-        if (isRequest) {
-            _fixedScreenState.value = null
-            viewModelScope.launch {
-                _fixedScreenState.value = showFixedScreenUseCase()
-            }
-        } else _fixedScreenState.value = null
+        reqFixState.value = isRequest
+        if (isRequest.not()) _fixedScreenState.value = null
     }
 
     fun getPoseFromImage(uri: Uri?) {
@@ -184,4 +188,17 @@ class CameraViewModel @Inject constructor(
     fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
         setFocusUseCase(meteringPoint, durationMilliSeconds)
     }
+
+    data class AnalysisImage(
+        val type: Int,
+        val imageProxy: ImageProxy?
+    ) {
+        companion object {
+            const val IMAGE_POSE = 0 //포즈 추천용
+            const val IMAGE_COMP = 1 // 구도 추천용
+            const val IMAGE_FIXED = 2 //고정 화면용
+
+        }
+    }
+
 }

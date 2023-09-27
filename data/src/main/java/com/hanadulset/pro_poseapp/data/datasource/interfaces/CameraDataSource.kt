@@ -1,6 +1,8 @@
 package com.hanadulset.pro_poseapp.data.datasource.interfaces
 
+import android.net.Uri
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
@@ -12,7 +14,7 @@ import com.hanadulset.pro_poseapp.utils.camera.CameraState
 interface CameraDataSource {
     /** 카메라 미리보기 조작
      * */
-     suspend fun initCamera(
+    suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,
@@ -20,7 +22,7 @@ interface CameraDataSource {
         analyzer: ImageAnalysis.Analyzer
     ): CameraState
 
-    suspend fun takePhoto(isFixedRequest: Boolean): Any
+    suspend fun takePhoto(): ImageProxy
     fun setZoomLevel(zoomLevel: Float)
     fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long)
 }

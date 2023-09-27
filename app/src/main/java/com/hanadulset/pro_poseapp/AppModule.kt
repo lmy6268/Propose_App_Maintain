@@ -61,8 +61,10 @@ object AppModule {
         @Provides
         fun provideShowFixedScreenUseCase(
             imageRepository: ImageRepository,
-            cameraRepository: CameraRepository
-        ): ShowFixedScreenUseCase = ShowFixedScreenUseCase(imageRepository, cameraRepository)
+//            cameraRepository: CameraRepository
+        ): ShowFixedScreenUseCase = ShowFixedScreenUseCase(imageRepository
+//            , cameraRepository
+        )
 
 
         @ViewModelScoped

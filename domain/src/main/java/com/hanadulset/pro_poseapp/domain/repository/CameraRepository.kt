@@ -1,5 +1,7 @@
 package com.hanadulset.pro_poseapp.domain.repository
 
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
@@ -9,7 +11,7 @@ import com.hanadulset.pro_poseapp.utils.camera.CameraState
 
 //카메라 기능을 담당하는 레포지토리
 interface CameraRepository {
-   suspend fun initCamera(
+    suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,
@@ -17,7 +19,7 @@ interface CameraRepository {
         analyzer: ImageAnalysis.Analyzer,
     ): CameraState
 
-    suspend fun takePhoto(isFixedRequest: Boolean): Any
+    suspend fun takePhoto(): Uri
     fun setZoomRatio(zoomLevel: Float)
 
     fun sendCameraSound()

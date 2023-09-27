@@ -17,6 +17,7 @@ import androidx.camera.core.ExperimentalZeroShutterLag
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.Analyzer
+import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -100,26 +101,8 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     }
 
 
-    override suspend fun takePhoto(isFixedRequest: Boolean) = suspendCancellableCoroutine { cont ->
-        if (isFixedRequest) { //고정 이미지인 경우엔 이미지를 얻어야함.
-            imageCapture!!.takePicture(executor,
-                object : ImageCapture.OnImageCapturedCallback() {
-                    override fun onCaptureSuccess(image: ImageProxy) {
-                        // 원본 이미지를 획득함
-                        cont.resume(image)
-                        super.onCaptureSuccess(image)
-                    }
-
-                    //에러가 나는 경우 에러를 반환한다.
-                    override fun onError(exception: ImageCaptureException) {
-                        cont.resumeWithException(exception)
-                        super.onError(exception)
-                    }
-
-                })
-        } else {
+    override suspend fun takePhoto() = suspendCancellableCoroutine { cont ->
             CoroutineScope(Dispatchers.IO).launch {
-                var uri: Uri
                 imageCapture!!.takePicture(executor,
                     object : ImageCapture.OnImageCapturedCallback() {
                         override fun onCaptureSuccess(image: ImageProxy) {
@@ -135,20 +118,10 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                         }
 
                     })
-                //시간 테스트
-                Log.d(
-                    "Time Elapse to save image: ", "${
-                        measureTimeMillis {
-                            uri = saveImageAndSendUri()
-                        }
-                    }ms"
-                )
-
-                cont.resume(uri)
 
 
             }
-        }
+
 
 
     }
@@ -185,7 +158,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             ImageAnalysis.Builder()
                 .setTargetAspectRatio(aspectRatio)
                 .setTargetRotation(previewRotation)
-//                .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build().apply {
                     setAnalyzer(
                         executor, analyzer

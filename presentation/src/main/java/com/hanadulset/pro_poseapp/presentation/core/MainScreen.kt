@@ -28,9 +28,11 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.hanadulset.pro_poseapp.presentation.core.permission.PermScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
+import com.hanadulset.pro_poseapp.presentation.feature.download.ModelDownloadScreen
 import com.hanadulset.pro_poseapp.presentation.feature.setting.SettingScreen
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
+import com.hanadulset.pro_poseapp.utils.DownloadInfo
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 
@@ -92,7 +94,6 @@ object MainScreen {
 
         val multiplePermissionsState =
             rememberMultiplePermissionsState(permissions = PERMISSIONS_REQUIRED.toList()) {}
-        val srcDataUpToDateState = remember { mutableStateOf(false) } //데이터가 최신인지 파악하는 상태변수
 
         val activity = LocalContext.current as Activity
         val lifecycleOwner = LocalLifecycleOwner.current
@@ -100,7 +101,6 @@ object MainScreen {
         val context = LocalContext.current
         val previewView = remember {
             val preview = PreviewView(context)
-            preview.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             preview.scaleType = PreviewView.ScaleType.FILL_CENTER
             preview
         }
@@ -278,5 +278,51 @@ object MainScreen {
                 })
         }
     }
+
+    private fun NavGraphBuilder.checkResourceDownloadGraph(
+        navHostController: NavHostController,
+        prepareServiceViewModel: PrepareServiceViewModel,
+        routeName: String = "modelDownload",
+        permissionAllowed: Boolean
+    ) {
+        val modelDownloadRequestPage = Page.ModelDownloadRequest.name
+        val modelDownloadProgressPage = Page.ModelDownloadProgress.name
+
+        navigation(startDestination = modelDownloadRequestPage, route = routeName) {
+            runSplashScreen(
+                navHostController,
+                modelDownloadRequestPage
+            )
+            composable(modelDownloadRequestPage) {
+                ModelDownloadScreen.ModelDownloadRequestScreen(
+                    prepareServiceViewModel = prepareServiceViewModel,
+                    moveToPerm = {
+                        navHostController.navigate(
+                            if (permissionAllowed) Graph.PermissionAllowed.name
+                            else Graph.NotPermissionAllowed.name
+                        )
+                    },
+                    moveToDownloadProgress = {
+                        navHostController.navigate(
+                            modelDownloadProgressPage
+                        ) { popUpTo(route = modelDownloadRequestPage) { inclusive = true } }
+                    })
+            }
+            composable(modelDownloadProgressPage) {
+                val downloadProgress by prepareServiceViewModel.downloadState.collectAsState()
+                if (downloadProgress.state in listOf(
+                        DownloadInfo.ON_UPDATE,
+                        DownloadInfo.ON_DOWNLOAD
+                    )
+                ) ModelDownloadScreen.ModelDownloadProgressScreen(downloadProcess = downloadProgress) {
+                    //앱 종료
+                }
+
+            }
+        }
+
+
+    }
+
 
 }
