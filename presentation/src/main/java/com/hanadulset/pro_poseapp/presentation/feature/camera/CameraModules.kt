@@ -87,6 +87,8 @@ import com.mutualmobile.composesensors.rememberMagneticFieldSensorState
 import com.skydoves.landscapist.CircularReveal
 import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
+import kotlin.math.asin
+import kotlin.math.atan
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -301,29 +303,45 @@ object CameraModules {
         val triggerState = remember {
             mutableStateOf(false)
         }
+        val xAxisMove = remember {
+            mutableFloatStateOf(0F)
+        }
+        val yAxisMove = remember {
+            mutableFloatStateOf(0F)
+        }
+        val XYZ_THRESHOLD = 0.9F
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        val SHAKE_THRESHOLD_GRAVITY = 1.1F //ThresHold
+        val magneticMetorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        val SHAKE_THRESHOLD_GRAVITY = 8F //ThresHold
+        val mAccelLast = remember {
+            mutableFloatStateOf(SensorManager.GRAVITY_EARTH)
+        }
+        val mAccelCurrent = remember {
+            mutableFloatStateOf(SensorManager.GRAVITY_EARTH)
+        }
+        val mAccel = remember {
+            mutableFloatStateOf(0F)
+        }
+        val deltaTime = 0.1F // Adjust this value for smoothing
+
+        //흔들림 인식이 일단 안됨. -> gforce값의 변화가 없음
+        //구도 추천 이후, 이를 이동 시킬 방법을 알지 못함.
         val sensorListener = rememberUpdatedState {
             object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
                     if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                        val (gravityX, gravityY, gravityZ) = event.values.map {
-                            it / SensorManager.GRAVITY_EARTH
-                        }
-                        val gForce = sqrt(
-                            (gravityX.pow(2) + gravityY.pow(2) + gravityZ.pow(2)).toDouble()
-                        ).toFloat()
-//                        Log.d(
-//                            "트리거 객체 상태 ",
-//                            "gForce: $gForce / pointerState : ${pointerState.toString()}"
-//                        )
-                        //만약 흔들림이 감지되지 않은 경우에 구도 추천을 트리거 한다.
-                        if (gForce < SHAKE_THRESHOLD_GRAVITY && pointerState == null && triggerState.value.not()) {
-                            onSetNewPoint()
-                            triggerState.value = true
-                        }
+                        //가속도 값을 그대로 이용하게 되면, 이슈가 생긴다.
+                        //이를 보정하기 위한 값들을 이용해야겠다.
+                        val (x, y, z) = event.values
+                        xAxisMove.floatValue -= x
+                        yAxisMove.floatValue += y
                     }
+//                    if (event.sensor.type == Sensor.TYPE_GYROSCOPE) {
+//                        val (x, y, z) = event.values
+//                        xAxisMove.floatValue = alpha * xAxisMove.floatValue + (1 - alpha) * x
+//                        yAxisMove.floatValue = alpha * yAxisMove.floatValue + (1 - alpha) * y
+//                    }
                 }
 
                 override fun onAccuracyChanged(sensor: Sensor, accurancy: Int) {}
@@ -337,16 +355,23 @@ object CameraModules {
             startToShowState.value = true
         }
 
-
         //리스너 등록
         DisposableEffect(startToShowState.value) {
-            if (startToShowState.value)
+            if (startToShowState.value) {
                 sensorManager.registerListener(
                     sensorListener.value(), accelerometerSensor, SensorManager.SENSOR_DELAY_NORMAL
                 )
+                sensorManager.registerListener(
+                    sensorListener.value(), magneticMetorSensor, SensorManager.SENSOR_DELAY_NORMAL
+                )
+            }
+
             onDispose {
                 sensorManager.unregisterListener(
                     sensorListener.value(), accelerometerSensor
+                )
+                sensorManager.unregisterListener(
+                    sensorListener.value(), magneticMetorSensor
                 )
             }
         }
@@ -355,88 +380,60 @@ object CameraModules {
         HorizontalCheckModule(
             centerRadius = radius, centroid = centroid, modifier = modifier
         )
-//        HorizonAndVerticalCheckScreen()
-        RecommendPointModule(
-            pointerState = pointerState, centroid = centroid, radius = radius, modifier = modifier
-        )
+        if (pointerState != null)
+            RecommendPointModule(
+                pointerState = pointerState,
+                centroid = centroid,
+                radius = radius,
+                modifier = modifier,
+                xAxisMove = xAxisMove.floatValue,
+                yAxisMove = yAxisMove.floatValue
+            )
+
 
     }
 
     // 구도 추천 포인트
     @Composable
     fun RecommendPointModule(
-        pointerState: Pair<String, Int>?,
+        pointerState: Pair<String, Int>,
         modifier: Modifier = Modifier,
+        xAxisMove: Float,
+        yAxisMove: Float,
         centroid: Offset,
         radius: Float
     ) {
         //맞춰야 하는 대상
         val targetOffset = remember {
-            mutableStateOf<Offset?>(null)
-        }
-        val gravitySensorState = rememberGravitySensorState()
-        val magneticFieldSensorState = rememberMagneticFieldSensorState()
-        val pitch = remember {
-            mutableFloatStateOf(0f)
-        }
-        val roll = remember {
-            mutableFloatStateOf(0f)
-        }
-        val azimuth = remember {
-            mutableFloatStateOf(0f)
+            mutableStateOf(
+                Offset(
+                    if (pointerState.first == "horizon") centroid.x * (100 + pointerState.second) / 100 else centroid.x,
+                    if (pointerState.first == "vertical") centroid.y * (100 + pointerState.second) / 100 else centroid.y,
+                )
+            )
         }
 
-
-
-        LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
-            val gravity = arrayOf(
-                gravitySensorState.xForce, gravitySensorState.yForce, gravitySensorState.zForce
-            ).toFloatArray()
-            val geomagnetic = arrayOf(
-                magneticFieldSensorState.xStrength,
-                magneticFieldSensorState.yStrength,
-                magneticFieldSensorState.zStrength
-            ).toFloatArray()
-            val r = FloatArray(9)
-            val i = FloatArray(9)
-            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
-                val orientation = FloatArray(3)
-                SensorManager.getOrientation(r, orientation)
-                azimuth.floatValue = orientation[0]  //z축회전
-                pitch.floatValue = orientation[1] // y축 회전
-                roll.floatValue = orientation[2] //x축 회전
-                if (targetOffset.value != null) {
-                    targetOffset.value = Offset(
-                        targetOffset.value!!.x * roll.floatValue * 10,
-                        targetOffset.value!!.y * pitch.floatValue * 10
-                    )
-                    Log.d("UI 객체 이동:", targetOffset.value.toString())
-                }
+        LaunchedEffect(xAxisMove) {
+            //이동이 감지된다면, 이를 반영한다.
+            targetOffset.value = targetOffset.value.let {
+                it.copy(it.x + xAxisMove, it.y + yAxisMove)
             }
         }
-
 
         //만약 포인터가 활성화 되었다면,
-        if (pointerState != null) {
-            if (targetOffset.value == null) targetOffset.value = Offset(0F, 0F)
-            val animatedState = animateOffsetAsState(
-                targetValue = targetOffset.value!!,
-                animationSpec = tween(16),
-                label = "targetAnimation"
+        val animatedState = animateOffsetAsState(
+            targetValue = targetOffset.value,
+//                    .let { it.copy(it.x + pitch, it.y + roll) },
+            animationSpec = tween(16),
+            label = "targetAnimation"
+        )
+
+        //위치를 설정한다.
+        Canvas(modifier = modifier.fillMaxSize()) {
+            drawCircle(
+                color = Color.White, radius = radius, center = animatedState.value
             )
 
-            //위치를 설정한다.
-            Canvas(modifier = modifier.fillMaxSize()) {
-                val pointPosition = Offset(
-                    if (pointerState.first == "horizon") centroid.x * (pointerState.second / 10) else centroid.x,
-                    if (pointerState.first == "vertical") centroid.y * (pointerState.second / 10) else centroid.y,
-                )
-                //기기가 움직이면, 타겟 또한 움직여야 하므로, 값을 저장한다.
-                targetOffset.value = pointPosition
-                drawCircle(
-                    color = Color.White, radius = radius, center = animatedState.value
-                )
-            }
         }
     }
 
@@ -458,7 +455,7 @@ object CameraModules {
             Animatable(0F)
         }
         val angleThreshold = 5F
-        //아직 이슈가 있음.
+
         val rotationEventListener = rememberUpdatedState {
             object : OrientationEventListener(context.applicationContext) {
                 override fun onOrientationChanged(orientation: Int) {
@@ -470,8 +467,6 @@ object CameraModules {
                             in 360F - angleThreshold..360F -> -360F
                             else -> -orientation.toFloat()
                         }
-
-                        Log.d("rotation State:", orientation.toString())
                     }
                 }
             }

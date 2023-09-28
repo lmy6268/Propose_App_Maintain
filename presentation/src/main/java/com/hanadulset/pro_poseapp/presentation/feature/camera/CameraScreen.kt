@@ -331,7 +331,6 @@ fun Screen(
                     Offset(
                         it.width.toFloat() / 2,
                         it.height.toFloat() / 2
-
                     )
                 },
                 screenSize = Size(
@@ -379,6 +378,7 @@ fun Screen(
                 cameraViewModel.controlFixedScreen(isPressedFixedBtn.value)
             },
             zoomInOutEvent = {
+                cameraViewModel.reqCompRecommend()
                 cameraViewModel.setZoomLevel(it)
             },
             ddaogiFeatureEvent = {
