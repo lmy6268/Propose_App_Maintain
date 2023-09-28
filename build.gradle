@@ -18,6 +18,8 @@ plugins {
     id 'org.jetbrains.kotlin.android' version '1.8.10' apply false
     id 'com.google.dagger.hilt.android' version '2.44' apply false
 }
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
 
 subprojects {
     afterEvaluate { project ->
@@ -26,12 +28,20 @@ subprojects {
                 compileSdk 34
                 buildFeatures {
                     viewBinding true
+                    if (project.getName() != "opencv") buildConfig true
                 }
                 defaultConfig {
                     minSdk 26
                     targetSdk 34
                     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
                     consumerProguardFiles "consumer-rules.pro"
+                    if (project.getName() != "opencv") {
+                        for (item in properties.keys()) {
+                            if(item!="sdk.dir")
+                            buildConfigField "String", "${item.toUpperCase()}", properties[item]
+                        }
+                    }
+
                 }
 
                 buildTypes {

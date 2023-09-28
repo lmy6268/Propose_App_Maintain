@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.graphics.YuvImage
 import android.media.Image
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ImageProcessDataSource
+import org.opencv.BuildConfig
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Core
@@ -75,7 +76,6 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
         val yBuffer = image.planes[0].buffer // Y
         val uBuffer = image.planes[1].buffer // U
         val vBuffer = image.planes[2].buffer // V
-
         val ySize = yBuffer.remaining()
         val uSize = uBuffer.remaining()
         val vSize = vBuffer.remaining()
