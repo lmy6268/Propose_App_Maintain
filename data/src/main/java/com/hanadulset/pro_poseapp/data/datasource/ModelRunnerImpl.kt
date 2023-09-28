@@ -35,20 +35,18 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
     override fun loadModel(moduleAssetName: String): Module {
 
         val file = File(context.dataDir, moduleAssetName)
-        val path =
-            if (file.exists() && file.length() > 0)
-                file.absolutePath
-            else context.assets.open(moduleAssetName).use { `is` ->
-                FileOutputStream(file).use { os ->
-                    val buffer = ByteArray(4 * 1024)
-                    var read: Int
-                    while (`is`.read(buffer).also { read = it } != -1) {
-                        os.write(buffer, 0, read)
-                    }
-                    os.flush()
+        val path = if (file.exists() && file.length() > 0) file.absolutePath
+        else context.assets.open(moduleAssetName).use { `is` ->
+            FileOutputStream(file).use { os ->
+                val buffer = ByteArray(4 * 1024)
+                var read: Int
+                while (`is`.read(buffer).also { read = it } != -1) {
+                    os.write(buffer, 0, read)
                 }
-                file.absolutePath
+                os.flush()
             }
+            file.absolutePath
+        }
         return LiteModuleLoader.load(path)
     }
 
@@ -125,7 +123,7 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
     }
 
 
-    override fun runVapNet(bitmap: Bitmap): String {
+    override fun runVapNet(bitmap: Bitmap): Pair<String, Int>? {
         val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
 
         val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
@@ -134,35 +132,45 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
         val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
             resizedBitmap, meanArray, stdArray
         )
-        val output = vapNetModule
-            .forward(IValue.from(inputTensor))
+        val output = vapNetModule.forward(IValue.from(inputTensor))
         val outputTuple = output.toTuple()
         val (suggestion, adjustment, magnitude) = Triple<FloatArray, FloatArray, FloatArray>(
             outputTuple[0].toTensor().dataAsFloatArray,
             outputTuple[1].toTensor().dataAsFloatArray,
             outputTuple[2].toTensor().dataAsFloatArray
         )
-//       return "${suggestion.toList()} , ${adjustment.toList()}, ${magnitude.toList()}"
         val threshold = 0.65
-        val list = listOf("Left", "Right", "Up", "Down")
-        val result = if (suggestion[0] > threshold) {
+//        val list = listOf("Left", "Right", "Up", "Down")
+
+        return if (suggestion[0] > threshold) { //조정이 필요한 경우
             val idx = adjustment.toList().indexOf(adjustment.max())
             val magOutPut = magnitude[idx]
-            "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})"
-        } else "Good! \n" +
-                " (suggestion:${suggestion.toList()[0]})"
-        Log.d(
-            "이미지 테스트 결과: ",
-            "suggestion: ${suggestion.toList()}, \n adjustment: ${adjustment.toList()}, \n magnitude: ${magnitude.toList()}"
-        )
-        return result
+//            "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})"
+            when (idx) {
+                in 0..1 -> {
+                    val value = (magOutPut.absoluteValue * 100).roundToInt()
+                    Pair(
+                        "horizon",
+                        if (idx == 0) -value else value
+                    ) //Left인경우, 중심 기준으로 - 이기 때문에 -를 붙여준다.
+                }
+
+                else -> {
+                    val value = (magOutPut.absoluteValue * 100).roundToInt()
+                    Pair(
+                        "vertical",
+                        if (idx == 2) -value else value
+                    ) //UP 인 경우, 좌표상으로는 -이므로, 앞에 -를 붙여준다
+                }
+            }
+
+
+        } else null
+
     }
 
     fun convert1DTo3D(
-        inputArray: FloatArray,
-        depth: Int,
-        rows: Int,
-        cols: Int
+        inputArray: FloatArray, depth: Int, rows: Int, cols: Int
     ): Array<Array<FloatArray>> {
         val result = Array(depth) { Array(rows) { FloatArray(cols) } }
 

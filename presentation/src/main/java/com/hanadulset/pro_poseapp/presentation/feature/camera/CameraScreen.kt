@@ -35,6 +35,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -42,6 +43,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -111,7 +113,6 @@ fun Screen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val capturedThumbnailBitmap: Uri? by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
-    val compResultDirection: String by cameraViewModel.compResultState.collectAsState()
     val viewRateIdxState by cameraViewModel.viewRateIdxState.collectAsState()
     val aspectRatioState by cameraViewModel.aspectRatioState.collectAsState()
     val viewRateState by cameraViewModel.viewRateState.collectAsState()
@@ -152,13 +153,6 @@ fun Screen(
     }
 
 
-    LaunchedEffect(compResultDirection) {
-        if (compResultDirection != "") Toast.makeText(
-            context,
-            compResultDirection,
-            Toast.LENGTH_SHORT
-        ).show()
-    }
 
 
     Box(
@@ -202,7 +196,7 @@ fun Screen(
 
         LaunchedEffect(key1 = focusRingState.value) {
             if (focusRingState.value != null) {
-                delay(1000)
+                delay(400)
                 focusRingState.value = null
             }
         }
@@ -227,6 +221,7 @@ fun Screen(
                 .pointerInteropFilter {
                     when (it.action) {
                         MotionEvent.ACTION_DOWN -> {
+                            focusRingState.value = null
                             val pointer = Offset(it.x, it.y)
                             focusRingState.value = pointer.copy()
                             cameraViewModel.setFocus(
@@ -247,12 +242,6 @@ fun Screen(
         ) {
 
         }
-
-        CameraModules.FocusRing(
-            modifier = Modifier.align(Alignment.TopStart),
-            color = Color.White, pointer = focusRingState.value,
-            duration = 2000L
-        )
 
 
 //        AnimatedVisibility(
@@ -330,25 +319,32 @@ fun Screen(
                 cameraViewModel.changeViewRate(idx)
             })
 
+        //구도 추천 모듈
         if (selectedModeIdxState.intValue in 1..2) {
+            val pointerState by cameraViewModel.compResultState.collectAsState()
 
             CameraModules.CompositionScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset(0.dp, (cameraDisplaySize.value.height / 2).dp),
-                screenWidth = cameraDisplayPxSize.value.width,
-                context = context
+                    .size(cameraDisplaySize.value.let { DpSize(it.width.dp, it.height.dp) }),
+                centroid = cameraDisplayPxSize.value.let {
+                    Offset(
+                        it.width.toFloat() / 2,
+                        it.height.toFloat() / 2
+
+                    )
+                },
+                screenSize = Size(
+                    cameraDisplayPxSize.value.width.toFloat(),
+                    cameraDisplayPxSize.value.height.toFloat()
+                ),
+                pointerState = pointerState,
+                onSetNewPoint = {
+                    cameraViewModel.reqCompRecommend()
+                }
             )
         }
 
-//        CompositionArrow(
-//            arrowDirection = compResultDirection,
-//            modifier = Modifier
-//                .aspectRatio(aspectRatioState)
-//                .heightIn(150.dp)
-//                .align(Alignment.Center)
-//                .offset(y = (-100).dp)
-//        )
 
         LowerButtons(
             modifier = Modifier
@@ -386,16 +382,18 @@ fun Screen(
                 cameraViewModel.setZoomLevel(it)
             },
             ddaogiFeatureEvent = {
-//                if(isPressedFixedBtn.value)
-
                 launcher.launch(
                     PickVisualMediaRequest(
                         mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
                     )
                 )
-
-//                cameraViewModel.reqCompRecommend()
             }
+        )
+
+        CameraModules.FocusRing(
+            modifier = Modifier.align(Alignment.TopStart),
+            color = Color.White, pointer = focusRingState.value,
+            duration = 2000L
         )
 
     }

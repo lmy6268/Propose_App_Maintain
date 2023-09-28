@@ -2,6 +2,9 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
 import android.provider.MediaStore
@@ -15,6 +18,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -53,7 +57,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -71,12 +74,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.CompositionArrow
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.ExpandableButton
 import com.hanadulset.pro_poseapp.presentation.ui_components.PretendardFamily
 import com.mutualmobile.composesensors.rememberGravitySensorState
@@ -84,7 +87,8 @@ import com.mutualmobile.composesensors.rememberMagneticFieldSensorState
 import com.skydoves.landscapist.CircularReveal
 import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
-import kotlin.math.abs
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 
 object CameraModules {
@@ -286,36 +290,174 @@ object CameraModules {
 
     @Composable
     fun CompositionScreen(
-        modifier: Modifier = Modifier, screenWidth: Int, context: Context
+        modifier: Modifier = Modifier,
+        screenSize: Size,
+        centroid: Offset,
+        pointerState: Pair<String, Int>?,
+        onSetNewPoint: () -> Unit,
     ) {
-        val radius = 30F
-        val shortLineLength = 30F
-        val centroid = remember {
-            Offset(50F, 0F)
+        val context = LocalContext.current
+        val radius = 30F // 구도추천 포인트 감지 영역
+        val triggerState = remember {
+            mutableStateOf(false)
         }
-        val rotationState = remember {
-            mutableFloatStateOf(-1F)
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        val SHAKE_THRESHOLD_GRAVITY = 1.1F //ThresHold
+        val sensorListener = rememberUpdatedState {
+            object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                        val (gravityX, gravityY, gravityZ) = event.values.map {
+                            it / SensorManager.GRAVITY_EARTH
+                        }
+                        val gForce = sqrt(
+                            (gravityX.pow(2) + gravityY.pow(2) + gravityZ.pow(2)).toDouble()
+                        ).toFloat()
+//                        Log.d(
+//                            "트리거 객체 상태 ",
+//                            "gForce: $gForce / pointerState : ${pointerState.toString()}"
+//                        )
+                        //만약 흔들림이 감지되지 않은 경우에 구도 추천을 트리거 한다.
+                        if (gForce < SHAKE_THRESHOLD_GRAVITY && pointerState == null && triggerState.value.not()) {
+                            onSetNewPoint()
+                            triggerState.value = true
+                        }
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor, accurancy: Int) {}
+            }
         }
-        val end1Offset = remember {
-            mutableStateOf(Offset((centroid.x - radius), centroid.y))
+        val startToShowState = remember {
+            mutableStateOf(false)
         }
-        val start1Offset = remember {
-            mutableStateOf(Offset(end1Offset.value.x - shortLineLength, 0F))
+        LaunchedEffect(Unit) {
+            delay(2000)
+            startToShowState.value = true
         }
 
-        val start2Offset = remember {
-            mutableStateOf(Offset((centroid.x + radius), 0F))
+
+        //리스너 등록
+        DisposableEffect(startToShowState.value) {
+            if (startToShowState.value)
+                sensorManager.registerListener(
+                    sensorListener.value(), accelerometerSensor, SensorManager.SENSOR_DELAY_NORMAL
+                )
+            onDispose {
+                sensorManager.unregisterListener(
+                    sensorListener.value(), accelerometerSensor
+                )
+            }
         }
-        val end2Offset = remember {
-            mutableStateOf(Offset(start2Offset.value.x + shortLineLength, 0F))
+
+
+        HorizontalCheckModule(
+            centerRadius = radius, centroid = centroid, modifier = modifier
+        )
+//        HorizonAndVerticalCheckScreen()
+        RecommendPointModule(
+            pointerState = pointerState, centroid = centroid, radius = radius, modifier = modifier
+        )
+
+    }
+
+    // 구도 추천 포인트
+    @Composable
+    fun RecommendPointModule(
+        pointerState: Pair<String, Int>?,
+        modifier: Modifier = Modifier,
+        centroid: Offset,
+        radius: Float
+    ) {
+        //맞춰야 하는 대상
+        val targetOffset = remember {
+            mutableStateOf<Offset?>(null)
+        }
+        val gravitySensorState = rememberGravitySensorState()
+        val magneticFieldSensorState = rememberMagneticFieldSensorState()
+        val pitch = remember {
+            mutableFloatStateOf(0f)
+        }
+        val roll = remember {
+            mutableFloatStateOf(0f)
+        }
+        val azimuth = remember {
+            mutableFloatStateOf(0f)
+        }
+
+
+
+        LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
+            val gravity = arrayOf(
+                gravitySensorState.xForce, gravitySensorState.yForce, gravitySensorState.zForce
+            ).toFloatArray()
+            val geomagnetic = arrayOf(
+                magneticFieldSensorState.xStrength,
+                magneticFieldSensorState.yStrength,
+                magneticFieldSensorState.zStrength
+            ).toFloatArray()
+            val r = FloatArray(9)
+            val i = FloatArray(9)
+            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
+                val orientation = FloatArray(3)
+                SensorManager.getOrientation(r, orientation)
+                azimuth.floatValue = orientation[0]  //z축회전
+                pitch.floatValue = orientation[1] // y축 회전
+                roll.floatValue = orientation[2] //x축 회전
+                if (targetOffset.value != null) {
+                    targetOffset.value = Offset(
+                        targetOffset.value!!.x * roll.floatValue * 10,
+                        targetOffset.value!!.y * pitch.floatValue * 10
+                    )
+                    Log.d("UI 객체 이동:", targetOffset.value.toString())
+                }
+            }
+        }
+
+
+        //만약 포인터가 활성화 되었다면,
+        if (pointerState != null) {
+            if (targetOffset.value == null) targetOffset.value = Offset(0F, 0F)
+            val animatedState = animateOffsetAsState(
+                targetValue = targetOffset.value!!,
+                animationSpec = tween(16),
+                label = "targetAnimation"
+            )
+
+            //위치를 설정한다.
+            Canvas(modifier = modifier.fillMaxSize()) {
+                val pointPosition = Offset(
+                    if (pointerState.first == "horizon") centroid.x * (pointerState.second / 10) else centroid.x,
+                    if (pointerState.first == "vertical") centroid.y * (pointerState.second / 10) else centroid.y,
+                )
+                //기기가 움직이면, 타겟 또한 움직여야 하므로, 값을 저장한다.
+                targetOffset.value = pointPosition
+                drawCircle(
+                    color = Color.White, radius = radius, center = animatedState.value
+                )
+            }
+        }
+    }
+
+
+    // 수평계 모듈
+    @Composable
+    fun HorizontalCheckModule(
+        modifier: Modifier = Modifier, centerRadius: Float, centroid: Offset
+    ) {
+        val context = LocalContext.current
+
+        val shortLineLength = 30F
+
+        val rotationState = remember {
+            mutableFloatStateOf(-1F)
         }
 
         val animation = remember {
             Animatable(0F)
         }
-
         val angleThreshold = 5F
-
         //아직 이슈가 있음.
         val rotationEventListener = rememberUpdatedState {
             object : OrientationEventListener(context.applicationContext) {
@@ -325,9 +467,7 @@ object CameraModules {
                         rotationState.floatValue = when (orientation.toFloat()) {
                             in 180F - angleThreshold..180F -> -180F
                             in 0F..angleThreshold -> -0F
-                            in 360F-angleThreshold .. 360F -> -360F
-
-
+                            in 360F - angleThreshold..360F -> -360F
                             else -> -orientation.toFloat()
                         }
 
@@ -337,55 +477,62 @@ object CameraModules {
             }
         }
 
+
         LaunchedEffect(Unit) {
             animation.animateTo(
                 rotationState.floatValue, animationSpec = tween(16, easing = LinearEasing)
             )
         }
 
-
-
-
         DisposableEffect(Unit) {
             rotationEventListener.value().enable() //시작
-
             onDispose {
                 rotationEventListener.value().disable()//종료
             }
         }
 
         Canvas(
-            modifier = modifier.size(50.dp),
+            modifier = modifier,
         ) {
+            val leftEndOffset = Offset((centroid.x - centerRadius), centroid.y)
+            val leftStartOffset = Offset(leftEndOffset.x - shortLineLength, centroid.y)
+            val rightStartOffset = Offset((centroid.x + centerRadius), centroid.y)
+            val rightEndOffset = Offset(rightStartOffset.x + shortLineLength, centroid.y)
+
             //회전을 감지 한다.
             rotate(
                 rotationState.floatValue, pivot = centroid //회전 기준점
             ) {
                 if (rotationState.floatValue == 0.0F || rotationState.floatValue in listOf(
-                        -180F,
-                        180F
+                        -180F, 180F
                     )
                 ) {
                     drawLine(
-                        start = Offset(start1Offset.value.x - 30F, 0F),
-                        end = Offset(end2Offset.value.x + 30F, 0F),
+                        start = leftStartOffset,
+                        end = rightEndOffset,
                         strokeWidth = 8F,
                         color = Color.Yellow
                     )
                     drawCircle(
-                        color = Color.Yellow, radius = radius, center = centroid, style = Stroke(
+                        color = Color.Yellow,
+                        radius = centerRadius,
+                        center = centroid,
+                        style = Stroke(
                             width = 3.dp.toPx()
                         )
                     )
                 } else {
                     drawLine(
-                        Color.White, start1Offset.value, end1Offset.value, strokeWidth = 5F
+                        Color.White, leftStartOffset, leftEndOffset, strokeWidth = 5F
                     )
                     drawLine(
-                        Color.White, start2Offset.value, end2Offset.value, strokeWidth = 5F
+                        Color.White, rightStartOffset, rightEndOffset, strokeWidth = 5F
                     )
                     drawCircle(
-                        color = Color.White, radius = radius, center = centroid, style = Stroke(
+                        color = Color.White,
+                        radius = centerRadius,
+                        center = centroid,
+                        style = Stroke(
                             width = 3.dp.toPx()
                         )
                     )
@@ -393,7 +540,6 @@ object CameraModules {
 
 
             }
-
         }
     }
 
@@ -405,22 +551,26 @@ object CameraModules {
 
         if (pointer != null) {
             val animationSize = remember {
-                AnimationState(100F)
+                AnimationState(150F)
             }
+            val rectSize = Size(animationSize.value, animationSize.value)
             LaunchedEffect(animationSize) {
                 animationSize.animateTo(
-                    targetValue = 80F, animationSpec = tween(durationMillis = 300)
+                    targetValue = 100F, animationSpec = tween(durationMillis = 200)
                 )
             }
             Canvas(
                 modifier = modifier.size(animationSize.value.dp)
 
             ) {
-                drawCircle(
-                    color = color, center = pointer, style = Stroke(
-                        width = 5.dp.toPx()
+                drawRect(
+                    color = color, topLeft = pointer.copy(
+                        pointer.x - rectSize.width / 2, pointer.y - rectSize.height / 2
+                    ), size = rectSize, style = Stroke(
+                        width = 3.dp.toPx()
                     )
                 )
+                drawCircle(color, radius = 5F, center = pointer)
             }
         }
 
@@ -474,11 +624,23 @@ object CameraModules {
         ) {
 
         }
-
-
+        val isDdaogiActivated = remember {
+            mutableStateOf(false)
+        }
+        val isPoseActivated = remember {
+            mutableStateOf(false)
+        }
+        val textMeasurer = rememberTextMeasurer()
         //현재 줌 상태
         val zoomState = remember {
             mutableStateOf("1")
+        }
+        val textLayoutResult = remember {
+            textMeasurer.measure(
+                "포즈\n추천", TextStyle(
+                    color = Color.White, fontSize = 10.sp
+                )
+            )
         }
 
         //버튼 이미지 배치
@@ -495,25 +657,48 @@ object CameraModules {
             Row(
                 horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()
             ) {
-                if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1) IconButton(
-                    modifier = Modifier.heightIn(15.dp),
-                    onClick = {
+
+                if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1)
+
+//                    Canvas(
+//                        modifier = Modifier
+//                            .wrapContentSize()
+//                            .clickable {
+//                                isDdaogiActivated.value = !isDdaogiActivated.value
+//                                poseBtnClickEvent()
+//                            }
+//                    ) {
+//                        drawCircle(
+//                            center = Offset(center.x, center.y),
+//                            color = Color(0xFF000000), radius = 60F
+//                        )
+//                        drawText(
+//                            textLayoutResult, topLeft = Offset(
+//                                x = center.x - textLayoutResult.size.width / 2,
+//                                y = center.y - textLayoutResult.size.height / 2,
+//                            )
+//                        )
+//
+//                    }
+                    IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
+                        isPoseActivated.value = !isPoseActivated.value
                         poseBtnClickEvent()
                     }) {
-                    Icon(
-                        painterResource(id = R.drawable.based_circle),
-                        tint = Color(
-                            0x80000000
-                        ),
-                        contentDescription = "background",
-                    )
-                    Text(
-                        style = TextStyle(
-                            color = Color.White, fontSize = 10.sp
-                        ), text = "포즈\n추천"
-                    )
-                }
-                else IconButton(modifier = Modifier.heightIn(15.dp),
+                        Icon(
+                            painterResource(id = R.drawable.based_circle),
+                            tint = Color(
+                                0x80000000
+                            ),
+                            contentDescription = "background",
+                        )
+                        Text(
+                            style = TextStyle(
+                                color = Color.White, fontSize = 10.sp
+                            ), text = "포즈\n추천"
+                        )
+                    }
+                else IconButton(
+                    modifier = Modifier.heightIn(15.dp),
                     enabled = false,
                     onClick = {}) {
                     Icon(
@@ -646,144 +831,63 @@ object CameraModules {
     }
 
 
-    //수직 수평 확인
-    @Composable
-    fun HorizonAndVerticalCheckScreen(
-        modifier: Modifier = Modifier
-    ) {
-        val context = LocalContext.current
-        val gravitySensorState = rememberGravitySensorState()
-        val magneticFieldSensorState = rememberMagneticFieldSensorState()
-        val pitch = remember {
-            mutableFloatStateOf(0f)
-        }
-        val roll = remember {
-            mutableFloatStateOf(0f)
-        }
-        val yaw = remember {
-            mutableFloatStateOf(0f)
-        }
-        LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
-            val gravity = arrayOf(
-                gravitySensorState.xForce, gravitySensorState.yForce, gravitySensorState.zForce
-            ).toFloatArray()
-            val geomagnetic = arrayOf(
-                magneticFieldSensorState.xStrength,
-                magneticFieldSensorState.yStrength,
-                magneticFieldSensorState.zStrength
-            ).toFloatArray()
-            val r = FloatArray(9)
-            val i = FloatArray(9)
-            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
-                val orientation = FloatArray(3)
-                SensorManager.getOrientation(r, orientation)
-                pitch.floatValue = orientation[1]
-                roll.floatValue = orientation[2]
-            }
-        }
-
-        Box(modifier = modifier) {
-            Canvas(
-                modifier = Modifier
-                    .offset(
-                        x = roll.floatValue.dp, y = -pitch.floatValue.dp
-                    )
-                    .align(
-                        BiasAlignment(
-                            horizontalBias = (roll.floatValue),
-                            verticalBias = (pitch.floatValue),
-                        )
-                    ),
-
-                ) {
-                drawRect(
-                    color = Color.White, size = Size(300F, 400F)
-                )
-            }
-        }
-    }
-
-
-    //구도 추천 관련 UI
-    @Composable
-    fun CompositionArrow(arrowDirection: String, modifier: Modifier = Modifier) {
-        val tint = Color.Unspecified
-        val size = 50.dp
-        Box(modifier = modifier) {
-            when (arrowDirection) {
-                "L" -> {
-                    Icon(
-                        modifier = Modifier
-                            .size(size)
-                            .align(Alignment.CenterStart)
-                            .padding(horizontal = 10.dp),
-                        painter = painterResource(id = R.drawable.left_arrow),
-                        contentDescription = "왼쪽 화살표 ",
-                        tint = tint
-                    )
-                }
-
-                "R" -> {
-                    Icon(
-                        modifier = Modifier
-                            .size(size)
-                            .align(Alignment.CenterEnd)
-                            .padding(horizontal = 10.dp),
-                        painter = painterResource(id = R.drawable.right_arrow),
-                        contentDescription = "오른쪽 화살표 ",
-                        tint = tint
-                    )
-                }
-
-                "U" -> {
-                    Icon(
-                        modifier = Modifier
-                            .size(size)
-                            .align(Alignment.TopCenter)
-                            .offset(y = 80.dp)
-                            .padding(vertical = 10.dp),
-                        painter = painterResource(id = R.drawable.up_arrow),
-                        contentDescription = "위쪽 화살표 ",
-                        tint = tint
-                    )
-                }
-
-                "D" -> {
-                    Icon(
-                        modifier = Modifier
-                            .size(size)
-                            .align(Alignment.BottomCenter)
-                            .offset(y = (-70).dp)
-                            .padding(vertical = 10.dp),
-                        painter = painterResource(id = R.drawable.down_arrow),
-                        contentDescription = "아래쪽 화살표 ",
-                        tint = tint
-                    )
-                }
-
-                "S" -> {
-                    var show by remember { mutableStateOf(true) }
-
-                    LaunchedEffect(key1 = Unit) {
-                        delay(2000) //2초만 보여줌
-                        show = false
-                    }
-                    if (show) Icon(
-                        modifier = Modifier
-                            .size(size)
-                            .align(Alignment.Center),
-                        painter = painterResource(id = R.drawable.good_comp),
-                        contentDescription = "좋은 구도",
-                        tint = tint
-                    )
-                }
-
-                else -> {}
-            }
-
-        }
-
-    }
+//    //수직 수평 확인
+//    @Composable
+//    fun HorizonAndVerticalCheckScreen(
+//        modifier: Modifier = Modifier
+//    ) {
+//        val context = LocalContext.current
+//        val gravitySensorState = rememberGravitySensorState()
+//        val magneticFieldSensorState = rememberMagneticFieldSensorState()
+//        val pitch = remember {
+//            mutableFloatStateOf(0f)
+//        }
+//        val roll = remember {
+//            mutableFloatStateOf(0f)
+//        }
+//        val yaw = remember {
+//            mutableFloatStateOf(0f)
+//        }
+//        LaunchedEffect(key1 = gravitySensorState, key2 = magneticFieldSensorState) {
+//            val gravity = arrayOf(
+//                gravitySensorState.xForce, gravitySensorState.yForce, gravitySensorState.zForce
+//            ).toFloatArray()
+//            val geomagnetic = arrayOf(
+//                magneticFieldSensorState.xStrength,
+//                magneticFieldSensorState.yStrength,
+//                magneticFieldSensorState.zStrength
+//            ).toFloatArray()
+//            val r = FloatArray(9)
+//            val i = FloatArray(9)
+//            if (SensorManager.getRotationMatrix(r, i, gravity, geomagnetic)) {
+//                val orientation = FloatArray(3)
+//                SensorManager.getOrientation(r, orientation)
+//                pitch.floatValue = orientation[1] * 10
+//                roll.floatValue = orientation[2] * 10
+//                Log.d("pitch and roll", "pitch: ${pitch.floatValue} / roll: ${roll.floatValue}")
+//            }
+//        }
+//
+//        Box(modifier = modifier) {
+//            Canvas(
+//                modifier = Modifier
+//                    .offset(
+//                        x = roll.floatValue.dp, y = -pitch.floatValue.dp
+//                    )
+//                    .align(
+//                        BiasAlignment(
+//                            horizontalBias = (roll.floatValue),
+//                            verticalBias = (pitch.floatValue),
+//                        )
+//                    ),
+//
+//                ) {
+//                drawRect(
+//                    color = Color.White, size = Size(300F, 400F)
+//                )
+//            }
+//        }
+//    }
 
 
     private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
@@ -833,13 +937,6 @@ fun PreviewLower() {
 //    LowerButtons(isPressedFixedBtn =,capturedImageBitmap =, mainViewModel =)
 }
 
-
-@Preview(widthDp = 250, heightDp = 150)
-@Composable
-fun PreviewArrow() {
-    CompositionArrow("R")
-}
-
 @Preview(widthDp = 250, heightDp = 360)
 @Composable
 fun TestFocusRing() {
@@ -849,27 +946,112 @@ fun TestFocusRing() {
         )
     }
 }
+//
+//@Preview(
+//    backgroundColor = 0xFF000000, showSystemUi = true
+//)
+//@Composable
+//fun TestCompositionScreen() {
+//    Box(
+//        Modifier
+//            .fillMaxSize()
+//            .background(color = Color.Black)
+//    ) {
+//        val density = LocalDensity.current
+//        val context = LocalContext.current
+//        CameraModules.CompositionScreen(modifier = Modifier.align(Alignment.Center),
+//            screenSize = with(density) {
+//                Size(411.dp.toPx(), 800.dp.toPx())
+//            },
+//            context,
+//            onSetNewPoint = {
+//                Pair("horizon", 10)
+//            })
+//    }
+//}
 
-@Preview(
-    backgroundColor = 0xFF000000, showSystemUi = true
-)
-@Composable
-fun TestCompositionScreen() {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(color = Color.Black)
-    ) {
-        val density = LocalDensity.current
-        val context = LocalContext.current
-        CameraModules.CompositionScreen(
-            modifier = Modifier.align(Alignment.Center), screenWidth = with(density) {
-                411.dp.toPx().toInt()
-            }, context
-        )
-    }
-}
 
+//
+////구도 추천 관련 UI
+//@Composable
+//fun CompositionArrow(arrowDirection: String, modifier: Modifier = Modifier) {
+//    val tint = Color.Unspecified
+//    val size = 50.dp
+//    Box(modifier = modifier) {
+//        when (arrowDirection) {
+//            "L" -> {
+//                Icon(
+//                    modifier = Modifier
+//                        .size(size)
+//                        .align(Alignment.CenterStart)
+//                        .padding(horizontal = 10.dp),
+//                    painter = painterResource(id = R.drawable.left_arrow),
+//                    contentDescription = "왼쪽 화살표 ",
+//                    tint = tint
+//                )
+//            }
+//
+//            "R" -> {
+//                Icon(
+//                    modifier = Modifier
+//                        .size(size)
+//                        .align(Alignment.CenterEnd)
+//                        .padding(horizontal = 10.dp),
+//                    painter = painterResource(id = R.drawable.right_arrow),
+//                    contentDescription = "오른쪽 화살표 ",
+//                    tint = tint
+//                )
+//            }
+//
+//            "U" -> {
+//                Icon(
+//                    modifier = Modifier
+//                        .size(size)
+//                        .align(Alignment.TopCenter)
+//                        .offset(y = 80.dp)
+//                        .padding(vertical = 10.dp),
+//                    painter = painterResource(id = R.drawable.up_arrow),
+//                    contentDescription = "위쪽 화살표 ",
+//                    tint = tint
+//                )
+//            }
+//
+//            "D" -> {
+//                Icon(
+//                    modifier = Modifier
+//                        .size(size)
+//                        .align(Alignment.BottomCenter)
+//                        .offset(y = (-70).dp)
+//                        .padding(vertical = 10.dp),
+//                    painter = painterResource(id = R.drawable.down_arrow),
+//                    contentDescription = "아래쪽 화살표 ",
+//                    tint = tint
+//                )
+//            }
+//
+//            "S" -> {
+//                var show by remember { mutableStateOf(true) }
+//
+//                LaunchedEffect(key1 = Unit) {
+//                    delay(2000) //2초만 보여줌
+//                    show = false
+//                }
+//                if (show) Icon(
+//                    modifier = Modifier
+//                        .size(size)
+//                        .align(Alignment.Center),
+//                    painter = painterResource(id = R.drawable.good_comp),
+//                    contentDescription = "좋은 구도",
+//                    tint = tint
+//                )
+//            }
+//
+//            else -> {}
+//        }
+//
+//    }
+//
+//}
 
 
 

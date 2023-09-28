@@ -31,8 +31,8 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
         Utils.bitmapToMat(bitmap, input) // bitmap을 매트릭스로 변환
         Imgproc.cvtColor(input, input, Imgproc.COLOR_RGB2GRAY) //흑백으로 변경
         //Convert to detected picture
-        Imgproc.adaptiveThreshold(input, input, 255.0,  Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY,9,4.5)
-        Imgproc.Canny(input, input, 0.0,100.0)
+//        Imgproc.adaptiveThreshold(input, input, 255.0,  Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY,9,4.5)
+        Imgproc.Canny(input, input, 50.0,150.0)
         return bitmap.copy(bitmap.config, true).apply {
             Utils.matToBitmap(input, this)
         }

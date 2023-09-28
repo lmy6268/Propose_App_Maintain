@@ -77,7 +77,7 @@ class CameraViewModel @Inject constructor(
         null
     )
     private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
-    private val _compResultState = MutableStateFlow("")
+    private val _compResultState = MutableStateFlow<Pair<String, Int>?>(null)
     private val _fixedScreenState = MutableStateFlow<Bitmap?>(null)
 
 
@@ -99,7 +99,7 @@ class CameraViewModel @Inject constructor(
         it.use { image ->
             if (reqFixState.value) {
                 reqFixState.value = false
-                val res =  showFixedScreenUseCase(image)
+                val res = showFixedScreenUseCase(image)
                 _fixedScreenState.value = res
             }
             //포즈 선정 로직
@@ -117,7 +117,7 @@ class CameraViewModel @Inject constructor(
             if (reqCompState.value) {
                 reqCompState.value = false
                 viewModelScope.launch {
-                    _compResultState.value = ""
+                    _compResultState.value = null
                     _compResultState.value = recommendCompInfoUseCase(
                         image = image.image!!,
                         rotation = image.imageInfo.rotationDegrees
