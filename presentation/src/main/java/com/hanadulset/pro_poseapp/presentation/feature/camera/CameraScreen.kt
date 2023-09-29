@@ -14,6 +14,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -81,7 +82,6 @@ fun <T> Flow<T>.collectAsStateWithLifecycleRemember(
 fun Screen(
     cameraViewModel: CameraViewModel,
     previewView: PreviewView,
-    onBackPressedEvent: () -> Boolean,
     showBackContinueDialog: () -> Unit,
     onClickSettingBtnEvent: () -> Unit,
     cameraInit: () -> Unit
@@ -346,6 +346,12 @@ fun Screen(
             )
         }
 
+        //포즈 추천 스크롤과 하단 버튼 메뉴 정리
+        Column(
+
+        ) {
+
+        }
 
         LowerButtons(
             modifier = Modifier

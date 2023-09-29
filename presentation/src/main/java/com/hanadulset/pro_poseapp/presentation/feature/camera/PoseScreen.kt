@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -61,15 +62,26 @@ object PoseScreen {
         pageCount: Int = poseDataList.size,
         lowerBarDisplayPxSize: IntSize,
         cameraDisplayPxSize: IntSize,
-        onPoseChangeEvent: (PoseData) -> Unit
+        onPoseChangeEvent: (PoseData) -> Unit,
+        onPageChangeEvent: (Int) -> Unit
     ) {
         val pagerState = rememberPagerState(pageCount = { pageCount })
+        val scrollBySwitch = remember {
+            mutableStateOf(false)
+        }
 
         LaunchedEffect(clickedItemIndexState) {
+            scrollBySwitch.value = true
             pagerState.animateScrollToPage(clickedItemIndexState)
+            scrollBySwitch.value = false
+        }
+        LaunchedEffect(pagerState) {
+            // do your stuff with selected page
+            snapshotFlow { pagerState.currentPage }.collect { page ->
+                if (scrollBySwitch.value.not()) onPageChangeEvent(page)
+            }
         }
         HorizontalPager(state = pagerState, modifier = modifier) {
-
             //이곳에 각 포즈 데이터를 저장하기만 하면 됨.
             PoseItem(
                 poseData = poseDataList[it],
@@ -78,12 +90,10 @@ object PoseScreen {
                 onPoseChangeEvent = onPoseChangeEvent
             )
 
-//            Text(
-//                text = "Page: $it"
-//            )
         }
     }
 
+    //사용자에게 보여주는 포즈 아이템에 대한 설정 ->
     @Composable
     fun PoseItem(
         modifier: Modifier = Modifier,
@@ -109,10 +119,7 @@ object PoseScreen {
         val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
             if (zoom.floatValue * zoomChange in 0.5f..2f) zoom.floatValue *= zoomChange
             val tmp = offset.value + offsetChange
-            if (tmp.x in -(cameraDisplayPxSize.width / 2f)..(cameraDisplayPxSize.width / 2f)
-                && tmp.y in -(cameraDisplayPxSize.height / 2f)..(cameraDisplayPxSize.height / 2f)
-            )
-                offset.value += offsetChange
+            if (tmp.x in -(cameraDisplayPxSize.width / 2f)..(cameraDisplayPxSize.width / 2f) && tmp.y in -(cameraDisplayPxSize.height / 2f)..(cameraDisplayPxSize.height / 2f)) offset.value += offsetChange
         }
 
         Canvas( //그림 1
@@ -137,8 +144,7 @@ object PoseScreen {
 //                    }
 
             drawImage(
-                image = BitmapFactory.decodeResource(
-                    context.resources,
+                image = BitmapFactory.decodeResource(context.resources,
                     poseData.poseDrawableId.apply {
                         onPoseChangeEvent(poseData)
                     }).asImageBitmap(),
@@ -161,7 +167,7 @@ object PoseScreen {
         val localDensity = LocalDensity.current
         val itemList = List(poseCnt) {
             "$customName #${it + 1}"
-        }
+        } //여기에 해제 버튼도 하나 추가해야댐.
         val rowSizeState = remember { mutableStateOf(DpSize(width = 0.dp, height = 0.dp)) }
         val lazyRowState = rememberLazyListState()
         LazyRow(
@@ -177,6 +183,7 @@ object PoseScreen {
             contentPadding = PaddingValues(horizontal = rowSizeState.value.width.div(2.5F)),
             state = lazyRowState
         ) {
+            //인덱스를 돌면서, 해당 리스트에 있는 데이터를 가져온다.
             itemsIndexed(itemList) { idx, item ->
                 LaunchedEffect(key1 = clickedItemIndexState) {
                     if (idx == clickedItemIndexState) lazyRowState.animateScrollToItem(idx)
@@ -234,18 +241,28 @@ object PoseScreen {
             }
             //만약에 포즈 추천이 완료되었다면
             else {
+                val rememberClickIndexState = remember {
+                    mutableIntStateOf(0)
+                }
+
                 ScrollableRecommendPoseScreen(
-                    modifier = Modifier
-                        .size(
-                            cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
-                        )
-//                        .background(Color.Black),
-                    , poseDataList = poseResultData.second!!,
-                    clickedItemIndexState = clickedItemIndexState,
+                    modifier = Modifier.size(
+                        cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
+                    ),
+                    poseDataList = poseResultData.second!!,
+                    clickedItemIndexState = rememberClickIndexState.intValue,
                     cameraDisplayPxSize = cameraDisplayPxSize.value,
                     lowerBarDisplayPxSize = lowerBarDisplayPxSize.value,
-                    onPoseChangeEvent = onPoseChangeEvent
+                    onPoseChangeEvent = onPoseChangeEvent,
+                    onPageChangeEvent = {
+                        rememberClickIndexState.intValue = it
+                    }
                 )
+                RecommendedPoseSelectMenu(poseCnt = poseResultData.second!!.size,
+                    clickedItemIndexState = rememberClickIndexState.intValue,
+                    onItemClickEvent = {
+                        rememberClickIndexState.intValue = it
+                    })
             }
 
         }

@@ -222,10 +222,9 @@ object MainScreen {
             composable(
                 route = Page.Cam.name
             ) {
-                Screen(cameraViewModel,
-                    onBackPressedEvent = {
-                        !navHostController.popBackStack() //뒤로가기 불가
-                    }, showBackContinueDialog = {
+                Screen(
+                    cameraViewModel,
+                    showBackContinueDialog = {
                         activeActivity.finish() //앱 종료
 //                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
                     }, previewView = previewView,

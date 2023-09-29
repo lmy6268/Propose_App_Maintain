@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="keypointImage">
+        <item>@drawable/key_image_0</item>
+        <item>@drawable/key_image_1</item>
+        <item>@drawable/key_image_2</item>
+        <item>@drawable/key_image_3</item>
+        <item>@drawable/key_image_4</item>
+        <item>@drawable/key_image_5</item>
+        <item>@drawable/key_image_6</item>
+        <item>@drawable/key_image_7</item>
+        <item>@drawable/key_image_8</item>
+        <item>@drawable/key_image_9</item>
+        <item>@drawable/key_image_10</item>
+        <item>@drawable/key_image_11</item>
+        <item>@drawable/key_image_12</item>
+        <item>@drawable/key_image_13</item>
+        <item>@drawable/key_image_14</item>
+        <item>@drawable/key_image_15</item>
+        <item>@drawable/key_image_16</item>
+        <item>@drawable/key_image_17</item>
+        <item>@drawable/key_image_18</item>
+        <item>@drawable/key_image_19</item>
+        <item>@drawable/key_image_20</item>
+        <item>@drawable/key_image_21</item>
+        <item>@drawable/key_image_22</item>
+        <item>@drawable/key_image_23</item>
+        <item>@drawable/key_image_24</item>
+        <item>@drawable/key_image_25</item>
+        <item>@drawable/key_image_26</item>
+        <item>@drawable/key_image_27</item>
+        <item>@drawable/key_image_28</item>
+        <item>@drawable/key_image_29</item>
+        <item>@drawable/key_image_30</item>
+        <item>@drawable/key_image_31</item>
+        <item>@drawable/key_image_32</item>
+        <item>@drawable/key_image_33</item>
+        <item>@drawable/key_image_34</item>
+        <item>@drawable/key_image_35</item>
+        <item>@drawable/key_image_36</item>
+        <item>@drawable/key_image_37</item>
+        <item>@drawable/key_image_38</item>
+        <item>@drawable/key_image_39</item>
+        <item>@drawable/key_image_40</item>
+        <item>@drawable/key_image_41</item>
+        <item>@drawable/key_image_42</item>
+        <item>@drawable/key_image_43</item>
+        <item>@drawable/key_image_44</item>
+        <item>@drawable/key_image_45</item>
+        <item>@drawable/key_image_46</item>
+        <item>@drawable/key_image_47</item>
+        <item>@drawable/key_image_48</item>
+        <item>@drawable/key_image_49</item>
+        <item>@drawable/key_image_50</item>
+        <item>@drawable/key_image_51</item>
+        <item>@drawable/key_image_52</item>
+        <item>@drawable/key_image_53</item>
+        <item>@drawable/key_image_54</item>
+        <item>@drawable/key_image_55</item>
+        <item>@drawable/key_image_56</item>
+        <item>@drawable/key_image_57</item>
+        <item>@drawable/key_image_58</item>
+        <item>@drawable/key_image_59</item>
+    </array>
+
+    <!--다운로드 받아야 할 파일의 목록 -->
+    <string-array name="need_to_download_list">
+        <item>vapnet.ptl</item>
+<!--        <item></item>-->
+    </string-array>
+</resources>

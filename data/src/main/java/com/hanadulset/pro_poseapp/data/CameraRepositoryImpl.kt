@@ -40,6 +40,12 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     private val fileHandleDataSourceImpl by lazy {
         FileHandleDataSourceImpl(context = applicationContext)
     }
+    //아니면 여기에 유저 세팅곤련된 데이터 소스가 들어와도 될듯?
+    // 데이터 소스를 통해, 값을 변경하고, 해당 값을 계속해서 레포지토리가 소유하면 되니깐
+    //데이터 소스는 싱글톤으로 관리해서, 문제없게 하면 되지 않을까
+
+
+    private var shutterSoundOn = true
 
     override suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
@@ -56,6 +62,8 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override suspend fun takePhoto() =
         cameraDataSource.takePhoto()
             .let { data ->
+                //만약 셔터 소리를 설정해놓은 경우, 셔터음을 켠다.
+                if (shutterSoundOn) shutterSoundManager.play(MediaActionSound.SHUTTER_CLICK)
                 val res: Uri
                 val elapseTime = measureTimeMillis {
                     res = data.use {
@@ -98,7 +106,6 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         cameraDataSource.setZoomLevel(zoomLevel)
 
     override fun sendCameraSound() {
-
         shutterSoundManager.play(MediaActionSound.SHUTTER_CLICK)
     }
 
