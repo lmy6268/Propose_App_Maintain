@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -104,16 +106,16 @@ object MainScreen {
             preview.scaleType = PreviewView.ScaleType.FILL_CENTER
             preview
         }
-        val previewState by cameraViewModel.previewState.collectAsState()
-        val cameraPreviewInit: () -> CameraState = {
+        val previewState = cameraViewModel.previewState.collectAsState()
+        val cameraInit = {
             cameraViewModel.showPreview(
                 lifecycleOwner = lifecycleOwner,
                 surfaceProvider = previewView.surfaceProvider,
                 aspectRatio = AspectRatio.RATIO_4_3,
                 previewRotation = previewView.rotation.toInt()
             )
-            previewState
         }
+
 
 
         NavHost(
@@ -127,20 +129,23 @@ object MainScreen {
                 navController,
                 prepareServiceViewModel,
                 multiplePermissionsState,
-                cameraPreviewInit
+                cameraInit = cameraInit,
+                previewState = previewState
             )
             permissionAllowedGraph(
                 routeName = Graph.PermissionAllowed.name,
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navController,
-                cameraInit = cameraPreviewInit
+                cameraInit = cameraInit,
+                previewState = previewState
             )
             usingCameraGraph(
                 routeName = Graph.UsingCamera.name,
                 navHostController = navController,
                 cameraViewModel = cameraViewModel,
                 previewView = previewView,
-                activeActivity = activity
+                activeActivity = activity,
+                cameraInit = cameraInit,
             )
         }
     }
@@ -152,7 +157,8 @@ object MainScreen {
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
         multiplePermissionsState: MultiplePermissionsState,
-        cameraInit: () -> CameraState
+        cameraInit: () -> Unit,
+        previewState: State<CameraState>
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -171,7 +177,8 @@ object MainScreen {
                 navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
                 nextPage = Graph.UsingCamera.name,
-                cameraInitState = cameraInit
+                cameraInit = cameraInit,
+                previewState = previewState
             )
         }
     }
@@ -181,7 +188,8 @@ object MainScreen {
         routeName: String,
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
-        cameraInit: () -> CameraState
+        previewState: State<CameraState>,
+        cameraInit: () -> Unit
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -192,7 +200,8 @@ object MainScreen {
                 navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
                 nextPage = Graph.UsingCamera.name,
-                cameraInitState = cameraInit
+                previewState = previewState,
+                cameraInit = cameraInit
             )
         }
 
@@ -205,25 +214,27 @@ object MainScreen {
         navHostController: NavHostController,
         previewView: PreviewView,
         cameraViewModel: CameraViewModel,
-        activeActivity: Activity
+        activeActivity: Activity,
+        cameraInit: () -> Unit
     ) {
         navigation(startDestination = Page.Cam.name, route = routeName) {
             //카메라 화면
             composable(
                 route = Page.Cam.name
             ) {
-
-                Screen(cameraViewModel, onBackPressedEvent = {
-                    !navHostController.popBackStack() //뒤로가기 불가
-                }, showBackContinueDialog = {
-                    activeActivity.finish() //앱 종료
+                Screen(cameraViewModel,
+                    onBackPressedEvent = {
+                        !navHostController.popBackStack() //뒤로가기 불가
+                    }, showBackContinueDialog = {
+                        activeActivity.finish() //앱 종료
 //                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
-                }, previewView = previewView,
+                    }, previewView = previewView,
                     onClickSettingBtnEvent = {
                         navHostController.navigate(route = Page.Setting.name) {
-                            popUpTo(Page.Cam.name) //백스택의 최상단에 Cam 화면이 있을 때까지 비운다.
                         }
-                    })
+                    },
+                    cameraInit = cameraInit
+                )
             }
 
             //앱 종료 여부 파악 화면
@@ -262,19 +273,24 @@ object MainScreen {
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
         nextPage: String,
-        cameraInitState: () -> CameraState
+        cameraInit: () -> Unit,
+        previewState: State<CameraState>
     ) {
         val appLoadingPage = Page.AppLoading.name
         composable(route = appLoadingPage) {
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
-                previewState = cameraInitState(),
+                previewState = previewState,
+                cameraInit = cameraInit,
                 prepareServiceViewModel = prepareServiceViewModel,
                 onAfterLoadedEvent = {
-                    navHostController.navigate(nextPage) {
+                    navHostController.navigate(nextPage)
+                    {
                         //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
                         popUpTo(route = appLoadingPage) { inclusive = true }
+
                     }
+
                 })
         }
     }

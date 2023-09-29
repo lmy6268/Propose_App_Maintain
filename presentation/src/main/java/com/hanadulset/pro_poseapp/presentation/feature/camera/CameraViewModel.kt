@@ -134,14 +134,10 @@ class CameraViewModel @Inject constructor(
         aspectRatio: Int,
         previewRotation: Int
     ) {
-        _previewState.value =
-            _previewState.value.copy(cameraStateId = CameraState.CAMERA_INIT_ON_PROCESS) // OnProgress
+        _previewState.value = CameraState(cameraStateId = CameraState.CAMERA_INIT_ON_PROCESS) // OnProgress
         viewModelScope.launch {
-            _previewState.value = showPreviewUseCase(
-                lifecycleOwner, surfaceProvider,
-                aspectRatio = aspectRatio,
-                analyzer = imageAnalyzer,
-                previewRotation = previewRotation
+            _previewState.value =
+                showPreviewUseCase(lifecycleOwner, surfaceProvider, aspectRatio = aspectRatio, analyzer = imageAnalyzer, previewRotation = previewRotation
             )
         }
     }

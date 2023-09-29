@@ -53,7 +53,6 @@ class PrepareServiceViewModel @Inject constructor(
 
     fun preLoadMethods() {
         preLoadModel()
-
     }
 
 

@@ -13,8 +13,11 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asStateFlow
 
 object PrepareServiceScreens {
@@ -65,17 +69,26 @@ object PrepareServiceScreens {
 
     @Composable
     fun AppLoadingScreen(
-        previewState: CameraState,
+        previewState: State<CameraState>,
+        cameraInit: () -> Unit,
         prepareServiceViewModel: PrepareServiceViewModel,
         onAfterLoadedEvent: () -> Unit
     ) {
-
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
 
-        LaunchedEffect(Unit) {
-            prepareServiceViewModel.preLoadMethods()
+        val isInitiated = remember {
+            mutableStateOf(false)
         }
-        if (totalLoadedState && previewState.cameraStateId == CameraState.CAMERA_INIT_COMPLETE) onAfterLoadedEvent()
+        LaunchedEffect(Unit) {
+            delay(1000)
+            prepareServiceViewModel.preLoadMethods() //여기서 모델 다운로드를 감지함.
+            cameraInit()
+        }
+
+        if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
+            onAfterLoadedEvent() //카메라 화면으로 이동하는 거임.
+            isInitiated.value = true
+        }
         else InnerAppLoadingScreen()
 
 

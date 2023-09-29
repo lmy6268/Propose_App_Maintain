@@ -83,7 +83,8 @@ fun Screen(
     previewView: PreviewView,
     onBackPressedEvent: () -> Boolean,
     showBackContinueDialog: () -> Unit,
-    onClickSettingBtnEvent: () -> Unit
+    onClickSettingBtnEvent: () -> Unit,
+    cameraInit: () -> Unit
 ) {
     val context = LocalContext.current
     val localDensity = LocalDensity.current
@@ -202,6 +203,7 @@ fun Screen(
         }
 
         AndroidView(factory = {
+            if (previewView.isActivated.not()) cameraInit() //설정화면에서 다시 돌아올 때, 뷰가 보이지 않는 문제 해결
             previewView
         },
             modifier = Modifier
