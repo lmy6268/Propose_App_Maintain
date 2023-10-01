@@ -21,13 +21,11 @@ import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility
 import com.amazonaws.regions.Region
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.S3Object
 import com.hanadulset.pro_poseapp.data.BuildConfig
 import com.hanadulset.pro_poseapp.data.UserPreference
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.FileHandleDataSource
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
 import com.hanadulset.pro_poseapp.utils.R
-import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.eventlog.FeedBackData
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -38,6 +36,7 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,20 +58,10 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
         context.resources.getStringArray(R.array.need_to_download_list).toList()
     }
 
-    //버전정보를 가지고 있는 사용자 정보
-    private val userPreference by lazy {
-        UserPreference().apply {
-            context.dataStore.data.map {
-                fileSpecList.forEach { key ->
-                    modelVersionId[key] = it[stringPreferencesKey(key)]
-                }
-            }
-        }
-    }
 
     //S3 데이터를 가져오기 위한 변수들
     private val bucketId by lazy {
-       BuildConfig.BUCKET_ID
+        BuildConfig.BUCKET_ID
     }
 
 
@@ -150,15 +139,13 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
     }
 
 
-
-
     private suspend fun checkToDownload() = suspendCoroutine { cont ->
         CoroutineScope(Dispatchers.IO).launch {
             var updateFlag = false
-            fileSpecList.forEach {
-                val serverID = s3Client.getObject(bucketId, it).objectMetadata.versionId
-                val localID = userPreference.modelVersionId[it]
-                if (serverID != localID) downloadQueue.add(it)
+            fileSpecList.forEach { fileName ->
+                val serverID = s3Client.getObject(bucketId, fileName).objectMetadata.versionId
+                val localID = loadUserPreference().resourcesVersionId[fileName]
+                if (serverID != localID) downloadQueue.add(fileName)
                     .apply {
                         if (localID != null) updateFlag = true
                         versionIDQueue.add(serverID)
@@ -185,6 +172,20 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
 
     }
 
+    private suspend fun loadUserPreference(): UserPreference = suspendCoroutine { cont ->
+        CoroutineScope(Dispatchers.IO).launch {
+            val preference = UserPreference().apply {
+                fileSpecList.forEach { fileName ->
+                    //기존에 저장된 리소스 들의 버전을 조회한다. -> 만약 정보가 없는 경우, Null을 반환한다.
+                    resourcesVersionId[fileName] = context.dataStore.data.map {
+                        it[stringPreferencesKey(fileName)]
+                    }.first()
+                }
+            }
+            cont.resume(preference)
+        }
+    }
+
 
     override suspend fun sendFeedBackData(feedBackData: FeedBackData) {
         val url = BuildConfig.FEEDBACK_URL
@@ -203,6 +204,7 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
     }
 
 
+    //다운로드 시에 작동하는 메소드
     private suspend fun onDownload(
         downloadStateFlow: MutableStateFlow<DownloadInfo>,
         fileName: String,

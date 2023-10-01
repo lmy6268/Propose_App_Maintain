@@ -119,19 +119,20 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
 
     override suspend fun recommendPose(Bitmap: Bitmap): Pair<DoubleArray, List<PoseData>> =
         suspendCoroutine { cont ->
+            //테스트용 비트맵
             val backgroundBitmap =
                 AppCompatResources.getDrawable(context, R.drawable.sample)!!.toBitmap()
             CoroutineScope(Dispatchers.IO).launch {
                 val hogResult = async { getHOG(backgroundBitmap) }.await() //HoG 결과
-                val resFeature = async {
-                    modelRunner.runResNet(backgroundBitmap).map { it.toDouble() }
-                }.await() //ResNet 결과
-//                val angle = getAngleFromHog(getHistogramMap(backgroundBitmap))
+//                val resFeature = async {
+//                    modelRunner.runResNet(backgroundBitmap).map { it.toDouble() }
+//                }.await() //ResNet 결과
+                val angle = getAngleFromHog(getHistogramMap(backgroundBitmap))
 
                 var res = Pair(-1, java.lang.Double.POSITIVE_INFINITY)
 
                 for (i in 0 until centroid.size - 2) {
-                    val calculatedDistance = getDistance(hogResult, resFeature, i)
+                    val calculatedDistance = getDistance(hogResult, angle, i)
                     if (res.second > calculatedDistance)
                         res = res.copy(first = i, second = calculatedDistance)
                 }
@@ -169,7 +170,8 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
         Imgproc.cvtColor(resizedImageMat, resizedImageMat, Imgproc.COLOR_RGBA2RGB) //알파값을 빼고 저장
 //        Imgproc.cvtColor(resizedImageMat, resizedImageMat, HogConfig.imageConvert)
         Imgproc.resize(resizedImageMat, resizedImageMat, HogConfig.imageResize)
-//        Imgproc.GaussianBlur(resizedImageMat, resizedImageMat, HogConfig.blurSize, 1.0,1.0,Core.BORDER_CONSTANT) //<= 여기서 값이 차이가 남
+        //10.01 추가
+        Imgproc.medianBlur(resizedImageMat, resizedImageMat, HogConfig.blurSize.width.toInt())
         return resizedImageMat
     }
 
@@ -380,8 +382,21 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
         Core.split(resizedImage, resizedImageMats)
         val resList = ArrayList<Pair<Mat, Mat>>()
         resizedImageMats.forEach {
-            resList.add(getGradient(it))
+            resList.add(getGradient(it)) //여기서 값이 들어감
         }
+        val resListMagnitudeDump = mutableListOf<List<List<Double>>>()
+        val resListOrientationDump = mutableListOf<List<List<Double>>>()
+        val resDump = mutableListOf<List<List<List<Double>>>>()
+        for (pair in resList) {
+            resListMagnitudeDump.add(pair.first.to3dList()[0])
+            resListOrientationDump.add(pair.second.to3dList()[0])
+        }
+        for (i in resListMagnitudeDump.indices) {
+            resDump.add(listOf(resListMagnitudeDump[i], resListOrientationDump[i]))
+        }
+
+
+        //변수 초기화 -> 모든 칸의 값을 0으로 초기화하여 진행한다.
         val resMagnitude = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
         val resOrientation = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
         val cnt = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1)
@@ -446,7 +461,6 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
                 continue
             }
         }
-
 
 
         val histogramMap = Mat.zeros(
@@ -516,7 +530,7 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
     }
 
     override fun getAngleFromHog(histogramMap: Mat): List<Double> {
-        val angleMap = List(histogramMap.rows() * histogramMap.cols()) { -1.0 }.toMutableList()
+        val angleMap = MutableList(histogramMap.rows() * histogramMap.cols()) { -1.0 }
 
         for (row in 0 until histogramMap.rows()) {
             for (col in 0 until histogramMap.cols()) {
@@ -524,6 +538,7 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
                     for (index in histogramMap[row, col].indices) {
                         val value = histogramMap[row, col][index]
                         if (value == 1.0) {
+                            //angleMap에 데이터가 저장됨
                             angleMap[row * histogramMap.rows() + col] = 180.0 / HogConfig.nBins
                             break
                         }
@@ -533,7 +548,7 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
 
 
 
-        return angleMap
+        return angleMap.toList()
     }
 
     override fun makeLayoutImage(yoloResult: ArrayList<YoloPredictResult>) = Bitmap.createBitmap(
@@ -692,9 +707,24 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
             val cellSize: Size = Size(16.0, 16.0)
             val blurSize = Size(31.0, 31.0)
             val blockSize: Size = Size(1.0, 1.0)
-            const val magnitudeThreshold: Int = 10
-            const val nBins: Int = 9
+            const val magnitudeThreshold: Int = 25 //10.01 수정
+            const val nBins: Int = 18 //10.01 수정
 
+        }
+    }
+
+
+    private fun Mat.to3dList(): List<List<List<Double>>> {
+        val channels = this.channels()
+        val height = this.height()
+        val width = this.width()
+
+        return List(channels) { channel ->
+            List(height) { y ->
+                List(width) { x ->
+                    this.get(x, y)[channel]
+                }
+            }
         }
     }
 }

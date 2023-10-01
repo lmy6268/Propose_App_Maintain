@@ -17,14 +17,14 @@ class UserRepositoryImpl @Inject constructor(private val applicationContext: Con
         FileHandleDataSourceImpl(context = applicationContext)
     }
 
-    override  suspend fun writeEventLog(eventLog: EventLog) {
+    override suspend fun writeEventLog(eventLog: EventLog) {
         userDataSourceImpl.writeEventLog(eventLog)
     }
 
     //사용자 데이터를 서버에 보낸다.
     override suspend fun sendUserFeedback() {
         val userEventLogs = userDataSourceImpl.loadEventLogs()
-        val uid = userDataSourceImpl.getUserId()
+        val uid = userDataSourceImpl.deviceID
         val userFeedBackData = FeedBackData(
             deviceID = uid,
             eventLogs = userEventLogs
