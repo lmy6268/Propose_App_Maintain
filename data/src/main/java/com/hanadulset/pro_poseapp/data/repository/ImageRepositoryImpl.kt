@@ -1,4 +1,4 @@
-package com.hanadulset.pro_poseapp.data
+package com.hanadulset.pro_poseapp.data.repository
 
 import android.content.Context
 import android.graphics.Bitmap

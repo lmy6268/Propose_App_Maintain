@@ -1,10 +1,12 @@
 package com.hanadulset.pro_poseapp
 
 import android.content.Context
-import com.hanadulset.pro_poseapp.data.CameraRepositoryImpl
-import com.hanadulset.pro_poseapp.data.ImageRepositoryImpl
+import com.hanadulset.pro_poseapp.data.repository.CameraRepositoryImpl
+import com.hanadulset.pro_poseapp.data.repository.ImageRepositoryImpl
+import com.hanadulset.pro_poseapp.data.repository.UserRepositoryImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
+import com.hanadulset.pro_poseapp.domain.repository.UserRepository
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.CaptureImageUseCase
@@ -13,6 +15,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,6 +41,11 @@ object AppModule {
         @Provides
         fun provideImageRepository(@ApplicationContext context: Context): ImageRepository =
             ImageRepositoryImpl(context)
+
+        @Singleton
+        @Provides
+        fun provideUserRepository(@ApplicationContext context: Context): UserRepository =
+            UserRepositoryImpl(context)
     }
 
     @InstallIn(ViewModelComponent::class)
@@ -62,7 +70,8 @@ object AppModule {
         fun provideShowFixedScreenUseCase(
             imageRepository: ImageRepository,
 //            cameraRepository: CameraRepository
-        ): ShowFixedScreenUseCase = ShowFixedScreenUseCase(imageRepository
+        ): ShowFixedScreenUseCase = ShowFixedScreenUseCase(
+            imageRepository
 //            , cameraRepository
         )
 
@@ -92,6 +101,11 @@ object AppModule {
         @Provides
         fun provideRecommendPoseUseCase(imageRepository: ImageRepository): RecommendPoseUseCase =
             RecommendPoseUseCase(imageRepository)
+
+        @ViewModelScoped
+        @Provides
+        fun provideWriteUserLog(userRepository: UserRepository): WriteUserLogUseCase =
+            WriteUserLogUseCase(userRepository)
 
 
     }

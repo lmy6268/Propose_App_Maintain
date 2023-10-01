@@ -11,9 +11,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 /**파일 생성 및 저장 등을 관리하는 데이터소스*/
 interface FileHandleDataSource {
 
-    /**기록된 로그를 파일에 저장한다.*/
-    fun saveLog()
-
     /**촬영된 이미지를 갤러리에 저장한다.*/
     suspend fun saveImageToGallery(bitmap: Bitmap):Uri
 
@@ -31,11 +28,6 @@ interface FileHandleDataSource {
      * */
     suspend fun downloadModel(downloadStateFlow: MutableStateFlow<DownloadInfo>)
     suspend fun checkForDownloadModel(downloadInfo: DownloadInfo):DownloadInfo
-
-    suspend fun initFeedBackData(): FeedBackData //기존에 파일에 저장해뒀던 피드백 데이터를 불러옴
-
-    //피드백 데이터 수집
-    suspend fun saveEventToFeedBackData(eventLog: EventLog) //피드백 데이터에 이벤트로그를 저장함
 
     suspend fun sendFeedBackData(feedBackData: FeedBackData) //피드백 데이터를 서버로 보냄
 }

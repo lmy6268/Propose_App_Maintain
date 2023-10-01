@@ -149,51 +149,7 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
         Log.d("downloaded Done:", filePaths.toString())
     }
 
-    //로그를 피드백 객체에 저장한다.
-    override fun saveLog() {
-        TODO("Not yet implemented")
-    }
 
-//    suspend fun testS3(): String {
-//        initAWSObj()
-//        val csNet = suspendCoroutine<S3Object?> { cont ->
-//            CoroutineScope(Dispatchers.IO).launch {
-//                cont.resume(s3Client.getObject(bucketId, VAP_NET))
-//            }
-//        }
-//
-////        csNet?.objectMetadata
-//        val filePath = "${context.dataDir.absolutePath}/${VAP_NET}"
-////        TransferNetworkLossHandler.getInstance(context)
-//
-//        transferUtility.download(VAP_NET, File(filePath), object : TransferListener {
-//            override fun onStateChanged(id: Int, state: TransferState?) {
-//                if (state == TransferState.CANCELED || state == TransferState.FAILED || state == TransferState.WAITING_FOR_NETWORK) {
-//                    Log.d("Error on id: ", "${id}")
-//                } else if (state == TransferState.IN_PROGRESS) {
-//                    Log.d("Download id: ", "${id}")
-//                } else if (state == TransferState.COMPLETED) {
-//                    Log.d("Done id: ", "${id}")
-//                }
-//            }
-//
-//            override fun onProgressChanged(
-//                id: Int, bytesCurrent: Long, bytesTotal: Long
-//            ) {
-//                Log.d(
-//                    "Download PTL FILE: ",
-//                    "${(bytesCurrent.toFloat() / bytesTotal.toFloat()) * 100}%"
-//                )
-//            }
-//
-//            override fun onError(id: Int, ex: java.lang.Exception?) {
-//
-//            }
-//
-//        })
-//
-//        return csNet!!.objectMetadata.versionId
-//    }
 
 
     private suspend fun checkToDownload() = suspendCoroutine { cont ->
@@ -229,18 +185,6 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
 
     }
 
-    override suspend fun initFeedBackData(): FeedBackData {
-//        val file = File(context.cacheDir, "feedBackData.json")
-//        if (file.exists()) {
-//
-//        }
-        //파일 생성 및 피드백 객체 초기화
-        return FeedBackData(
-            "",
-            ArrayList(emptyList())
-        )
-
-    }
 
     override suspend fun sendFeedBackData(feedBackData: FeedBackData) {
         val url = BuildConfig.FEEDBACK_URL
@@ -258,9 +202,6 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
         Log.d("response for feedback: ", response.toString())
     }
 
-    override suspend fun saveEventToFeedBackData(eventLog: EventLog) {
-        TODO("Not yet implemented")
-    }
 
     private suspend fun onDownload(
         downloadStateFlow: MutableStateFlow<DownloadInfo>,

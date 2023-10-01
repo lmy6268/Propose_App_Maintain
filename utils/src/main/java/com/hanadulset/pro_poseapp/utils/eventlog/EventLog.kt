@@ -8,7 +8,7 @@ import java.sql.Timestamp
 data class EventLog(
     val eventId: Int,
     val poseID: Int?, //포즈
-    val prevRecommendPoses: ArrayList<Int>?, //이전에 선택한 추천 포즈 데이터
+    val prevRecommendPoses: List<Int>?, //이전에 선택한 추천 포즈 데이터
     val timestamp: String?, //이벤트 발생 시기
     val backgroundId: Int?, //백그라운드 ID
     val backgroundHog: String? //백그라운드 HOG

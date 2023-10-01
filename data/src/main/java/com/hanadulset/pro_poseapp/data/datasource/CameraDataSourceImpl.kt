@@ -82,46 +82,61 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                     cont.resume(CameraState(CAMERA_INIT_ERROR, e, e.message))
                     Log.e(this::class.java.name, "Error starting camera")
                 }
-                bindCameraUseCases(
-                    surfaceProvider = surfaceProvider,
-                    lifecycleOwner = lifecycleOwner,
-                    analyzer = analyzer,
-                    aspectRatio = previewRotation,
-                    previewRotation = aspectRatio,
+                if (bindCameraUseCases(
+                        surfaceProvider = surfaceProvider,
+                        lifecycleOwner = lifecycleOwner,
+                        analyzer = analyzer,
+                        aspectRatio = previewRotation,
+                        previewRotation = aspectRatio,
+                    )
+                ) cont.resume(
+                    CameraState(
+                        CAMERA_INIT_COMPLETE,
+                        imageAnalyzerResolution = imageAnalysis!!.resolutionInfo!!.resolution,
+                        )
                 )
             }, executor)
-        } else bindCameraUseCases(
-            surfaceProvider = surfaceProvider,
-            previewRotation = previewRotation,
-            lifecycleOwner = lifecycleOwner,
-            analyzer = analyzer,
-            aspectRatio = aspectRatio
-        )
-        cont.resume(CameraState(CAMERA_INIT_COMPLETE))
+        } else {
+            if (bindCameraUseCases(
+                    surfaceProvider = surfaceProvider,
+                    previewRotation = previewRotation,
+                    lifecycleOwner = lifecycleOwner,
+                    analyzer = analyzer,
+                    aspectRatio = aspectRatio
+                )
+            )
+                cont.resume(
+                    CameraState(
+                        CAMERA_INIT_COMPLETE,
+                        imageAnalyzerResolution = imageAnalysis!!.resolutionInfo!!.resolution,
+
+                    )
+                )
+        }
+
     }
 
 
     override suspend fun takePhoto() = suspendCancellableCoroutine { cont ->
-            CoroutineScope(Dispatchers.IO).launch {
-                imageCapture!!.takePicture(executor,
-                    object : ImageCapture.OnImageCapturedCallback() {
-                        override fun onCaptureSuccess(image: ImageProxy) {
-                            // 원본 이미지를 획득함
-                            cont.resume(image)
-                            super.onCaptureSuccess(image)
-                        }
+        CoroutineScope(Dispatchers.IO).launch {
+            imageCapture!!.takePicture(executor,
+                object : ImageCapture.OnImageCapturedCallback() {
+                    override fun onCaptureSuccess(image: ImageProxy) {
+                        // 원본 이미지를 획득함
+                        cont.resume(image)
+                        super.onCaptureSuccess(image)
+                    }
 
-                        //에러가 나는 경우 에러를 반환한다.
-                        override fun onError(exception: ImageCaptureException) {
-                            cont.resumeWithException(exception)
-                            super.onError(exception)
-                        }
+                    //에러가 나는 경우 에러를 반환한다.
+                    override fun onError(exception: ImageCaptureException) {
+                        cont.resumeWithException(exception)
+                        super.onError(exception)
+                    }
 
-                    })
+                })
 
 
-            }
-
+        }
 
 
     }
@@ -135,9 +150,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         previewRotation: Int,
         aspectRatio: Int,
         analyzer: Analyzer
-    ) {
-
-
+    ): Boolean {
         val cameraSelector = CameraSelector.Builder().requireLensFacing(
             CameraSelector.LENS_FACING_BACK
         ).build()
@@ -175,12 +188,14 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             )
             // Attach the viewfinder's surface provider to preview use case
             preview?.setSurfaceProvider(surfaceProvider)
+            return true
 
             Log.d("CameraStatus: ", camera!!.cameraInfo.cameraState.value.toString())
             // Now you have the CameraControl instance if you need it
         } catch (exc: Exception) {
             // Handle camera initialization error
             Log.e("Error on Init Camera", "에러입니다", exc)
+            return false
 
         }
     }
@@ -236,6 +251,8 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                 .setAutoCancelDuration(durationMilliSeconds, TimeUnit.MILLISECONDS)
                 .build()
         )
+
+
     }
 
 

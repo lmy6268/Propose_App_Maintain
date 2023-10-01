@@ -3,29 +3,26 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import android.view.MotionEvent
-import android.view.OrientationEventListener
-import android.view.Surface
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,33 +44,22 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.flowWithLifecycle
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.LowerButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.UpperButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
+import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 
-@Composable
-fun <T> Flow<T>.collectAsStateWithLifecycleRemember(
-    initial: T,
-    minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
-): State<T> {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val flowLifecycleAware = remember(this, lifecycleOwner) {
-        flowWithLifecycle(lifecycleOwner.lifecycle, minActiveState)
-    }
-    return flowLifecycleAware.collectAsState(initial)
-}
+//리컴포지션시 데이터가 손실되는 문제를 해결하기 위한, 전역변수
+var savedData = 0
+var saveRecentlyPoses = arrayListOf<Int>()
 
 @OptIn(ExperimentalComposeUiApi::class)
 @SuppressLint("SuspiciousIndentation")
@@ -111,6 +97,9 @@ fun Screen(
     val isFirstLaunch = remember {
         mutableStateOf(true)
     }
+    val ddaogiOnState = remember {
+        mutableStateOf(false)
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val capturedThumbnailBitmap: Uri? by cameraViewModel.capturedBitmapState.collectAsState() //업데이트된 캡쳐화면을 가지고 있는 변수
@@ -138,13 +127,14 @@ fun Screen(
                     uri, CropImageOptions(
                         aspectRatioX = aspectRatioState.width.toInt(),
                         aspectRatioY = aspectRatioState.height.toInt(),
-                        fixAspectRatio = true
-                    )
+                        fixAspectRatio = true,
+
+                        )
                 )
                 cropImageLauncher.launch(cropOptions)
             }
         }
-
+    val recentlyChoosePoses = remember { arrayListOf<Int>() } //최근에 추천받은 포즈 데이터 목록
 
     val poseRecPair: Pair<DoubleArray?, List<PoseData>?>? by cameraViewModel.poseResultState.collectAsState()
 
@@ -184,6 +174,11 @@ fun Screen(
             mutableStateOf<Offset?>(null)
         }
 
+        val poseClickIndexState = remember {
+            mutableIntStateOf(0)
+        }
+
+
 
         LaunchedEffect(viewRateState) {
             if (isFirstLaunch.value) isFirstLaunch.value = false
@@ -203,7 +198,14 @@ fun Screen(
         }
 
         AndroidView(factory = {
-            if (previewView.isActivated.not()) cameraInit() //설정화면에서 다시 돌아올 때, 뷰가 보이지 않는 문제 해결
+            if (previewView.isActivated.not()) {
+                cameraInit()
+                if (poseRecPair != null) {
+                    poseClickIndexState.intValue = savedData
+                    recentlyChoosePoses.addAll(saveRecentlyPoses)
+                    poseScreenVisibleState.value = true
+                }
+            } //설정화면에서 다시 돌아올 때, 뷰가 보이지 않는 문제 해결
             previewView
         },
             modifier = Modifier
@@ -239,9 +241,8 @@ fun Screen(
                         }
                     }
                 }
-                .aspectRatio(aspectRatioState.width / aspectRatioState.height)
-                .align(Alignment.TopCenter)
-        ) {
+                .aspectRatio(aspectRatioState.width / aspectRatioState.height.toFloat())
+                .align(Alignment.TopCenter)) {
 
         }
 
@@ -272,9 +273,8 @@ fun Screen(
                 .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
         )
 
-        if (poseScreenVisibleState.value) {
-            PoseResultScreen(
-                cameraDisplaySize = cameraDisplaySize,
+        if (selectedModeIdxState.intValue in 0..1 && poseScreenVisibleState.value) {
+            PoseResultScreen(cameraDisplaySize = cameraDisplaySize,
                 cameraDisplayPxSize = cameraDisplayPxSize,
                 lowerBarDisplayPxSize = lowerBarDisplayPxSize,
                 upperButtonsRowSize = upperButtonsRowSize,
@@ -285,15 +285,26 @@ fun Screen(
 //                    .aspectRatio(aspectRatioState.width / aspectRatioState.height)
                     .align(Alignment.TopCenter),
                 poseResultData = poseRecPair,
+                onDownActionEvent = {
+                    focusRingState.value = null
+                    val pointer = Offset(it.x, it.y)
+                    focusRingState.value = pointer.copy()
+                    cameraViewModel.setFocus(
+                        previewView.meteringPointFactory.createPoint(
+                            it.x, it.y
+                        ), 2000L
+                    )
+                },
                 onPoseChangeEvent = {
                     selectedPoseId.value = it.poseId //포즈 변경 시, 해당 데이터를 트레킹 함.
                 },
-                clickedItemIndexState = 0,
+                rememberClickIndexState = poseClickIndexState.intValue,
                 onVisibilityEvent = {
                     poseScreenVisibleState.value = false
                 },
-
-                )
+                onPageChangeEvent = {
+                    poseClickIndexState.intValue = it
+                })
 
         }
 
@@ -315,8 +326,11 @@ fun Screen(
             viewRateIdx = viewRateIdxState,
             mainColor = MaterialTheme.colors.primary,
             selectedModeIdxState = selectedModeIdxState,
-            onSettingEvent =
-            onClickSettingBtnEvent,
+            onSettingEvent = {
+                savedData = poseClickIndexState.intValue
+                saveRecentlyPoses = recentlyChoosePoses
+                onClickSettingBtnEvent()
+            },
             viewRateClickEvent = { idx ->
                 cameraViewModel.changeViewRate(idx)
             })
@@ -325,14 +339,12 @@ fun Screen(
         if (selectedModeIdxState.intValue in 1..2) {
             val pointerState by cameraViewModel.compResultState.collectAsState()
 
-            CameraModules.CompositionScreen(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .size(cameraDisplaySize.value.let { DpSize(it.width.dp, it.height.dp) }),
+            CameraModules.CompositionScreen(modifier = Modifier
+                .align(Alignment.TopCenter)
+                .size(cameraDisplaySize.value.let { DpSize(it.width.dp, it.height.dp) }),
                 centroid = cameraDisplayPxSize.value.let {
                     Offset(
-                        it.width.toFloat() / 2,
-                        it.height.toFloat() / 2
+                        it.width.toFloat() / 2, it.height.toFloat() / 2
                     )
                 },
                 screenSize = Size(
@@ -340,24 +352,28 @@ fun Screen(
                     cameraDisplayPxSize.value.height.toFloat()
                 ),
                 pointerState = pointerState,
+                trackerPoint = cameraViewModel.trackerDataState.collectAsState(),
+                onStartToTracking = { offset ->
+                    cameraViewModel.attachTracker(
+                        offset,
+                        cameraDisplayPxSize.value.let { android.util.Size(it.width, it.height) })
+                },
+                onStopToTracking = {
+                    cameraViewModel.detachTracker()
+                },
                 onSetNewPoint = {
                     cameraViewModel.reqCompRecommend()
-                }
-            )
+                })
         }
+
 
         //포즈 추천 스크롤과 하단 버튼 메뉴 정리
         Column(
-
-        ) {
-
-        }
-
-        LowerButtons(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .heightIn(150.dp)
                 .padding(bottom = 100.dp)
+
                 .onGloballyPositioned { coordinates ->
                     with(localDensity) {
                         lowerBarDisplaySize.value = coordinates.size.let {
@@ -369,40 +385,77 @@ fun Screen(
                             IntSize(it.width, it.height)
                         }
                     }
-                },
-            selectedModeIdxState = selectedModeIdxState,
-            capturedImageBitmap = capturedThumbnailBitmap,
-            captureImageEvent = {
-                shutterAnimationState.value = true
-                cameraViewModel.getPhoto()
-                shutterAnimationState.value = false
-            },
-            poseBtnClickEvent = {
-                cameraViewModel.reqPoseRecommend()
-                poseScreenVisibleState.value = true
-            },
-            fixedButtonPressedEvent = {
-                isPressedFixedBtn.value = !isPressedFixedBtn.value
-                cameraViewModel.controlFixedScreen(isPressedFixedBtn.value)
-            },
-            zoomInOutEvent = {
-                cameraViewModel.reqCompRecommend()
-                cameraViewModel.setZoomLevel(it)
-            },
-            ddaogiFeatureEvent = {
-                launcher.launch(
-                    PickVisualMediaRequest(
-                        mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
-                    )
-                )
+                }, verticalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterVertically)
+        ) {
+            if (poseScreenVisibleState.value && poseRecPair != null && selectedModeIdxState.intValue in 0..1) {
+                val tmp = poseClickIndexState.intValue
+                poseClickIndexState.intValue = -1
+                poseClickIndexState.intValue = tmp
+                PoseScreen.RecommendedPoseSelectMenu(
+                    modifier = Modifier.animateContentSize { initialValue, targetValue -> },
+                    poseCnt = poseRecPair!!.second!!.size,
+                    clickedItemIndexState = poseClickIndexState.intValue,
+                    onItemClickEvent = {
+                        poseClickIndexState.intValue = it
+                        recentlyChoosePoses.add(poseRecPair!!.second!![it].poseId)
+                    })
             }
-        )
+            LowerButtons(modifier = Modifier,
+                selectedModeIdxState = selectedModeIdxState,
+                capturedImageBitmap = capturedThumbnailBitmap,
+                captureImageEvent = {
+                    if (poseRecPair != null) {
+                        Log.d(
+                            "Recently Choose Poses ",
+                            recentlyChoosePoses.toString()
+                        )
+                    }
+                    shutterAnimationState.value = true
+                    cameraViewModel.getPhoto(
+                        //
+                        EventLog(
+                            poseID = if (recentlyChoosePoses.isEmpty()) null else recentlyChoosePoses.last(),
+                            eventId = EventLog.EVENT_CAPTURE,
+                            prevRecommendPoses = recentlyChoosePoses,
+                            backgroundHog = null,
+                            backgroundId = null,
+                            timestamp = System.currentTimeMillis().toString()
+                        )
+                    ) //이곳에 인자로 이벤트로그를 보내면 딱이다.
+                    shutterAnimationState.value = false
+                },
+                poseBtnClickEvent = {
+                    cameraViewModel.reqPoseRecommend()
+                    poseScreenVisibleState.value = true
+                    poseClickIndexState.intValue = 1 //0번째 원소는 해제 버튼이기 때문에
+                },
+                fixedButtonPressedEvent = {
+                    isPressedFixedBtn.value = !isPressedFixedBtn.value
+                    cameraViewModel.controlFixedScreen(isPressedFixedBtn.value)
+                },
+                zoomInOutEvent = {
+                    cameraViewModel.reqCompRecommend()
+                    cameraViewModel.setZoomLevel(it)
+                },
+                ddaogiFeatureEvent = {
+                    if (ddaogiOnState.value.not())
+                        launcher.launch(
+                            PickVisualMediaRequest(
+                                mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
+                            )
+                        )
+                    else ddaogiOnState.value = false
+                })
 
+
+        }
         CameraModules.FocusRing(
             modifier = Modifier.align(Alignment.TopStart),
-            color = Color.White, pointer = focusRingState.value,
+            color = Color.White,
+            pointer = focusRingState.value,
             duration = 2000L
         )
+
 
     }
 
@@ -418,7 +471,8 @@ fun ShowEdgeImage(
     if (capturedEdgesBitmap != null) {
         Image(
             modifier = modifier.alpha(0.5F),
-            bitmap = capturedEdgesBitmap.asImageBitmap(), contentDescription = "Edge Image"
+            bitmap = capturedEdgesBitmap.asImageBitmap(),
+            contentDescription = "Edge Image"
         )
     }
 
