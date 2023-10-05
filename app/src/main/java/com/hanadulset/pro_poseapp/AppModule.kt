@@ -16,6 +16,8 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.gallery.GetImagesFromPicturesUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -83,8 +85,7 @@ object AppModule {
             imageRepository: ImageRepository
         ): CaptureImageUseCase =
             CaptureImageUseCase(
-                cameraRepository,
-                imageRepository
+                cameraRepository
             )
 
         @ViewModelScoped
@@ -107,6 +108,15 @@ object AppModule {
         fun provideWriteUserLog(userRepository: UserRepository): WriteUserLogUseCase =
             WriteUserLogUseCase(userRepository)
 
+        @ViewModelScoped
+        @Provides
+        fun provideGetImagesFromPicturesUseCase(imageRepository: ImageRepository): GetImagesFromPicturesUseCase =
+            GetImagesFromPicturesUseCase(imageRepository)
+
+        @ViewModelScoped
+        @Provides
+        fun provideDeleteImageFromPicturesUseCase(imageRepository: ImageRepository): DeleteImageFromPicturesUseCase =
+            DeleteImageFromPicturesUseCase(imageRepository)
 
     }
 

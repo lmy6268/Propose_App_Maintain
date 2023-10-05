@@ -4,48 +4,50 @@ import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -77,21 +79,12 @@ object PoseScreen {
 
 
         LaunchedEffect(clickedItemIndexState) {
-            //외부스크롤에 영향을 받음 -> 그런데 이를 실행하면, onPageChangeEvent(page)도 살행됨.
-            //이러다 보니, 가끔 이전 것을 호출하는 버그가 발생함.
             pagerState.animateScrollToPage(clickedItemIndexState)
         }
-//        LaunchedEffect(pagerState) {
-//            // do your stuff with selected page
-//            snapshotFlow { pagerState.currentPage }.collect { page ->
-//                onPageChangeEvent(page)
-//            }
-//        }
         HorizontalPager(
             state = pagerState,
             modifier = modifier.pointerInteropFilter {
                 if (it.action == MotionEvent.ACTION_DOWN) {
-
                 }
                 return@pointerInteropFilter false
             },
@@ -150,8 +143,10 @@ object PoseScreen {
 
             ) {
                 drawImage(
-                    image = BitmapFactory.decodeResource(context.resources,
-                        poseData.poseDrawableId)
+                    image = BitmapFactory.decodeResource(
+                        context.resources,
+                        poseData.poseDrawableId
+                    )
 //                            .apply {
 //                            onPoseChangeEvent(poseData)
 //                        })
@@ -166,6 +161,7 @@ object PoseScreen {
     @Composable
     fun RecommendedPoseSelectMenu(
         modifier: Modifier = Modifier,
+        poseDataList: List<PoseData>,
         customName: String = "추천", //추천된 포즈를 나열할 때 쓰는 말
         poseCnt: Int, //전체 추천 포즈의 갯수
         clickedItemIndexState: Int, //현재 클릭된 추천 포즈에 대한 인덱스
@@ -183,9 +179,12 @@ object PoseScreen {
         val rowSizeState = remember { mutableStateOf(DpSize(width = 0.dp, height = 0.dp)) }
         val lazyRowState = rememberLazyListState()
 
+        val currentContext = LocalContext.current
+
         LaunchedEffect(key1 = clickedItemIndexState) {
             lazyRowState.animateScrollToItem(clickedItemIndexState)
         }
+
         LazyRow(
             modifier = modifier
                 .fillMaxWidth()
@@ -202,9 +201,22 @@ object PoseScreen {
             //인덱스를 돌면서, 해당 리스트에 있는 데이터를 가져온다.
             itemsIndexed(itemList) { idx, item ->
 
-                MenuModule(text = item, isSelected = clickedItemIndexState == idx, onClickEvent = {
-                    onItemClickEvent(idx)
-                })
+                val poseImage = poseDataList[idx].poseDrawableId.let {
+                    if (it == -1) null
+                    else BitmapFactory.decodeResource(
+                        currentContext.resources,
+                        it
+                    ).asImageBitmap()
+                }
+
+
+                MenuModule(
+                    text = item,
+                    poseImage = poseImage,
+                    isSelected = clickedItemIndexState == idx,
+                    onClickEvent = {
+                        onItemClickEvent(idx)
+                    })
             }
         }
 
@@ -253,33 +265,64 @@ object PoseScreen {
 
 //메뉴별 아이콘
 @Composable
-fun MenuModule(text: String, isSelected: Boolean, onClickEvent: () -> Unit) {
-    Box(modifier = Modifier
-        .widthIn(50.dp)
-        .heightIn(36.dp)
-        .background(
-            color = Color(
-                if (isSelected) 0xFF212121
-                else 0x99212121 //투명하게
-            ), shape = RoundedCornerShape(size = 18.dp)
-        )
-        .clickable {
-            onClickEvent()
-        }
-        .padding(horizontal = 20.dp, vertical = 8.dp)
+fun MenuModule(
+    text: String,
+    isSelected: Boolean,
+    poseImage: ImageBitmap?,
+    onClickEvent: () -> Unit
+) {
 
-
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
     ) {
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            modifier = Modifier.align(Alignment.Center),
-            color = Color(
-                if (isSelected) 0xFFFFFFFF
-                else 0xFF000000 //검은색
+
+        Card(
+            backgroundColor = Color(if (isSelected && poseImage != null) 0xFF212121 else if (poseImage != null) 0x22FFFFFF else 0x00FFFFFF),
+            modifier = Modifier
+                .size(50.dp)
+                .alpha(if (isSelected.not()) 0.5f else 1f),
+            elevation = if (isSelected.not() || poseImage == null) 0.dp
+            else 5.dp,
+        ) {
+
+            if (poseImage != null) Image(
+                bitmap = poseImage, contentDescription = "포즈 이미지", modifier = Modifier.padding(5.dp)
             )
-        )
+
+
+        }
+        Box(modifier = Modifier
+            .widthIn(50.dp)
+            .heightIn(36.dp)
+            .background(
+                color = Color(
+                    if (isSelected) 0xFF212121
+                    else 0x22999999 //투명하게
+                ), shape = RoundedCornerShape(size = 18.dp)
+            )
+            .clickable(
+                indication = CameraModuleExtension.CustomIndication,
+                interactionSource = MutableInteractionSource()
+            ) {
+                onClickEvent()
+            }
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            //없음이 아닌 경우
+
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                modifier = Modifier.align(Alignment.Center),
+                color = Color(
+                    if (isSelected) 0xFFFFFFFF
+                    else 0xFF999999 //검은색
+                )
+            )
+        }
     }
+
 
 }
 
@@ -287,9 +330,26 @@ fun MenuModule(text: String, isSelected: Boolean, onClickEvent: () -> Unit) {
 @Preview
 @Composable
 private fun TestMenuIcon() {
+    val res = LocalContext.current.resources
     Row {
-        MenuModule(text = "추천#1", isSelected = true) {}
-        MenuModule(text = "추천#2", isSelected = false) {}
+        MenuModule(
+            text = "추천#1",
+            poseImage = BitmapFactory.decodeResource(
+                res,
+                com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0
+            )
+                .asImageBitmap(),
+            isSelected = true
+        ) {}
+        MenuModule(
+            text = "추천#2",
+            poseImage = BitmapFactory.decodeResource(
+                res,
+                com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0
+            )
+                .asImageBitmap(),
+            isSelected = false
+        ) {}
     }
 }
 

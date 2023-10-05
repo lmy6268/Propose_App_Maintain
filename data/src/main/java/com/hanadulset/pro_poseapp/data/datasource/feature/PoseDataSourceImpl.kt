@@ -40,29 +40,29 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
     PoseDataSource {
 
 
-    //팔레트
-    private val palette by lazy {
-        context.assets.open("color_palette.json").use { `is` ->
-            val str = BufferedReader(InputStreamReader(`is`)).lines()
-                .collect(Collectors.joining())
-            str.replace(" ", "").let { input ->
-                val cleanedInput = input
-                    .replace("[[", "[")
-                    .replace("],[", "]@[")
-                    .replace("]]", "]")
-                val stringArrays = cleanedInput.split("@").toTypedArray()
-
-                val array = Array(stringArrays.size) { idx ->
-                    stringArrays[idx]
-                        .removeSurrounding("[", "]")
-                        .split(",")
-                        .map { it.toInt() }
-                        .toTypedArray()
-                }
-                array
-            }
-        }
-    }
+//    //팔레트
+//    private val palette by lazy {
+//        context.assets.open("color_palette.json").use { `is` ->
+//            val str = BufferedReader(InputStreamReader(`is`)).lines()
+//                .collect(Collectors.joining())
+//            str.replace(" ", "").let { input ->
+//                val cleanedInput = input
+//                    .replace("[[", "[")
+//                    .replace("],[", "]@[")
+//                    .replace("]]", "]")
+//                val stringArrays = cleanedInput.split("@").toTypedArray()
+//
+//                val array = Array(stringArrays.size) { idx ->
+//                    stringArrays[idx]
+//                        .removeSurrounding("[", "]")
+//                        .split(",")
+//                        .map { it.toInt() }
+//                        .toTypedArray()
+//                }
+//                array
+//            }
+//        }
+//    }
 
     //centroid 값
     private val centroid by lazy {
@@ -123,24 +123,18 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
             val backgroundBitmap =
                 AppCompatResources.getDrawable(context, R.drawable.sample)!!.toBitmap()
             CoroutineScope(Dispatchers.IO).launch {
-                val hogResult = async { getHOG(backgroundBitmap) }.await() //HoG 결과
-//                val resFeature = async {
-//                    modelRunner.runResNet(backgroundBitmap).map { it.toDouble() }
-//                }.await() //ResNet 결과
+//                val hogResult = async { getHOG(backgroundBitmap) }.await() //HoG 결과
                 val angle = getAngleFromHog(getHistogramMap(backgroundBitmap))
-
                 var res = Pair(-1, java.lang.Double.POSITIVE_INFINITY)
 
                 for (i in 0 until centroid.size - 2) {
-                    val calculatedDistance = getDistance(hogResult, angle, i)
+                    val calculatedDistance = getDistance(angle,i)
                     if (res.second > calculatedDistance)
                         res = res.copy(first = i, second = calculatedDistance)
                 }
                 val bestPoseId = res.first
-//                posePosition
                 cont.resume(
                     Pair(
-//                        posePosition,
                         emptyArray<Double>().toDoubleArray(),
                         poseRanks[bestPoseId]
                     )
@@ -148,20 +142,20 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
             }
         }
 
-    override fun recommendPosePosition(backgroundBitmap: Bitmap): DoubleArray {
-        val (mScaleSize, outputArray) = modelRunner.runYolo(backgroundBitmap)
-        val yoloResult = outputsToNMSPredictions(mScaleSize, outputArray)
-        val layoutImageBitmap = makeLayoutImage(yoloResult)
-//        CoroutineScope(Dispatchers.IO).launch {
-//            processor.saveImageToGallery(layoutImageBitmap)
-//            processor.saveImageToGallery(backgroundBitmap)
-//        }
-
-        return modelRunner.runBbPrediction(
-            backgroundBitmap,
-            layoutImageBitmap
-        ) //centerx, centery, width, height (모두 0~1)
-    }
+//    override fun recommendPosePosition(backgroundBitmap: Bitmap): DoubleArray {
+//        val (mScaleSize, outputArray) = modelRunner.runYolo(backgroundBitmap)
+//        val yoloResult = outputsToNMSPredictions(mScaleSize, outputArray)
+//        val layoutImageBitmap = makeLayoutImage(yoloResult)
+////        CoroutineScope(Dispatchers.IO).launch {
+////            processor.saveImageToGallery(layoutImageBitmap)
+////            processor.saveImageToGallery(backgroundBitmap)
+////        }
+//
+//        return modelRunner.runBbPrediction(
+//            backgroundBitmap,
+//            layoutImageBitmap
+//        ) //centerx, centery, width, height (모두 0~1)
+//    }
 
     override fun preProcessing(targetImage: Bitmap): Mat {
 
@@ -175,19 +169,11 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
         return resizedImageMat
     }
 
-    override fun getDistance(hog: List<Double>, resnet50: List<Double>, centroidIdx: Int): Double {
+    override fun getDistance(angle: List<Double>, centroidIdx: Int): Double {
         val weight = 50.0
-        val (centroidResNet50, centroidGHog) = Pair(
-            centroid[centroidIdx].subList(0, 2048),
-            centroid[centroidIdx].subList(2048, centroid[centroidIdx].size)
-        )
-        val distanceResNet50 = resnet50.zip(centroidResNet50).map {
-            sqrt(abs(it.first.pow(2) - it.second.pow(2))) //np.linalg.norm(A - B, axis = 0)
-        }.let {
-            it.sum() / it.size // np.mean()
-        }
-        val distanceHog = distanceHog(hog, centroidGHog)
-        return weight * distanceHog + distanceResNet50
+        val centroidGHog = centroid[centroidIdx]
+        val distanceHog = distanceAngle(angle, centroidGHog)
+        return weight * distanceHog
     }
 
 
@@ -539,159 +525,158 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
                         val value = histogramMap[row, col][index]
                         if (value == 1.0) {
                             //angleMap에 데이터가 저장됨
-                            angleMap[row * histogramMap.rows() + col] = 180.0 / HogConfig.nBins
+                            angleMap[row * histogramMap.rows() + col] =
+                                index * 180.0 / HogConfig.nBins
                             break
                         }
                     }
             }
         }
 
-
-
         return angleMap.toList()
     }
 
-    override fun makeLayoutImage(yoloResult: ArrayList<YoloPredictResult>) = Bitmap.createBitmap(
-        480,
-        480,
-        Bitmap.Config.ARGB_8888
-    )
-        .apply {
-            eraseColor(
-                Color.rgb(
-                    palette[0][0],
-                    palette[0][1],
-                    palette[0][2]
-                )
-            )//a. 480*480 이미지를 color palette의 0번째 색으로 생성
-            val initPixelData =
-                MutableList<MutableList<MutableList<Int>>>(480) { MutableList(480) { mutableListOf() } }
-
-            //Yolo 결과값을 이용하여 레이아웃 이미지를 칠한다.
-            yoloResult.forEach { predictResult ->
-                val rect = Rect(
-                    (0.75 * predictResult.box.left).toInt(),
-                    (0.75 * predictResult.box.top).toInt(),
-                    (0.75 * predictResult.box.right).toInt(),
-                    (0.75 * predictResult.box.bottom).toInt()
-                )
-                val targetColorIdx = predictResult.classIdx + 1
-                for (y in rect.top until rect.bottom) {
-                    for (x in rect.left until rect.right) {
-                        //색 값 저장
-                        initPixelData[y][x].add(palette[targetColorIdx].let { rgb ->
-                            Color.rgb(rgb[0], rgb[1], rgb[2])
-                        })
-                        //평균 내어 값을 저장
-                        val avgColor = initPixelData[y][x].sum() / initPixelData[y][x].size
-                        //평균 색을 칠함
-                        this.setPixel(x, y, avgColor)
-                    }
-                }
-            }
-
-        }
-
-    override fun outputsToNMSPredictions(
-        scaleSize: Size,
-        outputs: FloatArray
-    ): ArrayList<YoloPredictResult> {
-        val resultDataList = ArrayList<YoloPredictResult>()
-        for (i in 0 until YOLO_OUTPUT_ROW) {
-            if (outputs[i * YOLO_OUTPUT_COLUMN + 4] > YOLO_THRESHOLD) {
-                val (x, y) = Pair(
-                    outputs[i * YOLO_OUTPUT_COLUMN],
-                    outputs[i * YOLO_OUTPUT_COLUMN + 1]
-                )
-                val (w, h) = Pair(
-                    outputs[i * YOLO_OUTPUT_COLUMN + 2],
-                    outputs[i * YOLO_OUTPUT_COLUMN + 3]
-                )
-
-                val rect = Rect(
-                    (scaleSize.width * (x - w / 2)).toInt(),
-                    (scaleSize.height * (y - h / 2)).toInt(),
-                    (scaleSize.width * (x + w / 2)).toInt(),
-                    (scaleSize.height * (y + h / 2)).toInt(),
-                )
-                var maxValue = outputs[i * YOLO_OUTPUT_COLUMN + 5]
-                var clsIdx = 0
-                for (j in 0 until YOLO_OUTPUT_COLUMN - 5) {
-                    if (outputs[i * YOLO_OUTPUT_COLUMN + 5 + j] > maxValue) {
-                        maxValue = outputs[i * YOLO_OUTPUT_COLUMN + 5 + j]
-                        clsIdx = j
-                    }
-                }
-
-                resultDataList.add(
-                    YoloPredictResult(
-                        classIdx = clsIdx,
-                        score = outputs[i * YOLO_OUTPUT_COLUMN + 4],
-                        box = rect
-                    )
-                )
-            }
-        }
-        return nonMaxSuppression(resultDataList)
-    }
-
-    override fun IOU(a: Rect, b: Rect): Float {
-        val areaA = ((a.right - a.left) * (a.bottom - a.top)).toFloat()
-        if (areaA <= 0.0) return 0.0f
-        val areaB = ((b.right - b.left) * (b.bottom - b.top)).toFloat()
-        if (areaB <= 0.0) return 0.0f
-        val intersectionMinX = a.left.coerceAtLeast(b.left).toFloat()
-        val intersectionMinY = a.top.coerceAtLeast(b.top).toFloat()
-        val intersectionMaxX = a.right.coerceAtMost(b.right).toFloat()
-        val intersectionMaxY = a.bottom.coerceAtMost(b.bottom).toFloat()
-        val intersectionArea =
-            (intersectionMaxY - intersectionMinY).coerceAtLeast(0f) * (intersectionMaxX - intersectionMinX).coerceAtLeast(
-                0f
-            )
-        return intersectionArea / (areaA + areaB - intersectionArea)
-    }
-
-    // The two methods nonMaxSuppression and IOU below are ported
-// from https://github.com/hollance/YOLO-CoreML-MPSNNGraph/blob/master/Common/Helpers.swift
-    override fun nonMaxSuppression(boxes: ArrayList<YoloPredictResult>): ArrayList<YoloPredictResult> {
-
-        // Do an argsort on the confidence scores, from high to low.
-        boxes.sortWith { o1, o2 -> o1.score.compareTo(o2.score) }
-        val selected: ArrayList<YoloPredictResult> = ArrayList()
-        val active = BooleanArray(boxes.size)
-        Arrays.fill(active, true)
-        var numActive = active.size
-
-        // The algorithm is simple: Start with the box that has the highest score.
-        // Remove any remaining boxes that overlap it more than the given threshold
-        // amount. If there are any boxes left (i.e. these did not overlap with any
-        // previous boxes), then repeat this procedure, until no more boxes remain
-        // or the limit has been reached.
-        var done = false
-        var i = 0
-        while (i < boxes.size && !done) {
-            if (active[i]) {
-                val boxA: YoloPredictResult = boxes[i]
-                selected.add(boxA)
-                if (selected.size >= YOLO_NMS_LIMIT) break
-                for (j in i + 1 until boxes.size) {
-                    if (active[j]) {
-                        val boxB: YoloPredictResult = boxes[j]
-                        if (IOU(boxA.box, boxB.box) > YOLO_THRESHOLD) {
-                            active[j] = false
-                            numActive -= 1
-                            if (numActive <= 0) {
-                                done = true
-                                break
-                            }
-                        }
-                    }
-                }
-            }
-            i++
-        }
-        return selected
-    }
+//    override fun makeLayoutImage(yoloResult: ArrayList<YoloPredictResult>) = Bitmap.createBitmap(
+//        480,
+//        480,
+//        Bitmap.Config.ARGB_8888
+//    )
+//        .apply {
+//            eraseColor(
+//                Color.rgb(
+//                    palette[0][0],
+//                    palette[0][1],
+//                    palette[0][2]
+//                )
+//            )//a. 480*480 이미지를 color palette의 0번째 색으로 생성
+//            val initPixelData =
+//                MutableList<MutableList<MutableList<Int>>>(480) { MutableList(480) { mutableListOf() } }
+//
+//            //Yolo 결과값을 이용하여 레이아웃 이미지를 칠한다.
+//            yoloResult.forEach { predictResult ->
+//                val rect = Rect(
+//                    (0.75 * predictResult.box.left).toInt(),
+//                    (0.75 * predictResult.box.top).toInt(),
+//                    (0.75 * predictResult.box.right).toInt(),
+//                    (0.75 * predictResult.box.bottom).toInt()
+//                )
+//                val targetColorIdx = predictResult.classIdx + 1
+//                for (y in rect.top until rect.bottom) {
+//                    for (x in rect.left until rect.right) {
+//                        //색 값 저장
+//                        initPixelData[y][x].add(palette[targetColorIdx].let { rgb ->
+//                            Color.rgb(rgb[0], rgb[1], rgb[2])
+//                        })
+//                        //평균 내어 값을 저장
+//                        val avgColor = initPixelData[y][x].sum() / initPixelData[y][x].size
+//                        //평균 색을 칠함
+//                        this.setPixel(x, y, avgColor)
+//                    }
+//                }
+//            }
+//
+//        }
+//
+//    override fun outputsToNMSPredictions(
+//        scaleSize: Size,
+//        outputs: FloatArray
+//    ): ArrayList<YoloPredictResult> {
+//        val resultDataList = ArrayList<YoloPredictResult>()
+//        for (i in 0 until YOLO_OUTPUT_ROW) {
+//            if (outputs[i * YOLO_OUTPUT_COLUMN + 4] > YOLO_THRESHOLD) {
+//                val (x, y) = Pair(
+//                    outputs[i * YOLO_OUTPUT_COLUMN],
+//                    outputs[i * YOLO_OUTPUT_COLUMN + 1]
+//                )
+//                val (w, h) = Pair(
+//                    outputs[i * YOLO_OUTPUT_COLUMN + 2],
+//                    outputs[i * YOLO_OUTPUT_COLUMN + 3]
+//                )
+//
+//                val rect = Rect(
+//                    (scaleSize.width * (x - w / 2)).toInt(),
+//                    (scaleSize.height * (y - h / 2)).toInt(),
+//                    (scaleSize.width * (x + w / 2)).toInt(),
+//                    (scaleSize.height * (y + h / 2)).toInt(),
+//                )
+//                var maxValue = outputs[i * YOLO_OUTPUT_COLUMN + 5]
+//                var clsIdx = 0
+//                for (j in 0 until YOLO_OUTPUT_COLUMN - 5) {
+//                    if (outputs[i * YOLO_OUTPUT_COLUMN + 5 + j] > maxValue) {
+//                        maxValue = outputs[i * YOLO_OUTPUT_COLUMN + 5 + j]
+//                        clsIdx = j
+//                    }
+//                }
+//
+//                resultDataList.add(
+//                    YoloPredictResult(
+//                        classIdx = clsIdx,
+//                        score = outputs[i * YOLO_OUTPUT_COLUMN + 4],
+//                        box = rect
+//                    )
+//                )
+//            }
+//        }
+//        return nonMaxSuppression(resultDataList)
+//    }
+//
+//    override fun IOU(a: Rect, b: Rect): Float {
+//        val areaA = ((a.right - a.left) * (a.bottom - a.top)).toFloat()
+//        if (areaA <= 0.0) return 0.0f
+//        val areaB = ((b.right - b.left) * (b.bottom - b.top)).toFloat()
+//        if (areaB <= 0.0) return 0.0f
+//        val intersectionMinX = a.left.coerceAtLeast(b.left).toFloat()
+//        val intersectionMinY = a.top.coerceAtLeast(b.top).toFloat()
+//        val intersectionMaxX = a.right.coerceAtMost(b.right).toFloat()
+//        val intersectionMaxY = a.bottom.coerceAtMost(b.bottom).toFloat()
+//        val intersectionArea =
+//            (intersectionMaxY - intersectionMinY).coerceAtLeast(0f) * (intersectionMaxX - intersectionMinX).coerceAtLeast(
+//                0f
+//            )
+//        return intersectionArea / (areaA + areaB - intersectionArea)
+//    }
+//
+//    // The two methods nonMaxSuppression and IOU below are ported
+//// from https://github.com/hollance/YOLO-CoreML-MPSNNGraph/blob/master/Common/Helpers.swift
+//    override fun nonMaxSuppression(boxes: ArrayList<YoloPredictResult>): ArrayList<YoloPredictResult> {
+//
+//        // Do an argsort on the confidence scores, from high to low.
+//        boxes.sortWith { o1, o2 -> o1.score.compareTo(o2.score) }
+//        val selected: ArrayList<YoloPredictResult> = ArrayList()
+//        val active = BooleanArray(boxes.size)
+//        Arrays.fill(active, true)
+//        var numActive = active.size
+//
+//        // The algorithm is simple: Start with the box that has the highest score.
+//        // Remove any remaining boxes that overlap it more than the given threshold
+//        // amount. If there are any boxes left (i.e. these did not overlap with any
+//        // previous boxes), then repeat this procedure, until no more boxes remain
+//        // or the limit has been reached.
+//        var done = false
+//        var i = 0
+//        while (i < boxes.size && !done) {
+//            if (active[i]) {
+//                val boxA: YoloPredictResult = boxes[i]
+//                selected.add(boxA)
+//                if (selected.size >= YOLO_NMS_LIMIT) break
+//                for (j in i + 1 until boxes.size) {
+//                    if (active[j]) {
+//                        val boxB: YoloPredictResult = boxes[j]
+//                        if (IOU(boxA.box, boxB.box) > YOLO_THRESHOLD) {
+//                            active[j] = false
+//                            numActive -= 1
+//                            if (numActive <= 0) {
+//                                done = true
+//                                break
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//            i++
+//        }
+//        return selected
+//    }
 
 
     companion object {

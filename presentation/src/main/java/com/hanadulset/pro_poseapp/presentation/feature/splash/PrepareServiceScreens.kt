@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -22,12 +23,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.ar.core.ArCoreApk
+import com.google.ar.core.Session
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
@@ -72,10 +76,11 @@ object PrepareServiceScreens {
         previewState: State<CameraState>,
         cameraInit: () -> Unit,
         prepareServiceViewModel: PrepareServiceViewModel,
+        onCheckArInstalled: (Session) -> Unit,
         onAfterLoadedEvent: () -> Unit
     ) {
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
-
+        val localActivity = LocalContext.current
         val isInitiated = remember {
             mutableStateOf(false)
         }
@@ -87,9 +92,17 @@ object PrepareServiceScreens {
 
         if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
             onAfterLoadedEvent() //카메라 화면으로 이동하는 거임.
+            when (ArCoreApk.getInstance().requestInstall(localActivity as Activity, true)) {
+                ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
+
+//                    return
+                }
+                ArCoreApk.InstallStatus.INSTALLED -> {
+                    onCheckArInstalled(Session(localActivity))
+                }
+            }
             isInitiated.value = true
-        }
-        else InnerAppLoadingScreen()
+        } else InnerAppLoadingScreen()
 
 
     }

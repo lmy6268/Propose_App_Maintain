@@ -15,6 +15,7 @@ import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
+import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,26 +44,11 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
 
     private val modelDownloadInfoFlow = MutableStateFlow(DownloadInfo())
 
-//
-//    //이미지를 저장하고 썸네일 만들기
-//    override suspend fun saveImageToGallery(bitmap: Bitmap): Bitmap =
-//        suspendCoroutine { cont ->
-//            CoroutineScope(Dispatchers.IO).launch {
-//                fileHandleDataSource.saveImageToGallery(bitmap)
-//                val image =
-//                    imageProcessDataSource.resizeBitmap(bitmap = bitmap, isScaledResize = true)
-//                cont.resume(image)
-//            }
-//        }
-
 
     override suspend fun getRecommendCompInfo(image: Image, rotation: Int): Pair<String, Int>? {
         val targetBitmap =
             imageProcessDataSource.imageToBitmap(image, rotation)
-//            AppCompatResources.getDrawable(
-//                context,
-//                com.hanadulset.pro_poseapp.utils.R.drawable.sample
-//            )!!.toBitmap()
+
 
         return compDataSource.recommendCompData(targetBitmap)
     }
@@ -90,8 +76,10 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         )
 
 
-    override fun getLatestImage(): Uri {
-        return fileHandleDataSource.getLatestImage()!!
+    override suspend fun getLatestImage(): Uri? {
+        val data = fileHandleDataSource.loadCapturedImages(false)
+        return if (data.isEmpty()) null
+        else data[0].dataUri
     }
 
     override suspend fun downloadAiModel() {
@@ -103,29 +91,6 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
 
     override suspend fun checkForDownloadModel(downloadInfo: DownloadInfo) =
         fileHandleDataSource.checkForDownloadModel(downloadInfo)
-
-
-    override suspend fun testS3(): String {
-//        fileHandleDataSource.sendFeedBackData(
-//            feedBackData = FeedBackData(
-//                deviceID = "123Test",
-//                eventLogs = ArrayList(
-//                    listOf(
-//                        EventLog(
-//                            eventId = EventLog.EVENT_CAPTURE,
-//                            poseID = 1,
-//                            prevRecommendPoses = ArrayList(1),
-//                            backgroundHog = ArrayList(listOf(1f)).toString(),
-//                            backgroundId = 1,
-//                            timestamp = System.currentTimeMillis().toString()
-//                        )
-//                    )
-//                )
-//            )
-//        )
-        return ""
-//        return fileHandleDataSource.testS3()
-    }
 
 
     override suspend fun preRunModel(): Boolean {
@@ -144,4 +109,12 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
                 softwareBitmap
             )
         } else null
+
+    override suspend fun loadAllCapturedImages(): List<ImageResult> =
+        fileHandleDataSource.loadCapturedImages(true)
+
+
+    override suspend fun deleteCapturedImage(uri: Uri): Boolean =
+        fileHandleDataSource.deleteCapturedImage(uri)
+
 }

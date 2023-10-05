@@ -45,7 +45,7 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
     }
 
 
-    fun bitmapToMatWithOpenCV(bitmap: Bitmap): Mat {
+    private fun bitmapToMatWithOpenCV(bitmap: Bitmap): Mat {
         val resMat = Mat(bitmap.width, bitmap.height, CvType.CV_8UC3)
         Utils.bitmapToMat(bitmap, resMat)
         Imgproc.cvtColor(resMat, resMat, Imgproc.COLOR_RGB2GRAY)

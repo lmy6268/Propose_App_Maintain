@@ -1,19 +1,15 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.content.Context
-import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
-import android.provider.MediaStore
 import android.util.Log
 import android.view.OrientationEventListener
 import android.widget.Toast
-import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -40,6 +36,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
@@ -82,10 +79,13 @@ import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.ExpandableButton
 import com.hanadulset.pro_poseapp.presentation.ui_components.PretendardFamily
-import com.skydoves.landscapist.CircularReveal
+import com.skydoves.landscapist.ImageOptions
+import com.skydoves.landscapist.animation.circular.CircularRevealPlugin
+import com.skydoves.landscapist.components.rememberImageComponent
 import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 
 object CameraModules {
@@ -200,15 +200,21 @@ object CameraModules {
                         horizontalArrangement = Arrangement.SpaceAround,
                     ) {
                         for (idx in text.indices) {
-                            Text(modifier = Modifier.clickable(indication = null,
-                                interactionSource = remember { MutableInteractionSource() }) {
-                                onClick(idx)
-                            },
-                                text = text[idx],
-                                fontSize = 12.sp,
-                                fontWeight = if (viewRateIdx == idx) FontWeight.Bold else FontWeight.Light,
-                                textAlign = TextAlign.Center
-                            )
+                            Box(modifier = Modifier
+                                .wrapContentSize()
+                                .padding(10.dp)
+                                .clickable(indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }) {
+                                    onClick(idx)
+                                }) {
+                                Text(
+                                    text = text[idx],
+                                    fontSize = 12.sp,
+                                    fontWeight = if (viewRateIdx == idx) FontWeight.Bold else FontWeight.Light,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
                         }
                     }
                 }
@@ -265,7 +271,6 @@ object CameraModules {
                 viewRateIdx = viewRateIdx,
                 isExpandedState = isExpandedState,
                 onClick = viewRateClickEvent
-
             )
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
@@ -294,17 +299,19 @@ object CameraModules {
         pointerState: Pair<String, Int>?, //포인터의 위치
         onSetNewPoint: () -> Unit,
         onStartToTracking: (Offset) -> Unit,
-        onStopToTracking: () -> Unit
+        onCancelPoint: () -> Unit
     ) {
         val context = LocalContext.current
-        val radius = 30F // 구도추천 포인트 감지 영역
-
 
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        val SHAKE_THRESHOLD_GRAVITY = 8F //ThresHold
-        val continuousNonShakingCntThreshold = 15
 
+
+        val startToShowState = remember { mutableStateOf(false) }
+        val startToTracking = remember { mutableStateOf(false) }
+        val radius = 30F // 구도추천 포인트 감지 영역
+        val SHAKE_THRESHOLD_GRAVITY = 8F //Threshold
+        val comboNonShakingCntThreshold = 15
 
         val timestamp = remember {
             mutableFloatStateOf(0.0F)
@@ -312,7 +319,10 @@ object CameraModules {
         val shakeState = remember {
             mutableStateOf(false)
         }
-        var continuousNonShakingCnt = 0
+        var comboNonShakingCnt = 0
+        var stick = remember {
+            Offset(0F, 0F)
+        }
         val sensorListener = rememberUpdatedState {
             object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
@@ -329,15 +339,15 @@ object CameraModules {
                                 //만약 흔들림 방지턱을 넘은 경우
                                 if (dx < SHAKE_THRESHOLD_GRAVITY && dy < SHAKE_THRESHOLD_GRAVITY && dz < SHAKE_THRESHOLD_GRAVITY) {
                                     //흔들린 이후, 연속적으로 흔들리지 않았다는 데이터가 30개 이상 전달된 경우
-                                    if (shakeState.value && continuousNonShakingCnt >= continuousNonShakingCntThreshold) {
+                                    if (shakeState.value && comboNonShakingCnt >= comboNonShakingCntThreshold) {
                                         shakeState.value = false //흔들리지 않음 상태로 변경한다.
-                                        continuousNonShakingCnt = 0 //cnt 개수를 초기화 한다.
-                                    } else continuousNonShakingCnt += 1 //흔들리지 않았다는 데이터의 개수를 1증가
+                                        comboNonShakingCnt = 0 //cnt 개수를 초기화 한다.
+                                    } else comboNonShakingCnt += 1 //흔들리지 않았다는 데이터의 개수를 1증가
 
                                 } else {
                                     if (shakeState.value.not()) shakeState.value = true
                                     //연속적으로 흔들리지 않음 상태를 만족시키지 못했으므로
-                                    else continuousNonShakingCnt = 0
+                                    else comboNonShakingCnt = 0
                                 }
                             }
                         }
@@ -350,23 +360,23 @@ object CameraModules {
                 override fun onAccuracyChanged(sensor: Sensor, accurancy: Int) {}
             }
         }
-        val startToShowState = remember {
-            mutableStateOf(false)
-        }
-        val startToTracking = remember {
-            mutableStateOf(false)
-        }
+
         LaunchedEffect(shakeState.value) {
-            if (shakeState.value)
-                Toast.makeText(context, "흔들림이 감지되었습니다.", Toast.LENGTH_SHORT)
-                    .show()
+            if (shakeState.value) Toast.makeText(context, "흔들림이 감지되었습니다.", Toast.LENGTH_SHORT)
+                .show()
             else {
                 Toast.makeText(context, "흔들림이 멈췄습니다 . 트리거를 실행합니다.", Toast.LENGTH_SHORT).show()
                 if (startToTracking.value.not() && startToShowState.value) {
                     startToTracking.value = true
-                    onStartToTracking(centroid)
                 }
             }
+        }
+        LaunchedEffect(startToTracking.value) {
+            if (startToTracking.value) onSetNewPoint()
+        }
+
+        LaunchedEffect(pointerState) {
+            if (pointerState == null || pointerState.first == "") startToTracking.value = false
         }
 
 
@@ -376,16 +386,12 @@ object CameraModules {
             sensorManager.registerListener(
                 sensorListener.value(), gyroscopeSensor, SensorManager.SENSOR_DELAY_NORMAL
             )
-
-
         }
 
         //리스너 등록
         DisposableEffect(startToShowState.value) {
             onDispose {
-                sensorManager.unregisterListener(
-                    sensorListener.value(), gyroscopeSensor
-                )
+                sensorManager.unregisterListener(sensorListener.value(), gyroscopeSensor)
             }
         }
 
@@ -393,13 +399,15 @@ object CameraModules {
         HorizontalCheckModule(
             centerRadius = radius, centroid = centroid, modifier = modifier
         )
-        if (pointerState != null)
-            RecommendPointModule(
-                pointerState = pointerState,
-                centroid = centroid,
-                radius = radius,
-                modifier = modifier
-            )
+        if (pointerState != null && pointerState.first != "") RecommendPointModule(
+            sensorManager = sensorManager,
+            pointerState = pointerState,
+            centroid = centroid,
+            radius = radius,
+            modifier = modifier,
+            screenSize = screenSize,
+            onCancelPoint = onCancelPoint
+        )
 
 
     }
@@ -407,32 +415,97 @@ object CameraModules {
     // 구도 추천 포인트
     @Composable
     fun RecommendPointModule(
+        sensorManager: SensorManager,
         pointerState: Pair<String, Int>,
         modifier: Modifier = Modifier,
         centroid: Offset,
-        radius: Float
+        radius: Float,
+        screenSize: Size,
+        onCancelPoint: () -> Unit
     ) {
+        val rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         //맞춰야 하는 대상
-        val targetOffset = remember {
-            mutableStateOf(
-                Offset(
-                    if (pointerState.first == "horizon") centroid.x * (100 + pointerState.second * 2) / 100 else centroid.x,
-                    if (pointerState.first == "vertical") centroid.y * (100 + pointerState.second * 2) / 100 else centroid.y,
-                )
+        var targetOffset = remember {
+            Offset(
+                if (pointerState.first == "horizon") centroid.x * (100 + pointerState.second * 2) / 100 else centroid.x,
+                if (pointerState.first == "vertical") centroid.y * (100 + pointerState.second * 2) / 100 else centroid.y,
             )
         }
-//
+        //기준 방향 각
+        var stdOffset: Offset? = remember {
+            null
+        }
 
         //만약 포인터가 활성화 되었다면,
         val animatedState = animateOffsetAsState(
-            targetValue = targetOffset.value,
-//                    .let { it.copy(it.x + pitch, it.y + roll) },
-            animationSpec = tween(16),
-            label = "targetAnimation"
+            targetValue = targetOffset,
+            animationSpec = tween(16), label = "targetAnimation"
         )
+        //이전에 들어온 X좌표 방향각
+        var lastX = remember {
+            0F
+        }
+
+        //이전에 들어온 Y좌표 방향각
+        var lastY = remember {
+            0F
+        }
+
+        val timeInterval = 400
+        var timeChecker = remember {
+            0
+        }
+        //10.01 기준으로, targetOffset에 값이 계속해서 누적되는 현상이 있었다.
+        //데이터가 변화할 때만, 해당 값을 Offset에 반영해야 한다.
+        val sensorListener = rememberUpdatedState {
+            object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    when (event.sensor.type) {
+                        Sensor.TYPE_ROTATION_VECTOR -> {
+                            //현재 들어온 값에 대한 처리
+                            val X = (event.values[1] * 500).roundToInt().toFloat()
+                            val Y = (event.values[0] * 500).roundToInt().toFloat()
+                            //기준 방향각 설정
+                            if (stdOffset == null) stdOffset = Offset(X, Y)
+                            timeChecker += 1
+                            if (timeInterval >= timeChecker) {
+                                //기준 방향각으로부터의 변화량을 구함
+                                val dx = X - stdOffset!!.x
+                                val dy = Y - stdOffset!!.y
+
+                                //변화량을 target에 반영
+                                targetOffset = Offset(targetOffset.x + dx, targetOffset.y + dy)
+                                timeChecker = 0
+                                Log.d("XY : ", "($X,$Y), $stdOffset, $targetOffset")
+                            }
+
+                        }
+
+                        else -> {}
+                    }
+
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor, accurancy: Int) {}
+            }
+        }
+
+
+        LaunchedEffect(Unit) {
+            sensorManager.registerListener(
+                sensorListener.value(), rotationVectorSensor, SensorManager.SENSOR_DELAY_NORMAL
+            )
+        }
+        //리스너 해제
+        DisposableEffect(Unit) {
+            onDispose {
+                sensorManager.unregisterListener(sensorListener.value(), rotationVectorSensor)
+            }
+        }
 
         //위치를 설정한다.
-        Canvas(modifier = modifier.fillMaxSize()) {
+        Canvas(modifier = modifier.fillMaxSize())
+        {
             drawCircle(
                 color = Color.White, radius = radius, center = animatedState.value
             )
@@ -559,7 +632,6 @@ object CameraModules {
             }
             Canvas(
                 modifier = modifier.size(animationSize.value.dp)
-
             ) {
                 drawRect(
                     color = color, topLeft = pointer.copy(
@@ -578,7 +650,10 @@ object CameraModules {
 
     @Composable
     fun NormalButton(
-        buttonName: String, modifier: Modifier = Modifier, iconDrawableId: Int, onClick: () -> Unit
+        buttonName: String,
+        modifier: Modifier = Modifier,
+        iconDrawableId: Int,
+        onClick: () -> Unit
     ) {
         IconButton(
             onClick = onClick
@@ -597,26 +672,22 @@ object CameraModules {
         }
     }
 
+
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     @Composable
     fun LowerButtons(
         selectedModeIdxState: MutableIntState,
+        poseScreenVisibleState: Boolean,
         modifier: Modifier = Modifier,
         capturedImageBitmap: Uri?, //캡쳐된 이미지의 썸네일을 받아옴.
         ddaogiFeatureEvent: () -> Unit = {},
         fixedButtonPressedEvent: () -> Unit = {}, //고정 버튼 누름 이벤트 인식
         poseBtnClickEvent: () -> Unit = {},
         captureImageEvent: () -> Unit = { },
-        zoomInOutEvent: (Float) -> Unit = {}
+        zoomInOutEvent: (Float) -> Unit = {},
+        onClickGalleyBtnEvent: () -> Unit
     ) {
-        val isFixedBtnPressed = remember {
-            mutableStateOf(false)
-        }
-        val fixedBtnImage = if (isFixedBtnPressed.value) R.drawable.fixbutton_fixed
-        else R.drawable.fixbutton_unfixed
-        val interactionSource = remember { MutableInteractionSource() }
-        val isPressed by interactionSource.collectIsPressedAsState()
-        val isFocused by interactionSource.collectIsFocusedAsState()
+
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult()
         ) {
@@ -635,27 +706,24 @@ object CameraModules {
         }
 
 
-        //버튼 이미지 배치
-        val buttonImg = if (isPressed) R.drawable.ic_shutter_pressed
-        else if (isFocused) R.drawable.ic_shutter_focused
-        else R.drawable.ic_shutter_normal
+
 
         Column(
             modifier = modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterVertically)
+            verticalArrangement = Arrangement.spacedBy(25.dp, Alignment.CenterVertically)
         ) {
             //첫번째 단
             Row(
-                horizontalArrangement = Arrangement.SpaceAround, modifier = Modifier.fillMaxWidth()
+                horizontalArrangement = Arrangement.SpaceAround,
+                modifier = Modifier.fillMaxWidth()
             ) {
-
                 if (selectedModeIdxState.intValue == 0 || selectedModeIdxState.intValue == 1)
 
-                    IconButton(modifier = Modifier.heightIn(15.dp), onClick = {
-                        isPoseActivated.value = !isPoseActivated.value
-                        poseBtnClickEvent()
-                    }) {
+                    IconButton(modifier = Modifier.heightIn(15.dp),
+                        onClick = {
+                            poseBtnClickEvent()
+                        }) {
                         Icon(
                             painterResource(id = R.drawable.based_circle),
                             tint = Color(
@@ -669,8 +737,7 @@ object CameraModules {
                             ), text = "포즈\n추천"
                         )
                     }
-                else IconButton(
-                    modifier = Modifier.heightIn(15.dp),
+                else IconButton(modifier = Modifier.heightIn(15.dp),
                     enabled = false,
                     onClick = {}) {
                     Icon(
@@ -738,6 +805,7 @@ object CameraModules {
 
 
             }
+
             //두번쨰 단
             Row(
                 horizontalArrangement = Arrangement.spacedBy(
@@ -745,9 +813,8 @@ object CameraModules {
                 ), verticalAlignment = Alignment.CenterVertically
             ) {
                 //캡쳐 썸네일 이미지 뷰 -> 원형으로 표사
-
                 GlideImage(
-                    imageModel = capturedImageBitmap,
+                    imageModel = { capturedImageBitmap },
                     modifier = Modifier
                         .size(60.dp)
                         .clip(CircleShape)
@@ -757,45 +824,24 @@ object CameraModules {
                             contentScale = ContentScale.FillBounds
                         )
                         .clickable(
-                            interactionSource = MutableInteractionSource(), indication = null
+                            interactionSource = MutableInteractionSource(),
+                            indication = CameraModuleExtension.CustomIndication
                         ) {
-                            openGallery(launcher)
+                            onClickGalleyBtnEvent() //갤러리 이미지 보여주는 화면으로 넘어가기
                         },
-                    contentScale = ContentScale.Crop,
-                    circularReveal = CircularReveal(duration = 250),
-                    contentDescription = "캡쳐된 이미지"
+                    imageOptions = ImageOptions(
+                        contentScale = ContentScale.Crop,
+                    ),
+                    component = rememberImageComponent {
+                        +CircularRevealPlugin(
+                            duration = 150 //화면에 보여주기까지 딜레이 -> 이것 때문에 느리게 보였을 듯
+                        )
+                    }
                 )
                 //캡쳐 버튼
-                Box(modifier = Modifier.clickable(
-                    indication = null, //Ripple 효과 제거
-                    interactionSource = interactionSource
-                ) {
-                    captureImageEvent()
-                }) {
-                    Icon(
-                        modifier = Modifier.size(80.dp),
-                        painter = painterResource(id = buttonImg),
-                        tint = if (!isFocused && !isPressed) MaterialTheme.colors.secondary
-                        else Color.Unspecified,
-                        contentDescription = "촬영버튼"
-                    )
-                }
-
-                Box(Modifier.clickable(
-                    indication = null, // Remove ripple effect
-                    interactionSource = MutableInteractionSource()
-                ) {
-                    isFixedBtnPressed.value = !isFixedBtnPressed.value
-                    fixedButtonPressedEvent()
-                }) {
-                    Icon(
-                        modifier = Modifier.size(60.dp),
-                        painter = painterResource(id = fixedBtnImage),
-                        tint = Color.Unspecified,
-                        contentDescription = "고정버튼"
-                    )
-                }
-
+                CameraModuleExtension.ShutterButton { captureImageEvent() }
+                //고정 버튼
+                CameraModuleExtension.FixedButton { fixedButtonPressedEvent() }
 
             }
         }
@@ -862,25 +908,25 @@ object CameraModules {
 //    }
 
 
-    private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
-
-        val intent = Intent()
-        intent.action = Intent.ACTION_VIEW
-
-        intent.setDataAndType(
-            Uri.Builder()
-                .path(MediaStore.Images.Media.EXTERNAL_CONTENT_URI.path + "/Pictures/Pro_Pose/")
-                .build(),
-            "image/*",
-
-            )
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        launcher.launch(
-            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//            intent
-        )
-    }
+//    private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
+//
+//        val intent = Intent()
+//        intent.action = Intent.ACTION_VIEW
+//
+//        intent.setDataAndType(
+//            Uri.Builder()
+//                .path(MediaStore.Images.Media.EXTERNAL_CONTENT_URI.path + "/Pictures/Pro_Pose/")
+//                .build(),
+//            "image/*",
+//
+//            )
+//        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+//        launcher.launch(
+//            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY)
+//                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+////            intent
+//        )
+//    }
 }
 
 

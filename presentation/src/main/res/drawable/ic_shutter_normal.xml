@@ -7,10 +7,10 @@
 
     <path
         android:fillAlpha="0.3"
-        android:fillColor="#FFFFFF"
+        android:fillColor="#95FFA7"
         android:pathData="M72 40A32 32 0 0 1 8 40A32 32 0 0 1 72 40Z" />
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#95FFA7"
         android:pathData="M64 40A24 24 0 0 1 16 40A24 24 0 0 1 64 40Z" />
 
 </vector>

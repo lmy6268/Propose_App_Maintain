@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.MaterialTheme
@@ -49,11 +50,15 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
+import com.google.ar.core.Config
+import com.google.ar.core.Session
+import com.hanadulset.pro_poseapp.presentation.feature.ArScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.LowerButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.UpperButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
+import io.github.sceneview.ar.ARCore
 import kotlinx.coroutines.delay
 
 
@@ -68,17 +73,18 @@ var saveRecentlyPoses = arrayListOf<Int>()
 fun Screen(
     cameraViewModel: CameraViewModel,
     previewView: PreviewView,
+    onClickRecentlyImages: () -> Unit,
     showBackContinueDialog: () -> Unit,
     onClickSettingBtnEvent: () -> Unit,
+    arSession: Session?,
     cameraInit: () -> Unit
 ) {
     val context = LocalContext.current
     val localDensity = LocalDensity.current
-
+    val arConfig: Config? = if (arSession == null) null else Config(arSession)
 
     //요청된 고정 화면에 대한 결과값을 가지고 있는 State 변수
     val resFixedScreenState by cameraViewModel.fixedScreenState.collectAsState()
-
     val isUpdated = remember {
         mutableStateOf(false)
     }
@@ -206,6 +212,9 @@ fun Screen(
                     poseScreenVisibleState.value = true
                 }
             } //설정화면에서 다시 돌아올 때, 뷰가 보이지 않는 문제 해결
+            cameraViewModel.getLastImage()
+            Log.d("arConfig status: ", (arConfig != null).toString())
+
             previewView
         },
             modifier = Modifier
@@ -226,13 +235,17 @@ fun Screen(
                     when (it.action) {
                         MotionEvent.ACTION_DOWN -> {
                             focusRingState.value = null
-                            val pointer = Offset(it.x, it.y)
-                            focusRingState.value = pointer.copy()
-                            cameraViewModel.setFocus(
-                                previewView.meteringPointFactory.createPoint(
-                                    it.x, it.y
-                                ), 2000L
-                            )
+                            val untouchableArea =
+                                with(localDensity) { upperButtonsRowSize.value.height.dp.toPx() }
+                            if (it.y > untouchableArea) {
+                                val pointer = Offset(it.x, it.y)
+                                focusRingState.value = pointer.copy()
+                                cameraViewModel.setFocus(
+                                    previewView.meteringPointFactory.createPoint(
+                                        it.x, it.y
+                                    ), 2000L
+                                )
+                            }
                             return@pointerInteropFilter true
                         }
 
@@ -241,28 +254,15 @@ fun Screen(
                         }
                     }
                 }
+                .padding(top = if (viewRateIdxState == 0) upperButtonsRowSize.value.height.dp else 0.dp)
                 .aspectRatio(aspectRatioState.width / aspectRatioState.height.toFloat())
+
                 .align(Alignment.TopCenter)) {
 
         }
 
-
-//        AnimatedVisibility(
-//            visible = shutterAnimationState.value,
-//        ) {
-//            Box(
-//                modifier = Modifier
-//                    .align(Alignment.TopCenter)
-////                .aspectRatio(viewRateState.second)
-//                    .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
-//                    .background(Color(0x50FFFFFF))
-//            )
-//        }
-//        CameraModules.HorizonAndVerticalCheckScreen(
-//            modifier = Modifier
-//                .align(Alignment.TopCenter)
-////                .aspectRatio(viewRateState.second)
-//                .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
+//        ArScreen.ArScreen(
+//
 //        )
 
         //엣지 화면
@@ -271,9 +271,10 @@ fun Screen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .size(cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp)
+                .padding(top = if (viewRateIdxState == 0) upperButtonsRowSize.value.height.dp else 0.dp)
         )
 
-        if (selectedModeIdxState.intValue in 0..1 && poseScreenVisibleState.value) {
+        if (poseScreenVisibleState.value) {
             PoseResultScreen(cameraDisplaySize = cameraDisplaySize,
                 cameraDisplayPxSize = cameraDisplayPxSize,
                 lowerBarDisplayPxSize = lowerBarDisplayPxSize,
@@ -282,7 +283,6 @@ fun Screen(
                     .size(
                         cameraDisplaySize.value.width.dp, cameraDisplaySize.value.height.dp
                     )
-//                    .aspectRatio(aspectRatioState.width / aspectRatioState.height)
                     .align(Alignment.TopCenter),
                 poseResultData = poseRecPair,
                 onDownActionEvent = {
@@ -318,11 +318,13 @@ fun Screen(
                 with(localDensity) {
                     upperButtonsRowSize.value = coordinates.size.let {
                         IntSize(
-                            it.width.toDp().value.toInt(), it.height.toDp().value.toInt()
+                            it.width.toDp().value.toInt(),
+                            it.height.toDp().value.toInt()
                         )
                     }
                 }
-            },
+            }
+            .padding(top = 30.dp),
             viewRateIdx = viewRateIdxState,
             mainColor = MaterialTheme.colors.primary,
             selectedModeIdxState = selectedModeIdxState,
@@ -339,31 +341,31 @@ fun Screen(
         if (selectedModeIdxState.intValue in 1..2) {
             val pointerState by cameraViewModel.compResultState.collectAsState()
 
-            CameraModules.CompositionScreen(modifier = Modifier
-                .align(Alignment.TopCenter)
-                .size(cameraDisplaySize.value.let { DpSize(it.width.dp, it.height.dp) }),
-                centroid = cameraDisplayPxSize.value.let {
-                    Offset(
-                        it.width.toFloat() / 2, it.height.toFloat() / 2
-                    )
-                },
-                screenSize = Size(
-                    cameraDisplayPxSize.value.width.toFloat(),
-                    cameraDisplayPxSize.value.height.toFloat()
-                ),
-                pointerState = pointerState,
-                trackerPoint = cameraViewModel.trackerDataState.collectAsState(),
-                onStartToTracking = { offset ->
-                    cameraViewModel.attachTracker(
-                        offset,
-                        cameraDisplayPxSize.value.let { android.util.Size(it.width, it.height) })
-                },
-                onStopToTracking = {
-                    cameraViewModel.detachTracker()
-                },
-                onSetNewPoint = {
-                    cameraViewModel.reqCompRecommend()
-                })
+//            CameraModules.CompositionScreen(modifier = Modifier
+//                .align(Alignment.TopCenter)
+//                .size(cameraDisplaySize.value.let { DpSize(it.width.dp, it.height.dp) }),
+//                centroid = cameraDisplayPxSize.value.let {
+//                    Offset(
+//                        it.width.toFloat() / 2, it.height.toFloat() / 2
+//                    )
+//                },
+//                screenSize = Size(
+//                    cameraDisplayPxSize.value.width.toFloat(),
+//                    cameraDisplayPxSize.value.height.toFloat()
+//                ),
+//                pointerState = pointerState,
+//                trackerPoint = cameraViewModel.trackerDataState.collectAsState(),
+//                onStartToTracking = { offset ->
+//                    cameraViewModel.attachTracker(
+//                        offset,
+//                        cameraDisplayPxSize.value.let { android.util.Size(it.width, it.height) })
+//                },
+//                onSetNewPoint = {
+//                    cameraViewModel.reqCompRecommend()
+//                },
+//                onCancelPoint = {
+//
+//                })
         }
 
 
@@ -372,8 +374,7 @@ fun Screen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .heightIn(150.dp)
-                .padding(bottom = 100.dp)
-
+                .padding(bottom = (upperButtonsRowSize.value.height).dp)
                 .onGloballyPositioned { coordinates ->
                     with(localDensity) {
                         lowerBarDisplaySize.value = coordinates.size.let {
@@ -385,13 +386,16 @@ fun Screen(
                             IntSize(it.width, it.height)
                         }
                     }
-                }, verticalArrangement = Arrangement.spacedBy(30.dp, Alignment.CenterVertically)
+                }
+                .offset(y = 25.dp),
+            verticalArrangement = Arrangement.spacedBy(40.dp, Alignment.CenterVertically)
         ) {
             if (poseScreenVisibleState.value && poseRecPair != null && selectedModeIdxState.intValue in 0..1) {
                 val tmp = poseClickIndexState.intValue
                 poseClickIndexState.intValue = -1
                 poseClickIndexState.intValue = tmp
                 PoseScreen.RecommendedPoseSelectMenu(
+                    poseDataList = poseRecPair!!.second!!,
                     modifier = Modifier.animateContentSize { initialValue, targetValue -> },
                     poseCnt = poseRecPair!!.second!!.size,
                     clickedItemIndexState = poseClickIndexState.intValue,
@@ -400,7 +404,10 @@ fun Screen(
                         recentlyChoosePoses.add(poseRecPair!!.second!![it].poseId)
                     })
             }
-            LowerButtons(modifier = Modifier,
+
+            LowerButtons(
+                modifier = Modifier,
+                poseScreenVisibleState = poseScreenVisibleState.value,
                 selectedModeIdxState = selectedModeIdxState,
                 capturedImageBitmap = capturedThumbnailBitmap,
                 captureImageEvent = {
@@ -414,7 +421,7 @@ fun Screen(
                     cameraViewModel.getPhoto(
                         //
                         EventLog(
-                            poseID = if (recentlyChoosePoses.isEmpty()) null else recentlyChoosePoses.last(),
+                            poseID = if (recentlyChoosePoses.isEmpty()) -1 else recentlyChoosePoses.last(),
                             eventId = EventLog.EVENT_CAPTURE,
                             prevRecommendPoses = recentlyChoosePoses,
                             backgroundHog = null,
@@ -425,9 +432,13 @@ fun Screen(
                     shutterAnimationState.value = false
                 },
                 poseBtnClickEvent = {
-                    cameraViewModel.reqPoseRecommend()
-                    poseScreenVisibleState.value = true
-                    poseClickIndexState.intValue = 1 //0번째 원소는 해제 버튼이기 때문에
+                    if (poseScreenVisibleState.value.not()) {
+                        cameraViewModel.reqPoseRecommend()
+                        poseClickIndexState.intValue = 1 //0번째 원소는 해제 버튼이기 때문에
+                        poseScreenVisibleState.value = true
+                    } else {
+                        poseScreenVisibleState.value = false
+                    }
                 },
                 fixedButtonPressedEvent = {
                     isPressedFixedBtn.value = !isPressedFixedBtn.value
@@ -445,8 +456,9 @@ fun Screen(
                             )
                         )
                     else ddaogiOnState.value = false
-                })
-
+                },
+                onClickGalleyBtnEvent = onClickRecentlyImages
+            )
 
         }
         CameraModules.FocusRing(
@@ -455,7 +467,6 @@ fun Screen(
             pointer = focusRingState.value,
             duration = 2000L
         )
-
 
     }
 

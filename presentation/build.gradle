@@ -29,7 +29,9 @@ dependencies {
     implementation 'androidx.navigation:navigation-ui-ktx:2.6.0'
 
 
+//    implementation 'com.google.ar:core:1.33.0' //ARCore 사용
 
+    implementation 'io.github.sceneview:arsceneview:0.10.2'
     //ViewModelScope
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
 
@@ -51,7 +53,9 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
     // jetpack compose
-    implementation "com.github.skydoves:landscapist-glide:1.4.7"
+    var glideVersion = "2.2.2"
+    implementation "com.github.skydoves:landscapist-glide:$glideVersion"
+    implementation "com.github.skydoves:landscapist-animation:$glideVersion"
     // Import the Compose BOM
     implementation platform('androidx.compose:compose-bom:2023.01.00')
     implementation "androidx.navigation:navigation-compose"

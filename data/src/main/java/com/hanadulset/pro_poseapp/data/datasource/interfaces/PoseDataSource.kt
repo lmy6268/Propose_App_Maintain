@@ -13,8 +13,7 @@ interface PoseDataSource {
     /**포즈를 추천해준다.*/
     suspend fun recommendPose(backgroundBitmap: Bitmap): Pair<DoubleArray, List<PoseData>>
 
-    /**포즈를 취하며 있을 위치를 추천해준다.*/
-    fun recommendPosePosition(backgroundBitmap: Bitmap): DoubleArray
+
 
     //그외, 위를 구현하기 위한 메소드들 정리
     // 포즈 추천 관련
@@ -23,7 +22,7 @@ interface PoseDataSource {
     fun preProcessing(image: Bitmap): Mat
 
     /**HOG 값과 Resnet 결과값 간의 유클리드 거리를 구한다. */
-    fun getDistance(hog: List<Double>, resnet50: List<Double>, centroidIdx: Int): Double
+    fun getDistance(angle:List<Double>, centroidIdx: Int): Double
 
     fun distanceAngle(aAngle: List<Double>, bAngle: List<Double>): Double
 
@@ -55,15 +54,17 @@ interface PoseDataSource {
     fun getAngleFromHog(histogramMap: Mat): List<Double>
 
     //포즈 위치 선정 관련
-    fun makeLayoutImage(yoloResult: ArrayList<YoloPredictResult>): Bitmap
-    fun outputsToNMSPredictions(
-        scaleSize: Size,
-        outputs: FloatArray
-    ): ArrayList<YoloPredictResult>
-
-    fun IOU(a: Rect, b: Rect): Float
-    fun nonMaxSuppression(
-        boxes: ArrayList<YoloPredictResult>
-    ): ArrayList<YoloPredictResult>
+//    fun makeLayoutImage(yoloResult: ArrayList<YoloPredictResult>): Bitmap
+//    fun outputsToNMSPredictions(
+//        scaleSize: Size,
+//        outputs: FloatArray
+//    ): ArrayList<YoloPredictResult>
+//
+//    fun IOU(a: Rect, b: Rect): Float
+//    fun nonMaxSuppression(
+//        boxes: ArrayList<YoloPredictResult>
+//    ): ArrayList<YoloPredictResult>
+    /**포즈를 취하며 있을 위치를 추천해준다.*/
+//    fun recommendPosePosition(backgroundBitmap: Bitmap): DoubleArray
 
 }

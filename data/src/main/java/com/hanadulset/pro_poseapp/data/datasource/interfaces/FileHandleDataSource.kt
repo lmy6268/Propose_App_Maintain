@@ -3,6 +3,7 @@ package com.hanadulset.pro_poseapp.data.datasource.interfaces
 import android.graphics.Bitmap
 import android.net.Uri
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
+import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.eventlog.FeedBackData
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,10 +13,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 interface FileHandleDataSource {
 
     /**촬영된 이미지를 갤러리에 저장한다.*/
-    suspend fun saveImageToGallery(bitmap: Bitmap):Uri
+    suspend fun saveImageToGallery(bitmap: Bitmap): Uri
 
     /**가장 최근에 촬영된 이미지를 가져온다. */
     fun getLatestImage(): Uri?
+
+    suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ImageResult>
+    fun deleteCapturedImage(uri: Uri): Boolean
 
     /**모델을 다운로드하고 파일로 저장한다.
      * 1. 현재 저장되어있는 각 파일의 버전 정보를 확인한다.
@@ -26,8 +30,9 @@ interface FileHandleDataSource {
      * 1. 기존의 파일을 삭제하고, 다운로드 된 파일을 사용한다. ( 다운로드 된 파일명을 처음엔 new_를 붙여서 저장하여 분리한다. )
      * 1. 업데이트를 완료한다.
      * */
+
     suspend fun downloadModel(downloadStateFlow: MutableStateFlow<DownloadInfo>)
-    suspend fun checkForDownloadModel(downloadInfo: DownloadInfo):DownloadInfo
+    suspend fun checkForDownloadModel(downloadInfo: DownloadInfo): DownloadInfo
 
     suspend fun sendFeedBackData(feedBackData: FeedBackData) //피드백 데이터를 서버로 보냄
 }

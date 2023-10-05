@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import com.hanadulset.pro_poseapp.presentation.ui_components.MainTheme
 import com.hanadulset.pro_poseapp.presentation.core.MainScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
+import com.hanadulset.pro_poseapp.presentation.feature.gallery.GalleryViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -23,6 +24,7 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val cameraViewModel: CameraViewModel by viewModels()
     private val prepareServiceViewModel: PrepareServiceViewModel by viewModels()
+    private val galleryViewModel: GalleryViewModel by viewModels()
 
     //전체화면 적용
     private fun setFullScreen(context: Context) {
@@ -65,8 +67,9 @@ class MainActivity : AppCompatActivity() {
             MainTheme {
                 MainScreen.MainScreen(
                     navController,
-                    cameraViewModel,
-                    prepareServiceViewModel = prepareServiceViewModel
+                    cameraViewModel = cameraViewModel,
+                    prepareServiceViewModel = prepareServiceViewModel,
+                    galleryViewModel = galleryViewModel
                 )
             }
         }

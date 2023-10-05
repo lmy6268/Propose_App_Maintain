@@ -5,6 +5,7 @@ import android.media.Image
 import android.net.Uri
 import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
+import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,12 +20,13 @@ interface ImageRepository {
 
     fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap // 고정 화면을 보여줌
     fun getFixedScreen(imageProxy: ImageProxy): Bitmap
-    fun getLatestImage(): Uri
+    suspend fun getLatestImage(): Uri?
     suspend fun downloadAiModel()
     fun getDownloadInfoFlow(): StateFlow<DownloadInfo>
     suspend fun checkForDownloadModel(downloadInfo: DownloadInfo): DownloadInfo
-    suspend fun testS3(): String
     suspend fun preRunModel(): Boolean
     fun getPoseFromImage(uri: Uri?): Bitmap?
+    suspend fun loadAllCapturedImages(): List<ImageResult>
+    suspend fun deleteCapturedImage(uri: Uri): Boolean
 
 }

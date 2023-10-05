@@ -28,8 +28,6 @@ class UserDataSourceImpl constructor(private val applicationContext: Context) : 
     val deviceID: String by lazy {
         Settings.Secure.getString(applicationContext.contentResolver, Settings.Secure.ANDROID_ID)
     }
-
-    private var uuid: String? = null //UID
     //이벤트 로그 내보내기
 
 
@@ -47,8 +45,6 @@ class UserDataSourceImpl constructor(private val applicationContext: Context) : 
         arrayListOf(*userLogDao.readyForSend().map {
             it.asEventLog()
         }.toTypedArray())
-
-
 
 
     //Mapper Method

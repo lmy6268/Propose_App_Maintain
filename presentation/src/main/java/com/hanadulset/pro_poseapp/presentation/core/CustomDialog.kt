@@ -37,7 +37,7 @@ import kotlin.math.roundToInt
 
 object CustomDialog {
     @Composable
-    fun CustomAlertDialog(
+    private fun CustomAlertDialog(
         modifier: Modifier = Modifier,
         onDismissRequest: () -> Unit,
         properties: DialogProperties = DialogProperties(),
@@ -53,6 +53,16 @@ object CustomDialog {
             ) {
                 content()
             }
+
+        }
+    }
+
+    @Composable
+    fun ImageDeleteAlertDialog(
+        onConfirmRequest: () -> Unit,
+        onDismissRequest: () -> Unit
+    ) {
+        Column(Modifier.padding(20.dp, 30.dp, 20.dp, 20.dp)) {
 
         }
     }
@@ -162,6 +172,7 @@ object CustomDialog {
         }
     }
 }
+
 @Preview(widthDp = 320, heightDp = 300)
 @Composable
 private fun testDownloadAlert() {
@@ -174,4 +185,12 @@ private fun testDownloadAlert() {
             Log.d("Hello", "clickStop")
         }
     )
+}
+
+@Preview(widthDp = 320, heightDp = 300)
+@Composable
+private fun testImageAlert() {
+    CustomDialog.ImageDeleteAlertDialog(onConfirmRequest = { }) {
+
+    }
 }

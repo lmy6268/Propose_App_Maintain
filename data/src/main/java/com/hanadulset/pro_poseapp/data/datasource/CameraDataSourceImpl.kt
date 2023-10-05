@@ -3,11 +3,8 @@ package com.hanadulset.pro_poseapp.data.datasource
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.OptIn
@@ -17,7 +14,6 @@ import androidx.camera.core.ExperimentalZeroShutterLag
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.Analyzer
-import androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -25,7 +21,6 @@ import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleOwner
 import com.google.common.util.concurrent.ListenableFuture
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.CameraDataSource
@@ -35,17 +30,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.opencv.android.OpenCVLoader
-import java.io.File
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
-import java.time.Duration
+import java.util.EnumSet
 import java.util.Locale
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import kotlin.system.measureTimeMillis
 
 
 class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
@@ -56,6 +48,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     private val executor by lazy {
         ContextCompat.getMainExecutor(context)
     }
+
     private var isOPENCVInit: Boolean = false
 
     private var camera: Camera? = null
@@ -188,6 +181,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             )
             // Attach the viewfinder's surface provider to preview use case
             preview?.setSurfaceProvider(surfaceProvider)
+
             return true
 
             Log.d("CameraStatus: ", camera!!.cameraInfo.cameraState.value.toString())

@@ -7,7 +7,6 @@ import android.util.Size
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
@@ -19,11 +18,11 @@ import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.CaptureImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.GetLatestImageUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.GetTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetFocusUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.GetTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
@@ -129,7 +128,7 @@ class CameraViewModel @Inject constructor(
                     }
                     _trackerDataState.value = totalResData
 
-                    if(resFromTracker.x in 0F.._analyzeSize!!.height.toFloat() &&resFromTracker.y in 0F.._analyzeSize!!.width.toFloat() ){
+                    if (resFromTracker.x in 0F.._analyzeSize!!.height.toFloat() && resFromTracker.y in 0F.._analyzeSize!!.width.toFloat()) {
                         Log.d(
                             "analyze Point: ",
                             "trackerPoint - (${resFromTracker.x},${resFromTracker.y}) / imageAnalyzeSize : ${_analyzeSize!!.height} X ${_analyzeSize!!.width}"
@@ -165,7 +164,7 @@ class CameraViewModel @Inject constructor(
             if (reqCompState.value) {
                 reqCompState.value = false
                 viewModelScope.launch {
-                    _compResultState.value = null
+                    _compResultState.value = Pair("", Int.MIN_VALUE)
                     _compResultState.value = recommendCompInfoUseCase(
                         image = image.image!!,
                         rotation = image.imageInfo.rotationDegrees
@@ -253,8 +252,13 @@ class CameraViewModel @Inject constructor(
     }
 
 
-    //최근 이미지
-    fun lastImage() = getLatestImageUseCase()
+    //최근 이미지 불러오기
+    fun getLastImage() {
+        viewModelScope.launch {
+            _capturedBitmapState.value = getLatestImageUseCase()
+        }
+    }
+
     fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
         setFocusUseCase(meteringPoint, durationMilliSeconds)
     }

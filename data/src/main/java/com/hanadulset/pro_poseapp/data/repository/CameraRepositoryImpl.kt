@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.data.repository
 
 import android.content.Context
+import android.media.AudioManager
 import android.media.MediaActionSound
 import android.net.Uri
 import android.util.Log
@@ -16,6 +17,7 @@ import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.UserDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
+import kotlinx.serialization.builtins.serializer
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.system.measureTimeMillis
@@ -31,14 +33,12 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         ImageProcessDataSourceImpl()
     }
     private val shutterSoundManager by lazy {
-        MediaActionSound()
+        applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
     private val fileHandleDataSourceImpl by lazy {
         FileHandleDataSourceImpl(context = applicationContext)
     }
 
-
-    private var shutterSoundOn = true
 
     override suspend fun initCamera(
         lifecycleOwner: LifecycleOwner,
@@ -56,7 +56,6 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         cameraDataSource.takePhoto()
             .let { data ->
                 //만약 셔터 소리를 설정해놓은 경우, 셔터음을 켠다.
-                if (shutterSoundOn) shutterSoundManager.play(MediaActionSound.SHUTTER_CLICK)
                 val res: Uri
                 val elapseTime = measureTimeMillis {
                     res = data.use {
@@ -71,6 +70,10 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
                 Log.d(
                     "Time Elapse to image: ", "$elapseTime ms"
                 )
+                Log.d(
+                    "현재 저장된 이미지 목록: ",
+                    fileHandleDataSourceImpl.loadCapturedImages(false).toString()
+                )
                 res
             }
 
@@ -78,8 +81,18 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override fun setZoomRatio(zoomLevel: Float) =
         cameraDataSource.setZoomLevel(zoomLevel)
 
+    //카메라 소리
     override fun sendCameraSound() {
-        shutterSoundManager.play(MediaActionSound.SHUTTER_CLICK)
+        shutterSoundManager.setStreamVolume(
+            AudioManager.STREAM_SYSTEM,
+            1,
+            AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE
+        )
+        MediaActionSound().apply {
+            play(MediaActionSound.SHUTTER_CLICK)
+        }
+
+
     }
 
     override fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {

@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.data.datasource
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -8,12 +9,16 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.contentValuesOf
+import androidx.core.net.toFile
 import androidx.core.net.toUri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.protobuf.FieldType
+import androidx.datastore.preferences.protobuf.Type
 import com.amazonaws.auth.CognitoCachingCredentialsProvider
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
@@ -26,24 +31,31 @@ import com.hanadulset.pro_poseapp.data.UserPreference
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.FileHandleDataSource
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
 import com.hanadulset.pro_poseapp.utils.R
+import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.eventlog.FeedBackData
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.text.DateFormat.getTimeInstance
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -77,7 +89,7 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
                         put(MediaStore.MediaColumns.DATE_TAKEN, sdf)
                         put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
                         put(MediaStore.MediaColumns.MIME_TYPE, "image/jpg")
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Pictures/ProPose")
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, PROPOSE_PATH)
                     })?.let {
                     uri = it
                     context.contentResolver.openOutputStream(it)
@@ -115,6 +127,71 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
 
         }
         return null
+    }
+
+    override suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ImageResult> {
+        val resList = mutableListOf<ImageResult>()
+        when (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            true -> {
+                val externalUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+                    ?: MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                val selection = MediaStore.Images.ImageColumns.RELATIVE_PATH + " like ? "
+                val projection = arrayOf(
+                    MediaStore.Images.Media._ID,
+                    MediaStore.Images.Media.DATE_MODIFIED,
+                    MediaStore.Images.Media.DATA
+                )
+                val selectionArgs = arrayOf("%ProPose%")
+                context.contentResolver.query(
+                    externalUri,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    MediaStore.MediaColumns.DATE_MODIFIED + " DESC "
+                ).use { cursor ->
+                    if (cursor == null) return emptyList()
+                    when (cursor.count) {
+                        0 -> return emptyList()
+                        else -> {
+                            while (cursor.moveToNext()) {
+                                if (cursor.isNull(1).not()) {
+                                    val idColNum =
+                                        cursor.getColumnIndexOrThrow(MediaStore.Images.ImageColumns._ID)
+                                    val imageId = cursor.getLong(idColNum)
+                                    val imageTakenDate = cursor.getString(1).let { timestamp ->
+                                        val sdf =
+                                            SimpleDateFormat("yyyy년 MM월 dd일 E요일", Locale.KOREAN)
+                                        sdf.format(timestamp.toLong())
+                                    }
+                                    val imageUri = ContentUris.withAppendedId(externalUri, imageId)
+                                    val imageResult =
+                                        ImageResult(imageUri, takenDate = imageTakenDate)
+                                    resList.add(imageResult)
+                                    if (isReadAllImage.not()) break //한개의 이미지 데이터만 가져오는 경우
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                val imagesDir =
+                    Environment.getExternalStoragePublicDirectory("${Environment.DIRECTORY_PICTURES}/ProPose")
+                if (imagesDir.exists()) {
+                    imagesDir.listFiles()?.forEach {
+                        resList.add(ImageResult(it.toUri(), it.lastModified().toString()))
+                        if (isReadAllImage.not()) return resList.toList() //한개의 이미지만 반환
+                    }
+                }
+            }
+        }
+        return resList.toList()
+    }
+
+    override fun deleteCapturedImage(uri: Uri): Boolean {
+        val targetFile = uri.toFile()
+        return targetFile.delete()
     }
 
 // 모델을 다운받는 부분
@@ -196,6 +273,9 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
                 val client = HttpClient(CIO)
                 it.resume(client.post(url) {
                     contentType(contentType)
+                    headers {
+                        append("x-api-key", BuildConfig.API_KEY)
+                    }
                     setBody(feedback)
                 })
             }
@@ -281,6 +361,7 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
         private const val PHOTO_TYPE = "image/jpeg"
         private const val FILE_NAME = "yyyy_MM_dd_HH_mm_ss_SSS"
         private const val PREF_NAME = "userPreference"
+        private const val PROPOSE_PATH = "Pictures/ProPose"
         private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = PREF_NAME)
         private const val NEED_NOTHING = 0
         private const val NEED_DOWNLOAD = 1

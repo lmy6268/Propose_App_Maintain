@@ -27,10 +27,13 @@ import androidx.navigation.navigation
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.ar.core.Session
 import com.hanadulset.pro_poseapp.presentation.core.permission.PermScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
 import com.hanadulset.pro_poseapp.presentation.feature.download.ModelDownloadScreen
+import com.hanadulset.pro_poseapp.presentation.feature.gallery.GalleryScreen
+import com.hanadulset.pro_poseapp.presentation.feature.gallery.GalleryViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.setting.SettingScreen
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
@@ -47,7 +50,8 @@ object MainScreen {
         Setting,//설정화면
         Splash, //스플래시 화면
         CloseAsk, //종료 요청
-        AppLoading //앱 로딩화면
+        AppLoading, //앱 로딩화면
+        Images,//촬영된 이미지 목록 보여주기
     }
 
     enum class Graph {
@@ -70,7 +74,8 @@ object MainScreen {
     fun MainScreen(
         navHostController: NavHostController,
         cameraViewModel: CameraViewModel,
-        prepareServiceViewModel: PrepareServiceViewModel
+        prepareServiceViewModel: PrepareServiceViewModel,
+        galleryViewModel: GalleryViewModel
     ) {
         Surface(
             modifier = Modifier.fillMaxSize()
@@ -78,7 +83,8 @@ object MainScreen {
             ContainerView(
                 navController = navHostController,
                 cameraViewModel = cameraViewModel,
-                prepareServiceViewModel = prepareServiceViewModel
+                prepareServiceViewModel = prepareServiceViewModel,
+                galleryViewModel = galleryViewModel
             )
         }
     }
@@ -91,7 +97,8 @@ object MainScreen {
     private fun ContainerView(
         navController: NavHostController,
         cameraViewModel: CameraViewModel,
-        prepareServiceViewModel: PrepareServiceViewModel
+        prepareServiceViewModel: PrepareServiceViewModel,
+        galleryViewModel: GalleryViewModel
     ) {
 
         val multiplePermissionsState =
@@ -115,6 +122,12 @@ object MainScreen {
                 previewRotation = previewView.rotation.toInt()
             )
         }
+        val arInstalledState = remember {
+            mutableStateOf<Session?>(null)
+        }
+        val checkArInstalled: (Session?) -> Unit = {
+            arInstalledState.value = it
+        }
 
 
 
@@ -130,22 +143,26 @@ object MainScreen {
                 prepareServiceViewModel,
                 multiplePermissionsState,
                 cameraInit = cameraInit,
-                previewState = previewState
+                previewState = previewState,
+                onCheckArInstalled = checkArInstalled
             )
             permissionAllowedGraph(
                 routeName = Graph.PermissionAllowed.name,
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navController,
                 cameraInit = cameraInit,
-                previewState = previewState
+                previewState = previewState,
+                onCheckArInstalled = checkArInstalled
             )
             usingCameraGraph(
                 routeName = Graph.UsingCamera.name,
                 navHostController = navController,
                 cameraViewModel = cameraViewModel,
+                galleryViewModel = galleryViewModel,
                 previewView = previewView,
                 activeActivity = activity,
                 cameraInit = cameraInit,
+                arSession = arInstalledState.value
             )
         }
     }
@@ -158,7 +175,8 @@ object MainScreen {
         prepareServiceViewModel: PrepareServiceViewModel,
         multiplePermissionsState: MultiplePermissionsState,
         cameraInit: () -> Unit,
-        previewState: State<CameraState>
+        previewState: State<CameraState>,
+        onCheckArInstalled: (Session?) -> Unit
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -178,7 +196,8 @@ object MainScreen {
                 prepareServiceViewModel = prepareServiceViewModel,
                 nextPage = Graph.UsingCamera.name,
                 cameraInit = cameraInit,
-                previewState = previewState
+                previewState = previewState,
+                onCheckArInstalled = onCheckArInstalled
             )
         }
     }
@@ -189,7 +208,8 @@ object MainScreen {
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
         previewState: State<CameraState>,
-        cameraInit: () -> Unit
+        cameraInit: () -> Unit,
+        onCheckArInstalled: (Session?) -> Unit
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -201,7 +221,8 @@ object MainScreen {
                 prepareServiceViewModel = prepareServiceViewModel,
                 nextPage = Graph.UsingCamera.name,
                 previewState = previewState,
-                cameraInit = cameraInit
+                cameraInit = cameraInit,
+                onCheckArInstalled = onCheckArInstalled
             )
         }
 
@@ -214,8 +235,10 @@ object MainScreen {
         navHostController: NavHostController,
         previewView: PreviewView,
         cameraViewModel: CameraViewModel,
+        galleryViewModel: GalleryViewModel,
         activeActivity: Activity,
-        cameraInit: () -> Unit
+        cameraInit: () -> Unit,
+        arSession: Session?
     ) {
         navigation(startDestination = Page.Cam.name, route = routeName) {
             //카메라 화면
@@ -232,8 +255,24 @@ object MainScreen {
                         navHostController.navigate(route = Page.Setting.name) {
                         }
                     },
-                    cameraInit = cameraInit
+                    onClickRecentlyImages = {
+                        navHostController.navigate(route = Page.Images.name) {}
+                    },
+                    cameraInit = cameraInit,
+                    arSession = arSession
                 )
+            }
+
+            //최근 촬영된 이미지들 보여주는 함수
+            composable(route = Page.Images.name) {
+                val imageList = galleryViewModel.capturedImageState.collectAsState()
+                if (imageList.value != null) {
+                    GalleryScreen.GalleryScreen(
+                        imageList = imageList.value!!,
+                        onLoadImages = { galleryViewModel.loadImages() },
+                        onDeleteImage = { index -> galleryViewModel.deleteImage(index) }
+                    )
+                }
             }
 
             //앱 종료 여부 파악 화면
@@ -273,7 +312,8 @@ object MainScreen {
         prepareServiceViewModel: PrepareServiceViewModel,
         nextPage: String,
         cameraInit: () -> Unit,
-        previewState: State<CameraState>
+        previewState: State<CameraState>,
+        onCheckArInstalled: (Session?) -> Unit
     ) {
         val appLoadingPage = Page.AppLoading.name
         composable(route = appLoadingPage) {
@@ -287,10 +327,12 @@ object MainScreen {
                     {
                         //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
                         popUpTo(route = appLoadingPage) { inclusive = true }
-
                     }
 
-                })
+                },
+                onCheckArInstalled = onCheckArInstalled
+            )
+
         }
     }
 
