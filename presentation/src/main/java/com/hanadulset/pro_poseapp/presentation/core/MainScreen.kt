@@ -3,7 +3,6 @@ package com.hanadulset.pro_poseapp.presentation.core
 import android.Manifest
 import android.app.Activity
 import android.os.Build
-import android.view.View
 import androidx.camera.core.AspectRatio
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,14 +14,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
@@ -37,7 +37,7 @@ import com.hanadulset.pro_poseapp.presentation.feature.gallery.GalleryViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.setting.SettingScreen
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
-import com.hanadulset.pro_poseapp.utils.DownloadInfo
+import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 
@@ -58,6 +58,7 @@ object MainScreen {
         NotPermissionAllowed,
         PermissionAllowed,
         UsingCamera,
+        DownloadProcess
     }
 
 
@@ -115,7 +116,7 @@ object MainScreen {
         }
         val previewState = cameraViewModel.previewState.collectAsState()
         val cameraInit = {
-            cameraViewModel.showPreview(
+            cameraViewModel.bindCameraToLifeCycle(
                 lifecycleOwner = lifecycleOwner,
                 surfaceProvider = previewView.surfaceProvider,
                 aspectRatio = AspectRatio.RATIO_4_3,
@@ -197,11 +198,83 @@ object MainScreen {
                 nextPage = Graph.UsingCamera.name,
                 cameraInit = cameraInit,
                 previewState = previewState,
-                onCheckArInstalled = onCheckArInstalled
+                onCheckArInstalled = onCheckArInstalled,
+                onMoveToDownload = {
+                    navHostController.navigate(Graph.DownloadProcess.name) {
+                        popUpTo(it) { inclusive = true }
+                    }
+
+                }
             )
+            relatedWithDownload(
+                routeName = Graph.DownloadProcess.name,
+                prepareServiceViewModel = prepareServiceViewModel,
+                navHostController = navHostController,
+                onDoneDownload = {
+                    navHostController.navigate(Page.AppLoading.name) {
+                        popUpTo(Page.AppLoading.name) {}
+                    }
+                }
+            )
+
         }
     }
 
+    private fun NavGraphBuilder.relatedWithDownload(
+        routeName: String,
+        prepareServiceViewModel: PrepareServiceViewModel,
+        navHostController: NavHostController,
+        onDoneDownload: () -> Unit
+    ) {
+        navigation(startDestination = Page.ModelDownloadRequest.name, route = routeName) {
+            composable(route = Page.ModelDownloadRequest.name) {
+                ModelDownloadScreen.ModelDownloadRequestScreen(
+                    prepareServiceViewModel = prepareServiceViewModel,
+                    moveToLoading = {
+                        navHostController.navigate(Page.AppLoading.name) {
+                            popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
+                        }
+                    },
+                    moveToDownloadProgress = { type ->
+                        val isDownload =
+                            type == CheckResponse.TYPE_MUST_DOWNLOAD
+                        navHostController.navigate(Page.ModelDownloadProgress.name + "/$isDownload") {
+                            popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(route = Page.ModelDownloadProgress.name,
+                arguments = listOf(
+                    navArgument("isDownload") {
+                        type = NavType.BoolArrayType
+                        defaultValue = true
+                    }
+                )) {
+                val state by prepareServiceViewModel.downloadInfoState.collectAsState()
+                val isDownload = it.arguments?.getBoolean("isDownload")
+                LaunchedEffect(key1 = Unit) {
+                    prepareServiceViewModel.requestForDownload()
+                }
+
+                if (state != null)
+                    ModelDownloadScreen.ModelDownloadProgressScreen(
+                        isDownload = isDownload,
+                        downloadResponse = state!!,
+                        onDispose = {
+                            prepareServiceViewModel.clearStates()
+                        },
+                        onDismissEvent = { context ->
+                            if (isDownload != null && isDownload) onDoneDownload()
+                            else (context as Activity).finish()
+                        },
+                        onDoneDownload = {
+                            onDoneDownload()
+                        }
+                    )
+            }
+        }
+    }
 
     private fun NavGraphBuilder.permissionAllowedGraph(
         routeName: String,
@@ -222,7 +295,23 @@ object MainScreen {
                 nextPage = Graph.UsingCamera.name,
                 previewState = previewState,
                 cameraInit = cameraInit,
-                onCheckArInstalled = onCheckArInstalled
+                onCheckArInstalled = onCheckArInstalled,
+                onMoveToDownload = {
+                    navHostController.navigate(Graph.DownloadProcess.name) {
+                        popUpTo(it) { inclusive = true }
+                    }
+
+                }
+            )
+            relatedWithDownload(
+                routeName = Graph.DownloadProcess.name,
+                prepareServiceViewModel = prepareServiceViewModel,
+                navHostController = navHostController,
+                onDoneDownload = {
+                    navHostController.navigate(Page.AppLoading.name) {
+                        popUpTo(Page.AppLoading.name) {}
+                    }
+                }
             )
         }
 
@@ -313,7 +402,8 @@ object MainScreen {
         nextPage: String,
         cameraInit: () -> Unit,
         previewState: State<CameraState>,
-        onCheckArInstalled: (Session?) -> Unit
+        onCheckArInstalled: (Session?) -> Unit,
+        onMoveToDownload: (String) -> Unit
     ) {
         val appLoadingPage = Page.AppLoading.name
         composable(route = appLoadingPage) {
@@ -330,55 +420,13 @@ object MainScreen {
                     }
 
                 },
-                onCheckArInstalled = onCheckArInstalled
-            )
-
-        }
-    }
-
-    private fun NavGraphBuilder.checkResourceDownloadGraph(
-        navHostController: NavHostController,
-        prepareServiceViewModel: PrepareServiceViewModel,
-        routeName: String = "modelDownload",
-        permissionAllowed: Boolean
-    ) {
-        val modelDownloadRequestPage = Page.ModelDownloadRequest.name
-        val modelDownloadProgressPage = Page.ModelDownloadProgress.name
-
-        navigation(startDestination = modelDownloadRequestPage, route = routeName) {
-            runSplashScreen(
-                navHostController,
-                modelDownloadRequestPage
-            )
-            composable(modelDownloadRequestPage) {
-                ModelDownloadScreen.ModelDownloadRequestScreen(
-                    prepareServiceViewModel = prepareServiceViewModel,
-                    moveToPerm = {
-                        navHostController.navigate(
-                            if (permissionAllowed) Graph.PermissionAllowed.name
-                            else Graph.NotPermissionAllowed.name
-                        )
-                    },
-                    moveToDownloadProgress = {
-                        navHostController.navigate(
-                            modelDownloadProgressPage
-                        ) { popUpTo(route = modelDownloadRequestPage) { inclusive = true } }
-                    })
-            }
-            composable(modelDownloadProgressPage) {
-                val downloadProgress by prepareServiceViewModel.downloadState.collectAsState()
-                if (downloadProgress.state in listOf(
-                        DownloadInfo.ON_UPDATE,
-                        DownloadInfo.ON_DOWNLOAD
-                    )
-                ) ModelDownloadScreen.ModelDownloadProgressScreen(downloadProcess = downloadProgress) {
-                    //앱 종료
+                onCheckArInstalled = onCheckArInstalled,
+                onMoveToDownload = {
+                    onMoveToDownload(appLoadingPage)
                 }
+            )
 
-            }
         }
-
-
     }
 
 

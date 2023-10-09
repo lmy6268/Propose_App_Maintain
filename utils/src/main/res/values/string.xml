@@ -63,9 +63,5 @@
         <item>@drawable/key_image_59</item>
     </array>
 
-    <!--다운로드 받아야 할 파일의 목록 -->
-    <string-array name="need_to_download_list">
-        <item>vapnet.ptl</item>
-<!--        <item></item>-->
-    </string-array>
+
 </resources>

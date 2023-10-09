@@ -4,11 +4,11 @@ import android.graphics.Bitmap
 import android.media.Image
 import android.net.Uri
 import androidx.camera.core.ImageProxy
+import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.DownloadInfo
+import com.hanadulset.pro_poseapp.utils.DownloadResponse
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 //이미지 저장 및 분석을 담당하는 레포지토리
@@ -21,9 +21,8 @@ interface ImageRepository {
     fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap // 고정 화면을 보여줌
     fun getFixedScreen(imageProxy: ImageProxy): Bitmap
     suspend fun getLatestImage(): Uri?
-    suspend fun downloadAiModel()
-    fun getDownloadInfoFlow(): StateFlow<DownloadInfo>
-    suspend fun checkForDownloadModel(downloadInfo: DownloadInfo): DownloadInfo
+    suspend fun downloadResources(): DownloadResponse
+    suspend fun checkForDownloadResources(): CheckResponse
     suspend fun preRunModel(): Boolean
     fun getPoseFromImage(uri: Uri?): Bitmap?
     suspend fun loadAllCapturedImages(): List<ImageResult>

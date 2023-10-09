@@ -1,6 +1,5 @@
 package com.hanadulset.pro_poseapp.domain.repository
 
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -13,7 +12,7 @@ import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 
 //카메라 기능을 담당하는 레포지토리
 interface CameraRepository {
-    suspend fun initCamera(
+    suspend fun bindCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,
@@ -30,7 +29,9 @@ interface CameraRepository {
         inputOffset: Pair<Float, Float>,
         radius: Int
     ): Pair<Float, Float>
+
     fun stopTracking()
 
     fun sendUserFeedBackData(eventLogs: ArrayList<EventLog>)
+    fun unbindCameraResource(): Boolean
 }

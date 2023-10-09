@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import android.app.Activity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Session
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
+import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,26 +79,38 @@ object PrepareServiceScreens {
         cameraInit: () -> Unit,
         prepareServiceViewModel: PrepareServiceViewModel,
         onCheckArInstalled: (Session) -> Unit,
-        onAfterLoadedEvent: () -> Unit
+        onAfterLoadedEvent: () -> Unit,
+        onMoveToDownload: () -> Unit
     ) {
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
-        val localActivity = LocalContext.current
+        val checkNeedToDownloadState by prepareServiceViewModel.checkDownloadState.collectAsState()
+        val localActivity = LocalContext.current as Activity
         val isInitiated = remember {
             mutableStateOf(false)
         }
+
         LaunchedEffect(Unit) {
             delay(1000)
-            prepareServiceViewModel.preLoadMethods() //여기서 모델 다운로드를 감지함.
-            cameraInit()
+            prepareServiceViewModel.requestForCheckDownload()
+        }
+        LaunchedEffect(checkNeedToDownloadState) {
+            if (checkNeedToDownloadState != null) {
+                //아마존 에러인 경우 처리 -> 보통은 와이파이 오류
+                if (checkNeedToDownloadState!!.downloadType == CheckResponse.TYPE_ERROR) localActivity.finish()
+                else if (checkNeedToDownloadState!!.needToDownload.not()) {
+                    prepareServiceViewModel.preLoadModel()
+                    cameraInit()
+                } else onMoveToDownload()
+            }
         }
 
         if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
             onAfterLoadedEvent() //카메라 화면으로 이동하는 거임.
-            when (ArCoreApk.getInstance().requestInstall(localActivity as Activity, true)) {
+            when (ArCoreApk.getInstance().requestInstall(localActivity, true)) {
                 ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
-
 //                    return
                 }
+
                 ArCoreApk.InstallStatus.INSTALLED -> {
                     onCheckArInstalled(Session(localActivity))
                 }

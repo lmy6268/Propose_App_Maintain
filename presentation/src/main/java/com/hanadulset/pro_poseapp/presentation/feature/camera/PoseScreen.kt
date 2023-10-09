@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
@@ -8,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -158,6 +160,7 @@ object PoseScreen {
 
 
     //스크롤 가능한 메뉴 바 -> 추천된 포즈 선택 시 이용
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     fun RecommendedPoseSelectMenu(
         modifier: Modifier = Modifier,
@@ -184,6 +187,7 @@ object PoseScreen {
         LaunchedEffect(key1 = clickedItemIndexState) {
             lazyRowState.animateScrollToItem(clickedItemIndexState)
         }
+        val rememberSnapperFlingBehavior = rememberSnapFlingBehavior(lazyListState = lazyRowState)
 
         LazyRow(
             modifier = modifier
@@ -195,18 +199,22 @@ object PoseScreen {
                 },
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment,
-            contentPadding = PaddingValues(horizontal = rowSizeState.value.width.div(2.5F)),
+            contentPadding = PaddingValues(horizontal = rowSizeState.value.width.div(2.8F)),
+            flingBehavior = rememberSnapperFlingBehavior,
             state = lazyRowState
         ) {
             //인덱스를 돌면서, 해당 리스트에 있는 데이터를 가져온다.
             itemsIndexed(itemList) { idx, item ->
-
                 val poseImage = poseDataList[idx].poseDrawableId.let {
                     if (it == -1) null
                     else BitmapFactory.decodeResource(
                         currentContext.resources,
                         it
-                    ).asImageBitmap()
+                    ).let { src ->
+                        Bitmap.createScaledBitmap(
+                            src, (src.width * 0.25).toInt(), (src.height * 0.25).toInt(), false
+                        ).asImageBitmap()
+                    }
                 }
 
 

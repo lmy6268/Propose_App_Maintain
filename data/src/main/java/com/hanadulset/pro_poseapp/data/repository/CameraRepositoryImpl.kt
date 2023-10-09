@@ -40,7 +40,7 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     }
 
 
-    override suspend fun initCamera(
+    override suspend fun bindCamera(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,
@@ -102,6 +102,10 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override fun sendUserFeedBackData(eventLogs: ArrayList<EventLog>) {
         TODO("Not yet implemented")
     }
+
+    override fun unbindCameraResource() =
+        cameraDataSource.unbindCameraResources()
+
 
     override suspend fun trackingXYPoint(
         inputFrame: ImageProxy,

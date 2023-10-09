@@ -68,6 +68,18 @@ object CustomDialog {
     }
 
     @Composable
+    fun InternetConnectAlertDialog(
+
+    ) {
+        CustomAlertDialog(onDismissRequest = { }) {
+            Column {
+
+            }
+        }
+    }
+
+
+    @Composable
     fun DownloadAlertDialog(
         totalSize: Long,
         onConfirmRequest: () -> Unit,

@@ -1,0 +1,13 @@
+{
+  "prepareMaterials": {
+    "keyImages": {
+      "prefix": "key_image",
+      "cnt": 60
+    },
+    "models": [
+      "vapnet.ptl"
+    ]
+  },
+  "settings": {
+  }
+}

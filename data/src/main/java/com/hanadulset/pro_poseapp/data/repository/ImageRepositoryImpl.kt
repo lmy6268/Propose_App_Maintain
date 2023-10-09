@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.camera.core.ImageProxy
+import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerImpl
@@ -41,13 +42,13 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     private val compDataSource by lazy {
         CompDataSourceImpl(modelRunnerImpl)
     }
-
-    private val modelDownloadInfoFlow = MutableStateFlow(DownloadInfo())
+    private val downloadResourcesDataSource by lazy {
+        DownloadResourcesDataSourceImpl(context)
+    }
 
 
     override suspend fun getRecommendCompInfo(image: Image, rotation: Int): Pair<String, Int>? {
-        val targetBitmap =
-            imageProcessDataSource.imageToBitmap(image, rotation)
+        val targetBitmap = imageProcessDataSource.imageToBitmap(image, rotation)
 
 
         return compDataSource.recommendCompData(targetBitmap)
@@ -55,10 +56,9 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
 
     override suspend fun getRecommendPose(
         image: Image, rotation: Int
-    ): Pair<DoubleArray, List<PoseData>> =
-        poseDataSourceImpl.recommendPose(
-            imageProcessDataSource.imageToBitmap(image, rotation)
-        )
+    ): Pair<DoubleArray, List<PoseData>> = poseDataSourceImpl.recommendPose(
+        imageProcessDataSource.imageToBitmap(image, rotation)
+    )
 
 
     override fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap =
@@ -70,8 +70,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     override fun getFixedScreen(imageProxy: ImageProxy): Bitmap =
         imageProcessDataSource.getFixedImage(
             imageProcessDataSource.imageToBitmap(
-                imageProxy.image!!,
-                imageProxy.imageInfo.rotationDegrees
+                imageProxy.image!!, imageProxy.imageInfo.rotationDegrees
             )
         )
 
@@ -82,33 +81,28 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         else data[0].dataUri
     }
 
-    override suspend fun downloadAiModel() {
-        fileHandleDataSource.downloadModel(modelDownloadInfoFlow)
-    }
+    override suspend fun downloadResources() = downloadResourcesDataSource.startToDownload()
 
-    override fun getDownloadInfoFlow(): StateFlow<DownloadInfo> =
-        modelDownloadInfoFlow.asStateFlow()
 
-    override suspend fun checkForDownloadModel(downloadInfo: DownloadInfo) =
-        fileHandleDataSource.checkForDownloadModel(downloadInfo)
+    override suspend fun checkForDownloadResources() =
+        downloadResourcesDataSource.checkForDownload()
 
 
     override suspend fun preRunModel(): Boolean {
         return modelRunnerImpl.preRun()
     }
 
-    override fun getPoseFromImage(uri: Uri?): Bitmap? =
-        if (uri != null) {
-            val backgroundBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
-            } else {
-                MediaStore.Images.Media.getBitmap(context.contentResolver, uri);
-            }
-            val softwareBitmap = backgroundBitmap.copy(Bitmap.Config.ARGB_8888, false)
-            getFixedScreen(
-                softwareBitmap
-            )
-        } else null
+    override fun getPoseFromImage(uri: Uri?): Bitmap? = if (uri != null) {
+        val backgroundBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+        } else {
+            MediaStore.Images.Media.getBitmap(context.contentResolver, uri);
+        }
+        val softwareBitmap = backgroundBitmap.copy(Bitmap.Config.ARGB_8888, false)
+        getFixedScreen(
+            softwareBitmap
+        )
+    } else null
 
     override suspend fun loadAllCapturedImages(): List<ImageResult> =
         fileHandleDataSource.loadCapturedImages(true)

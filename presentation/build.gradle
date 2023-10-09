@@ -28,9 +28,8 @@ dependencies {
     //Navigation
     implementation 'androidx.navigation:navigation-ui-ktx:2.6.0'
 
-
-//    implementation 'com.google.ar:core:1.33.0' //ARCore 사용
-
+    //Ar
+    implementation 'com.google.ar:core:1.39.0'
     implementation 'io.github.sceneview:arsceneview:0.10.2'
     //ViewModelScope
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'

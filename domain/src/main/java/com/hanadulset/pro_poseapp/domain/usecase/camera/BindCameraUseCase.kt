@@ -5,10 +5,9 @@ import androidx.camera.core.ImageAnalysis.Analyzer
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
-import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import javax.inject.Inject
 
-class ShowPreviewUseCase @Inject constructor(
+class BindCameraUseCase @Inject constructor(
     private val repository: CameraRepository,
 ) {
     suspend operator fun invoke(
@@ -18,7 +17,7 @@ class ShowPreviewUseCase @Inject constructor(
         previewRotation: Int,
         analyzer: Analyzer,
 
-        ) = repository.initCamera(
+        ) = repository.bindCamera(
         lifecycleOwner,
         surfaceProvider,
         aspectRatio,

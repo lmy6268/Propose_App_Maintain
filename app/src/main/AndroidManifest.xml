@@ -9,7 +9,7 @@
 
     <!-- Limits app visibility in the Google Play Store to ARCore supported devices
      (https://developers.google.com/ar/devices). -->
-    <uses-feature android:name="android.hardware.camera.ar" />
+    <uses-feature android:name="android.hardware.camera.ar"/>
 
 
     <uses-permission android:name="android.permission.CAMERA" />
@@ -35,7 +35,8 @@
         android:theme="@style/Theme.AppCompat.Starting"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
-<!--        <meta-data android:name="com.google.ar.core" android:value="required" />-->
+
+        <meta-data android:name="com.google.ar.core" android:value="required" tools:replace="android:value"/>
         <service
             android:name="com.amazonaws.mobileconnectors.s3.transferutility.TransferService"
             android:enabled="true" />

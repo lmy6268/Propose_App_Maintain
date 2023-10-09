@@ -14,7 +14,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.GetLatestImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 
-import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.GetImagesFromPicturesUseCase
@@ -58,8 +58,7 @@ object AppModule {
         @Provides
         fun provideShowPreviewUseCase(
             cameraRepository: CameraRepository,
-        ): ShowPreviewUseCase =
-            ShowPreviewUseCase(cameraRepository)
+        ): BindCameraUseCase = BindCameraUseCase(cameraRepository)
 
         @ViewModelScoped
         @Provides
@@ -71,22 +70,18 @@ object AppModule {
         @Provides
         fun provideShowFixedScreenUseCase(
             imageRepository: ImageRepository,
-//            cameraRepository: CameraRepository
         ): ShowFixedScreenUseCase = ShowFixedScreenUseCase(
             imageRepository
-//            , cameraRepository
         )
 
 
         @ViewModelScoped
         @Provides
         fun provideCaptureImageUseCase(
-            cameraRepository: CameraRepository,
-            imageRepository: ImageRepository
-        ): CaptureImageUseCase =
-            CaptureImageUseCase(
-                cameraRepository
-            )
+            cameraRepository: CameraRepository
+        ): CaptureImageUseCase = CaptureImageUseCase(
+            cameraRepository
+        )
 
         @ViewModelScoped
         @Provides

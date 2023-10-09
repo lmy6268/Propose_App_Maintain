@@ -34,6 +34,8 @@ object CameraModuleExtension {
     }
 
 
+
+
     @Composable
     fun FixedButton(
         fixedButtonPressedEvent: () -> Unit

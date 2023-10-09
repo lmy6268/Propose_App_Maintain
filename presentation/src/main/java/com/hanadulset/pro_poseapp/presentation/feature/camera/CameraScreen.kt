@@ -34,7 +34,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -42,10 +41,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.viewinterop.AndroidView
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
@@ -58,7 +55,6 @@ import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.Uppe
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import io.github.sceneview.ar.ARCore
 import kotlinx.coroutines.delay
 
 
@@ -188,7 +184,7 @@ fun Screen(
 
         LaunchedEffect(viewRateState) {
             if (isFirstLaunch.value) isFirstLaunch.value = false
-            else cameraViewModel.showPreview(
+            else cameraViewModel.bindCameraToLifeCycle(
                 lifecycleOwner,
                 previewView.surfaceProvider,
                 viewRateState,
@@ -256,13 +252,25 @@ fun Screen(
                 }
                 .padding(top = if (viewRateIdxState == 0) upperButtonsRowSize.value.height.dp else 0.dp)
                 .aspectRatio(aspectRatioState.width / aspectRatioState.height.toFloat())
-
                 .align(Alignment.TopCenter)) {
 
         }
 
+
 //        ArScreen.ArScreen(
-//
+//            modifier = Modifier
+//                .padding(top = if (viewRateIdxState == 0) upperButtonsRowSize.value.height.dp else 0.dp)
+//                .aspectRatio(aspectRatioState.width / aspectRatioState.height.toFloat())
+//                .align(Alignment.TopCenter),
+//            onCreatedEvent = { cameraViewModel.unbindCamera() },
+//            onDisposeEvent = {
+//                cameraViewModel.bindCameraToLifeCycle(
+//                    lifecycleOwner,
+//                    previewView.surfaceProvider,
+//                    viewRateState,
+//                    previewView.rotation.toInt()
+//                )
+//            }
 //        )
 
         //엣지 화면

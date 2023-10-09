@@ -21,7 +21,8 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.GetLatestImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetFocusUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowPreviewUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.GetTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
@@ -41,7 +42,8 @@ import kotlin.math.round
 @HiltViewModel
 class CameraViewModel @Inject constructor(
     //UseCases
-    private val showPreviewUseCase: ShowPreviewUseCase,
+    private val bindCameraUseCase: BindCameraUseCase,
+    private val unbindCameraUseCase: UnbindCameraUseCase,
     private val captureImageUseCase: CaptureImageUseCase,
     private val showFixedScreenUseCase: ShowFixedScreenUseCase,
     private val setZoomLevelUseCase: SetZoomLevelUseCase,
@@ -192,7 +194,7 @@ class CameraViewModel @Inject constructor(
     }
 
 
-    fun showPreview(
+    fun bindCameraToLifeCycle(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
         aspectRatio: Int,
@@ -202,7 +204,7 @@ class CameraViewModel @Inject constructor(
             CameraState(cameraStateId = CameraState.CAMERA_INIT_ON_PROCESS) // OnProgress
         viewModelScope.launch {
             _previewState.value =
-                showPreviewUseCase(
+                bindCameraUseCase(
                     lifecycleOwner,
                     surfaceProvider,
                     aspectRatio = aspectRatio,
@@ -251,6 +253,7 @@ class CameraViewModel @Inject constructor(
         _fixedScreenState.value = res
     }
 
+    fun unbindCamera() = unbindCameraUseCase()
 
     //최근 이미지 불러오기
     fun getLastImage() {

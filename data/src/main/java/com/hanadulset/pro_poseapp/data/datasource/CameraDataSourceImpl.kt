@@ -86,7 +86,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                     CameraState(
                         CAMERA_INIT_COMPLETE,
                         imageAnalyzerResolution = imageAnalysis!!.resolutionInfo!!.resolution,
-                        )
+                    )
                 )
             }, executor)
         } else {
@@ -103,7 +103,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                         CAMERA_INIT_COMPLETE,
                         imageAnalyzerResolution = imageAnalysis!!.resolutionInfo!!.resolution,
 
-                    )
+                        )
                 )
         }
 
@@ -191,6 +191,15 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             Log.e("Error on Init Camera", "에러입니다", exc)
             return false
 
+        }
+    }
+
+    fun unbindCameraResources(): Boolean {
+        return try {
+            cameraProvider!!.unbindAll()
+            true
+        } catch (exc: Exception) {
+            false
         }
     }
 
