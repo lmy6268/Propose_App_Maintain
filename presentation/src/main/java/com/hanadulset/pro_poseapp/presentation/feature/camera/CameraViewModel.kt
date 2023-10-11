@@ -2,31 +2,30 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Log
 import android.util.Size
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
-import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.GetPoseFromImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.CaptureImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.GetLatestImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetFocusUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.GetTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopTrackingDataUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
+import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,7 +35,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.math.round
 
 @ExperimentalGetImage
 @HiltViewModel
@@ -63,30 +61,32 @@ class CameraViewModel @Inject constructor(
     private val reqCompState = MutableStateFlow(false) // 구도 추천 요청 on/off
 
     private val viewRateList = listOf(
-        Pair(AspectRatio.RATIO_4_3, Size(3, 4)),
-        Pair(AspectRatio.RATIO_16_9, Size(9, 16))
+        ViewRate(
+            name = "3:4",
+            aspectRatioType = AspectRatio.RATIO_4_3,
+            aspectRatioSize = Size(3, 4)
+        ), ViewRate(
+            "9:16",
+            aspectRatioType = AspectRatio.RATIO_16_9,
+            aspectRatioSize = Size(9, 16)
+        )
     )
 
+
+    private val _aspectRatIdxState = MutableStateFlow(0)
+    private val _aspectRatState = MutableStateFlow(viewRateList[_aspectRatIdxState.value])
+    val aspectRatState = _aspectRatState.asStateFlow()
+
+
     private val _previewState = MutableStateFlow(CameraState(CameraState.CAMERA_INIT_NOTHING))
-    private val _trackerSwitchState = MutableStateFlow(false) //트래커를 켜고 끄는 스위치
-    private val _trackerDataState = MutableStateFlow<Offset?>(null)
-    private var _trackerOffset: Offset? = null
-    private var _trackerRadius = 30
-
-
-    private val _viewRateIdxState = MutableStateFlow(0)
-    private val _viewRateState = MutableStateFlow(viewRateList[0].first)
-    private val _aspectRatioState = MutableStateFlow(viewRateList[0].second)
 
 
     private val _capturedBitmapState = MutableStateFlow<Uri?>( //캡쳐된 이미지 상태
         null
     )
-    private val _poseResultState = MutableStateFlow<Pair<DoubleArray?, List<PoseData>?>?>(null)
+    private val _poseResultState = MutableStateFlow<List<PoseData>?>(null)
     private val _compResultState = MutableStateFlow<Pair<String, Int>?>(null)
     private val _fixedScreenState = MutableStateFlow<Bitmap?>(null)
-    private var _previewSize: Size? = null
-    private var _analyzeSize: Size? = null
 
 
     //State Getter
@@ -95,13 +95,9 @@ class CameraViewModel @Inject constructor(
     val poseResultState = _poseResultState.asStateFlow()
     val compResultState = _compResultState.asStateFlow()
 
-    val viewRateIdxState = _viewRateIdxState.asStateFlow()
-    val aspectRatioState = _aspectRatioState.asStateFlow()
-    val viewRateState = _viewRateState.asStateFlow()
+
     val fixedScreenState = _fixedScreenState.asStateFlow()
     val previewState = _previewState.asStateFlow()
-    val trackerDataState =
-        _trackerDataState.asStateFlow()
 
 
     //매 프레임의 image를 수신함.
@@ -112,37 +108,6 @@ class CameraViewModel @Inject constructor(
                 val res = showFixedScreenUseCase(image)
                 _fixedScreenState.value = res
             }
-            if (_trackerSwitchState.value) {
-                viewModelScope.launch {
-                    val resFromTracker = getTrackingDataUseCase(
-                        inputFrame = image,
-                        inputOffset = Pair(_trackerOffset!!.x, _trackerOffset!!.y),
-                        radius = _trackerRadius
-                    ).let {
-                        Offset(it.first, it.second)
-                    }
-                    //현재 미리보기에 맞는 좌표로 변환
-                    val totalResData = resFromTracker.let {
-                        Offset(
-                            round((it.x / _analyzeSize!!.height) * _previewSize!!.width),
-                            round((it.y / _analyzeSize!!.width) * _previewSize!!.height)
-                        )
-                    }
-                    _trackerDataState.value = totalResData
-
-                    if (resFromTracker.x in 0F.._analyzeSize!!.height.toFloat() && resFromTracker.y in 0F.._analyzeSize!!.width.toFloat()) {
-                        Log.d(
-                            "analyze Point: ",
-                            "trackerPoint - (${resFromTracker.x},${resFromTracker.y}) / imageAnalyzeSize : ${_analyzeSize!!.height} X ${_analyzeSize!!.width}"
-                        )
-                        Log.d(
-                            "trackerPoint Location: ",
-                            "trackerPoint - (${_trackerDataState.value!!.x},${_trackerDataState.value!!.y}) / previewSize : ${_previewSize!!.width} X ${_previewSize!!.height}"
-                        )
-                    }
-
-                }
-            }
 
             //포즈 선정 로직
             if (reqPoseState.value) {
@@ -152,13 +117,9 @@ class CameraViewModel @Inject constructor(
                     _poseResultState.value = recommendPoseUseCase(
                         image = image.image!!,
                         rotation = image.imageInfo.rotationDegrees
-                    ).let { poseDatas ->
-                        poseDatas.copy(
-                            second = listOf(
-                                PoseData(-1, -1, -1), //해제데이터를 넣기 위함.
-                                *(poseDatas.second).toTypedArray()
-                            )
-                        )
+                    ).let {
+                        it.toMutableList().apply { add(0, PoseData(-1, -1, -1)) }
+                            .toList() //해제데이터를 넣기 위함.
                     }
                 }
             }
@@ -176,28 +137,9 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    fun attachTracker(offsetInPreview: Offset, previewSize: Size) {
-        val offsetRate =
-            Pair(offsetInPreview.x / previewSize.width, offsetInPreview.y / previewSize.height)
-        val trackerOffset = Offset(
-            _analyzeSize!!.height * offsetRate.first, _analyzeSize!!.width * offsetRate.second
-        )
-        _trackerOffset = trackerOffset
-        _previewSize = previewSize
-        _trackerSwitchState.value = true //
-    }
-
-    fun detachTracker() {
-        _trackerOffset = null
-        _trackerSwitchState.value = false
-        stopTrackingDataUseCase()
-    }
-
-
     fun bindCameraToLifeCycle(
         lifecycleOwner: LifecycleOwner,
         surfaceProvider: Preview.SurfaceProvider,
-        aspectRatio: Int,
         previewRotation: Int
     ) {
         _previewState.value =
@@ -207,11 +149,10 @@ class CameraViewModel @Inject constructor(
                 bindCameraUseCase(
                     lifecycleOwner,
                     surfaceProvider,
-                    aspectRatio = aspectRatio,
+                    aspectRatio = _aspectRatState.value.aspectRatioType,
                     analyzer = imageAnalyzer,
                     previewRotation = previewRotation
                 )
-            _analyzeSize = _previewState.value.imageAnalyzerResolution
         }
     }
 
@@ -223,6 +164,8 @@ class CameraViewModel @Inject constructor(
             writeUserLogUseCase(eventLog)
         }
     }
+
+    fun getViewRateList() = viewRateList
 
     fun reqPoseRecommend() {
         if (reqPoseState.value.not()) reqPoseState.value = true
@@ -237,9 +180,7 @@ class CameraViewModel @Inject constructor(
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
 
     fun changeViewRate(idx: Int) {
-        _viewRateIdxState.value = idx
-        _viewRateState.value = viewRateList[idx].first
-        _aspectRatioState.value = viewRateList[idx].second
+        _aspectRatIdxState.value = idx
     }
 
     fun controlFixedScreen(isRequest: Boolean) {

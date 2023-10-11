@@ -56,7 +56,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
 
     override suspend fun getRecommendPose(
         image: Image, rotation: Int
-    ): Pair<DoubleArray, List<PoseData>> = poseDataSourceImpl.recommendPose(
+    ): List<PoseData> = poseDataSourceImpl.recommendPose(
         imageProcessDataSource.imageToBitmap(image, rotation)
     )
 
@@ -92,6 +92,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         return modelRunnerImpl.preRun()
     }
 
+    //이미지에서 포즈를 가져오기
     override fun getPoseFromImage(uri: Uri?): Bitmap? = if (uri != null) {
         val backgroundBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))

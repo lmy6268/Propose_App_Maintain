@@ -74,7 +74,7 @@ object PermScreen {
                 verticalArrangement = Arrangement.spacedBy(60.dp, Alignment.CenterVertically)
             ) {
                 Text(
-                    text = "필요 해요\n사용 권한",
+                    text = "권한 요청",
                     style = TextStyle(
                         fontSize = 40.sp,
                         fontFamily = FontFamily(Font(R.font.pretendard_bold)),

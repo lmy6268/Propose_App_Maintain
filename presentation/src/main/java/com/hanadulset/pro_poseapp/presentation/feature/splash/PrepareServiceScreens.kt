@@ -78,7 +78,7 @@ object PrepareServiceScreens {
         previewState: State<CameraState>,
         cameraInit: () -> Unit,
         prepareServiceViewModel: PrepareServiceViewModel,
-        onCheckArInstalled: (Session) -> Unit,
+        isAfterDownload: Boolean,
         onAfterLoadedEvent: () -> Unit,
         onMoveToDownload: () -> Unit
     ) {
@@ -89,9 +89,13 @@ object PrepareServiceScreens {
             mutableStateOf(false)
         }
 
+        val afterLoaded by rememberUpdatedState(newValue = onAfterLoadedEvent)
         LaunchedEffect(Unit) {
             delay(1000)
-            prepareServiceViewModel.requestForCheckDownload()
+//            if (isAfterDownload) {
+            prepareServiceViewModel.preLoadModel()
+            cameraInit()
+//            } else prepareServiceViewModel.requestForCheckDownload()
         }
         LaunchedEffect(checkNeedToDownloadState) {
             if (checkNeedToDownloadState != null) {
@@ -105,16 +109,8 @@ object PrepareServiceScreens {
         }
 
         if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
-            onAfterLoadedEvent() //카메라 화면으로 이동하는 거임.
-            when (ArCoreApk.getInstance().requestInstall(localActivity, true)) {
-                ArCoreApk.InstallStatus.INSTALL_REQUESTED -> {
-//                    return
-                }
+            afterLoaded()//카메라 화면으로 이동하는 거임.
 
-                ArCoreApk.InstallStatus.INSTALLED -> {
-                    onCheckArInstalled(Session(localActivity))
-                }
-            }
             isInitiated.value = true
         } else InnerAppLoadingScreen()
 

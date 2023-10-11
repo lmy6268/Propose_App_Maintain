@@ -169,15 +169,13 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                 downloadList.forEachIndexed { index, fileName ->
                     val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
                     transferUtility.download(fileName, targetFile, object : TransferListener {
-                        val downloadState =
-                            MutableStateFlow(DownloadState(state = DownloadState.STATE_ON_PROGRESS))
+                        var downloadState = DownloadState(state = DownloadState.STATE_ON_PROGRESS)
 
                         override fun onStateChanged(id: Int, state: TransferState?) {
                             if (state == TransferState.COMPLETED) {
-                                downloadState.value
                                 trySend(
-                                    downloadState.value.copy(state = DownloadState.STATE_COMPLETE)
-                                ).isSuccess
+                                    downloadState.copy(state = DownloadState.STATE_COMPLETE)
+                                )
                             }
                         }
 
@@ -194,10 +192,9 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                                 currentBytes = bytesCurrent,
                                 totalBytes = bytesTotal
                             )
-                            downloadState.value = downloaded
-                            trySend(
-                                downloadState.value
-                            ).isSuccess
+                            downloadState = downloaded
+                            trySend(downloaded)
+                            Log.d("downloadStatus: ", downloadState.toString())
                         }
 
                         override fun onError(id: Int, ex: Exception?) {
@@ -209,6 +206,7 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                 awaitClose {
 
                 }
+
 
             }
 

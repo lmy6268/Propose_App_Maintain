@@ -111,6 +111,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
 
     override suspend fun takePhoto() = suspendCancellableCoroutine { cont ->
+
         CoroutineScope(Dispatchers.IO).launch {
             imageCapture!!.takePicture(executor,
                 object : ImageCapture.OnImageCapturedCallback() {
@@ -153,6 +154,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             .setTargetRotation(previewRotation)
             .build()
 
+
         imageCapture =
             ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
@@ -183,8 +185,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             preview?.setSurfaceProvider(surfaceProvider)
 
             return true
-
-            Log.d("CameraStatus: ", camera!!.cameraInfo.cameraState.value.toString())
             // Now you have the CameraControl instance if you need it
         } catch (exc: Exception) {
             // Handle camera initialization error
@@ -197,6 +197,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     fun unbindCameraResources(): Boolean {
         return try {
             cameraProvider!!.unbindAll()
+            Log.d("available cameras: ", cameraProvider!!.availableCameraInfos.map { it.cameraState.value }.toString())
             true
         } catch (exc: Exception) {
             false

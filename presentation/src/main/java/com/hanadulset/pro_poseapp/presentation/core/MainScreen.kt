@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -119,17 +120,9 @@ object MainScreen {
             cameraViewModel.bindCameraToLifeCycle(
                 lifecycleOwner = lifecycleOwner,
                 surfaceProvider = previewView.surfaceProvider,
-                aspectRatio = AspectRatio.RATIO_4_3,
                 previewRotation = previewView.rotation.toInt()
             )
         }
-        val arInstalledState = remember {
-            mutableStateOf<Session?>(null)
-        }
-        val checkArInstalled: (Session?) -> Unit = {
-            arInstalledState.value = it
-        }
-
 
 
         NavHost(
@@ -145,7 +138,6 @@ object MainScreen {
                 multiplePermissionsState,
                 cameraInit = cameraInit,
                 previewState = previewState,
-                onCheckArInstalled = checkArInstalled
             )
             permissionAllowedGraph(
                 routeName = Graph.PermissionAllowed.name,
@@ -153,7 +145,6 @@ object MainScreen {
                 navHostController = navController,
                 cameraInit = cameraInit,
                 previewState = previewState,
-                onCheckArInstalled = checkArInstalled
             )
             usingCameraGraph(
                 routeName = Graph.UsingCamera.name,
@@ -163,7 +154,6 @@ object MainScreen {
                 previewView = previewView,
                 activeActivity = activity,
                 cameraInit = cameraInit,
-                arSession = arInstalledState.value
             )
         }
     }
@@ -177,7 +167,6 @@ object MainScreen {
         multiplePermissionsState: MultiplePermissionsState,
         cameraInit: () -> Unit,
         previewState: State<CameraState>,
-        onCheckArInstalled: (Session?) -> Unit
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -195,15 +184,12 @@ object MainScreen {
             runAppLoadingScreen(
                 navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
-                nextPage = Graph.UsingCamera.name,
                 cameraInit = cameraInit,
                 previewState = previewState,
-                onCheckArInstalled = onCheckArInstalled,
                 onMoveToDownload = {
                     navHostController.navigate(Graph.DownloadProcess.name) {
                         popUpTo(it) { inclusive = true }
                     }
-
                 }
             )
             relatedWithDownload(
@@ -211,7 +197,7 @@ object MainScreen {
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navHostController,
                 onDoneDownload = {
-                    navHostController.navigate(Page.AppLoading.name) {
+                    navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
                         popUpTo(Page.AppLoading.name) {}
                     }
                 }
@@ -236,9 +222,8 @@ object MainScreen {
                         }
                     },
                     moveToDownloadProgress = { type ->
-                        val isDownload =
-                            type == CheckResponse.TYPE_MUST_DOWNLOAD
-                        navHostController.navigate(Page.ModelDownloadProgress.name + "/$isDownload") {
+                        val isDownload = type == CheckResponse.TYPE_MUST_DOWNLOAD
+                        navHostController.navigate(Page.ModelDownloadProgress.name + "?isDownload=$isDownload") {
                             popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
                         }
                     }
@@ -247,17 +232,17 @@ object MainScreen {
             composable(route = Page.ModelDownloadProgress.name,
                 arguments = listOf(
                     navArgument("isDownload") {
-                        type = NavType.BoolArrayType
+                        type = NavType.BoolType
                         defaultValue = true
                     }
                 )) {
-                val state by prepareServiceViewModel.downloadInfoState.collectAsState()
+                val state by prepareServiceViewModel.downloadInfoState.collectAsStateWithLifecycle()
                 val isDownload = it.arguments?.getBoolean("isDownload")
                 LaunchedEffect(key1 = Unit) {
                     prepareServiceViewModel.requestForDownload()
                 }
 
-                if (state != null)
+                if (state != null) {
                     ModelDownloadScreen.ModelDownloadProgressScreen(
                         isDownload = isDownload,
                         downloadResponse = state!!,
@@ -272,6 +257,8 @@ object MainScreen {
                             onDoneDownload()
                         }
                     )
+                }
+
             }
         }
     }
@@ -282,7 +269,6 @@ object MainScreen {
         prepareServiceViewModel: PrepareServiceViewModel,
         previewState: State<CameraState>,
         cameraInit: () -> Unit,
-        onCheckArInstalled: (Session?) -> Unit
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
@@ -292,15 +278,12 @@ object MainScreen {
             runAppLoadingScreen(
                 navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
-                nextPage = Graph.UsingCamera.name,
                 previewState = previewState,
                 cameraInit = cameraInit,
-                onCheckArInstalled = onCheckArInstalled,
                 onMoveToDownload = {
                     navHostController.navigate(Graph.DownloadProcess.name) {
                         popUpTo(it) { inclusive = true }
                     }
-
                 }
             )
             relatedWithDownload(
@@ -308,7 +291,7 @@ object MainScreen {
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navHostController,
                 onDoneDownload = {
-                    navHostController.navigate(Page.AppLoading.name) {
+                    navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
                         popUpTo(Page.AppLoading.name) {}
                     }
                 }
@@ -327,7 +310,6 @@ object MainScreen {
         galleryViewModel: GalleryViewModel,
         activeActivity: Activity,
         cameraInit: () -> Unit,
-        arSession: Session?
     ) {
         navigation(startDestination = Page.Cam.name, route = routeName) {
             //카메라 화면
@@ -336,10 +318,11 @@ object MainScreen {
             ) {
                 Screen(
                     cameraViewModel,
-                    showBackContinueDialog = {
-                        activeActivity.finish() //앱 종료
-//                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
-                    }, previewView = previewView,
+//                    showBackContinueDialog = {
+//                        activeActivity.finish() //앱 종료
+////                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
+//                    },
+                    previewView = previewView,
                     onClickSettingBtnEvent = {
                         navHostController.navigate(route = Page.Setting.name) {
                         }
@@ -348,7 +331,6 @@ object MainScreen {
                         navHostController.navigate(route = Page.Images.name) {}
                     },
                     cameraInit = cameraInit,
-                    arSession = arSession
                 )
             }
 
@@ -399,31 +381,36 @@ object MainScreen {
     private fun NavGraphBuilder.runAppLoadingScreen(
         navHostController: NavHostController,
         prepareServiceViewModel: PrepareServiceViewModel,
-        nextPage: String,
         cameraInit: () -> Unit,
         previewState: State<CameraState>,
-        onCheckArInstalled: (Session?) -> Unit,
-        onMoveToDownload: (String) -> Unit
+        onMoveToDownload: (String) -> Unit,
     ) {
         val appLoadingPage = Page.AppLoading.name
-        composable(route = appLoadingPage) {
+        composable(route = appLoadingPage, arguments =
+        listOf(
+            navArgument("afterDownload") {
+                type = NavType.BoolType
+                defaultValue = false
+            }
+        )) {
+            val afterDownload = it.arguments?.getBoolean("afterDownload")
+
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
                 previewState = previewState,
                 cameraInit = cameraInit,
                 prepareServiceViewModel = prepareServiceViewModel,
                 onAfterLoadedEvent = {
-                    navHostController.navigate(nextPage)
+                    navHostController.navigate(Graph.UsingCamera.name)
                     {
                         //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
                         popUpTo(route = appLoadingPage) { inclusive = true }
                     }
-
                 },
-                onCheckArInstalled = onCheckArInstalled,
                 onMoveToDownload = {
                     onMoveToDownload(appLoadingPage)
-                }
+                },
+                isAfterDownload = afterDownload!!
             )
 
         }

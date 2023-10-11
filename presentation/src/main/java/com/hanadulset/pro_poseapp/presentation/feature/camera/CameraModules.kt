@@ -11,7 +11,6 @@ import android.view.OrientationEventListener
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.LinearEasing
@@ -22,21 +21,16 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
@@ -48,9 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,12 +64,10 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.ExpandableButton
 import com.hanadulset.pro_poseapp.presentation.ui_components.PretendardFamily
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.animation.circular.CircularRevealPlugin
@@ -89,206 +79,62 @@ import kotlin.math.roundToInt
 
 
 object CameraModules {
-    @Composable
-    fun ModeMenu(selectedIdx: MutableIntState, modifier: Modifier = Modifier) {
-        val cameraModeList = stringArrayResource(id = R.array.camera_modes)
-        Box(
-            modifier = modifier
-        ) {
-            Box(
-                Modifier
-                    .background(
-                        color = Color(0x80FAFAFA), shape = RoundedCornerShape(18.dp)
-                    )
-                    .heightIn(30.dp)
-                    .widthIn(210.dp)
-                    .align(alignment = Alignment.CenterStart)
-            ) {}
-            Row(
-                modifier = Modifier.align(alignment = Alignment.CenterStart),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                for (i in cameraModeList.indices) {
-                    Box(modifier = Modifier
-                        .heightIn(50.dp)
-                        .widthIn(20.dp)
-                        .background(
-                            color = if (i == selectedIdx.intValue) MaterialTheme.colors.primary else Color(
-                                0x00FFFFFF
-                            ), shape = RoundedCornerShape(30.dp)
-                        )
-                        .clickable(indication = null,
-                            interactionSource = remember { MutableInteractionSource() }) {
-                            selectedIdx.intValue = i
-                            Log.d("현재 모드 : ", cameraModeList[selectedIdx.intValue])
-                        }
+//    @Composable
+//    fun ModeMenu(selectedIdx: MutableIntState, modifier: Modifier = Modifier) {
+//        val cameraModeList = stringArrayResource(id = R.array.camera_modes)
+//        Box(
+//            modifier = modifier
+//        ) {
+//            Box(
+//                Modifier
+//                    .background(
+//                        color = Color(0x80FAFAFA), shape = RoundedCornerShape(18.dp)
+//                    )
+//                    .heightIn(30.dp)
+//                    .widthIn(210.dp)
+//                    .align(alignment = Alignment.CenterStart)
+//            ) {}
+//            Row(
+//                modifier = Modifier.align(alignment = Alignment.CenterStart),
+//                horizontalArrangement = Arrangement.SpaceEvenly,
+//                verticalAlignment = Alignment.CenterVertically,
+//            ) {
+//                for (i in cameraModeList.indices) {
+//                    Box(modifier = Modifier
+//                        .heightIn(50.dp)
+//                        .widthIn(20.dp)
+//                        .background(
+//                            color = if (i == selectedIdx.intValue) MaterialTheme.colors.primary else Color(
+//                                0x00FFFFFF
+//                            ), shape = RoundedCornerShape(30.dp)
+//                        )
+//                        .clickable(indication = null,
+//                            interactionSource = remember { MutableInteractionSource() }) {
+//                            selectedIdx.intValue = i
+//                            Log.d("현재 모드 : ", cameraModeList[selectedIdx.intValue])
+//                        }
+//
+//                    ) {
+//                        Text(
+//                            modifier = Modifier
+//                                .align(Alignment.Center)
+//                                .padding(horizontal = 20.dp, vertical = 10.dp),
+//                            text = cameraModeList[i],
+//                            style = TextStyle(
+//                                fontSize = 12.sp,
+//                                fontFamily = PretendardFamily,
+//                                fontWeight = FontWeight.Bold
+//                            ),
+//                            color = if (i == selectedIdx.intValue) Color(0xFF999999) else Color(
+//                                0xFF000000
+//                            ),
+//                        )
+//                    }
+//                }
+//            }
+//        }
+//    }
 
-                    ) {
-                        Text(
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                            text = cameraModeList[i],
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                fontFamily = PretendardFamily,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = if (i == selectedIdx.intValue) Color(0xFF999999) else Color(
-                                0xFF000000
-                            ),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    //확장가능한 버튼
-    @Composable
-    fun ExpandableButton(
-        text: List<String>,
-        type: String,
-        isExpandedState: MutableState<Boolean>,
-        modifier: Modifier = Modifier,
-        viewRateIdx: Int,
-        onClick: (Int) -> Unit,
-    ) {
-        Box(modifier = modifier
-            .apply {
-                if (isExpandedState.value) fillMaxWidth()
-                else widthIn(44.dp)
-            }
-            .animateContentSize(
-                animationSpec = tween(
-                    durationMillis = 200, easing = LinearEasing
-                )
-            ) //크기 변경이 감지되면 애니메이션을 추가해준다.
-
-        ) {
-
-            if (isExpandedState.value) Row(
-                Modifier
-                    .fillMaxWidth()
-                    .offset(x = 20.dp)
-            ) {
-                Box(
-                    Modifier.background(
-                        color = Color(0x80FAFAFA), shape = RoundedCornerShape(30.dp)
-                    )
-                ) {
-                    //닫는 버튼
-                    IconButton(modifier = Modifier.heightIn(30.dp),
-                        onClick = { isExpandedState.value = false }) {
-                        Icon(
-                            painterResource(id = R.drawable.based_circle),
-                            tint = Color.Unspecified,
-                            contentDescription = "background",
-
-                            )
-                        Icon(
-                            painterResource(id = R.drawable.close),
-                            contentDescription = "close",
-                        )
-                    }
-                    Row(
-                        Modifier
-                            .fillMaxWidth(0.9F)
-                            .align(Alignment.Center)
-                            .padding(horizontal = 40.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                    ) {
-                        for (idx in text.indices) {
-                            Box(modifier = Modifier
-                                .wrapContentSize()
-                                .padding(10.dp)
-                                .clickable(indication = null,
-                                    interactionSource = remember { MutableInteractionSource() }) {
-                                    onClick(idx)
-                                }) {
-                                Text(
-                                    text = text[idx],
-                                    fontSize = 12.sp,
-                                    fontWeight = if (viewRateIdx == idx) FontWeight.Bold else FontWeight.Light,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-
-                        }
-                    }
-                }
-            }
-            else IconButton(onClick = {
-                isExpandedState.value = true
-            }) {
-                Icon(
-                    modifier = Modifier
-                        .widthIn(44.dp)
-                        .heightIn(44.dp),
-                    painter = painterResource(id = R.drawable.based_circle),
-                    tint = Color.Unspecified,
-                    contentDescription = type
-                )
-                Text(
-                    text = text[viewRateIdx], //화면 비 글씨 표기
-                    fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
-                )
-            }
-
-        }
-    }
-
-    //상단 부분
-    @Composable
-    fun UpperButtons(
-        modifier: Modifier = Modifier,
-        viewRateIdx: Int,
-        mainColor: Color = MaterialTheme.colors.primary,
-        mainTextColor: Color = MaterialTheme.colors.onPrimary,
-        subColor: Color = MaterialTheme.colors.onSecondary,
-        subTextColor: Color = MaterialTheme.colors.onSecondary,
-        selectedModeIdxState: MutableIntState,
-        onSettingEvent: () -> Unit,
-        viewRateClickEvent: (Int) -> Unit
-    ) {
-        val isExpandedState = remember {
-            mutableStateOf(false)
-        }
-        val viewRateList = stringArrayResource(id = R.array.view_rates)
-        Row(
-            modifier = modifier
-                .padding(10.dp)
-                .fillMaxWidth()
-                .height(50.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround
-        ) {
-            //오버레이 되는 확장 가능한 버튼
-            ExpandableButton(
-                text = viewRateList.toList(),
-                type = "비율",
-                viewRateIdx = viewRateIdx,
-                isExpandedState = isExpandedState,
-                onClick = viewRateClickEvent
-            )
-            //확장 가능한 버튼이 확장 되지 않은 경우
-            if (!isExpandedState.value) {
-                ModeMenu(
-                    selectedModeIdxState,
-                )
-                NormalButton(
-                    buttonName = "설정", iconDrawableId = R.drawable.settings
-                ) {
-                    //설정화면으로 이동
-                    onSettingEvent()
-                }
-
-            }
-        }
-
-
-    }
 
     @Composable
     fun CompositionScreen(
@@ -688,6 +534,7 @@ object CameraModules {
         onClickGalleyBtnEvent: () -> Unit
     ) {
 
+
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult()
         ) {
@@ -727,7 +574,7 @@ object CameraModules {
                         Icon(
                             painterResource(id = R.drawable.based_circle),
                             tint = Color(
-                                0x80000000
+                                if (poseScreenVisibleState.not()) 0x80000000 else 0x8095FA99
                             ),
                             contentDescription = "background",
                         )
@@ -739,7 +586,9 @@ object CameraModules {
                     }
                 else IconButton(modifier = Modifier.heightIn(15.dp),
                     enabled = false,
-                    onClick = {}) {
+                    onClick = {
+
+                    }) {
                     Icon(
                         painterResource(id = R.drawable.based_circle),
                         tint = Color(
@@ -927,25 +776,6 @@ object CameraModules {
 ////            intent
 //        )
 //    }
-}
-
-
-//Test Preview
-@Preview
-@Composable
-fun PreviewExpandableBtn() {
-    ExpandableButton(
-        text = listOf("Test", "TT"),
-        type = "테스트",
-        isExpandedState = remember { mutableStateOf(false) },
-        viewRateIdx = 0,
-    ) {}
-}
-
-@Preview
-@Composable
-fun PreviewMode() {
-    CameraModules.ModeMenu(selectedIdx = remember { mutableIntStateOf(1) })
 }
 
 

@@ -117,7 +117,7 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
     }
 
 
-    override suspend fun recommendPose(Bitmap: Bitmap): Pair<DoubleArray, List<PoseData>> =
+    override suspend fun recommendPose(Bitmap: Bitmap): List<PoseData> =
         suspendCoroutine { cont ->
             //테스트용 비트맵
             val backgroundBitmap =
@@ -128,34 +128,17 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
                 var res = Pair(-1, java.lang.Double.POSITIVE_INFINITY)
 
                 for (i in 0 until centroid.size - 2) {
-                    val calculatedDistance = getDistance(angle,i)
+                    val calculatedDistance = getDistance(angle, i)
                     if (res.second > calculatedDistance)
                         res = res.copy(first = i, second = calculatedDistance)
                 }
                 val bestPoseId = res.first
                 cont.resume(
-                    Pair(
-                        emptyArray<Double>().toDoubleArray(),
-                        poseRanks[bestPoseId]
-                    )
+                    poseRanks[bestPoseId]
+
                 )
             }
         }
-
-//    override fun recommendPosePosition(backgroundBitmap: Bitmap): DoubleArray {
-//        val (mScaleSize, outputArray) = modelRunner.runYolo(backgroundBitmap)
-//        val yoloResult = outputsToNMSPredictions(mScaleSize, outputArray)
-//        val layoutImageBitmap = makeLayoutImage(yoloResult)
-////        CoroutineScope(Dispatchers.IO).launch {
-////            processor.saveImageToGallery(layoutImageBitmap)
-////            processor.saveImageToGallery(backgroundBitmap)
-////        }
-//
-//        return modelRunner.runBbPrediction(
-//            backgroundBitmap,
-//            layoutImageBitmap
-//        ) //centerx, centery, width, height (모두 0~1)
-//    }
 
     override fun preProcessing(targetImage: Bitmap): Mat {
 

@@ -7,10 +7,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,8 +25,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -48,10 +48,8 @@ import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.core.CustomDialog
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
 import com.hanadulset.pro_poseapp.utils.CheckResponse
-import com.hanadulset.pro_poseapp.utils.DownloadInfo
 import com.hanadulset.pro_poseapp.utils.DownloadResponse
 import com.hanadulset.pro_poseapp.utils.DownloadState
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlin.math.roundToLong
 
@@ -97,18 +95,27 @@ object ModelDownloadScreen {
         val checkState by prepareServiceViewModel.checkDownloadState.collectAsState()
 
         if (checkState != null)
-            CustomDialog.DownloadAlertDialog(
-                totalSize = checkState!!.totalSize,
-                onDismissRequest = {
-                    if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
-                        || checkState!!.downloadType == CheckResponse.TYPE_ERROR
-                    ) (context as Activity).finish()
-                    else moveToLoading()
-                },
-                onConfirmRequest = {
-                    moveToDownloadProgress(checkState!!.downloadType)
-                }
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(),
+            ) {
+                val toLoadingPage by rememberUpdatedState(newValue = moveToLoading)
+                val toDownloadProgress by rememberUpdatedState(newValue = moveToDownloadProgress)
+                CustomDialog.DownloadAlertDialog(
+                    isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD || checkState!!.downloadType == CheckResponse.TYPE_ERROR,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    totalSize = checkState!!.totalSize,
+                    onDismissRequest = {
+                        if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD || checkState!!.downloadType == CheckResponse.TYPE_ERROR
+                        ) (context as Activity).finish()
+                        else toLoadingPage()
+                    },
+                    onConfirmRequest = {
+                        toDownloadProgress(checkState!!.downloadType)
+                    }
+                )
+            }
+
 
 
 
@@ -140,6 +147,8 @@ object ModelDownloadScreen {
 
         if (data != null) {
             //다운로드가 완료된 경우
+            val now = data!!
+            Log.d("now Data State: ", now.toString())
             if (data!!.currentFileIndex + 1 == data!!.totalFileCnt && data!!.state == DownloadState.STATE_COMPLETE) {
                 LaunchedEffect(Unit) {
                     onDoneDownload()
@@ -288,8 +297,8 @@ private fun TestRequestModal() {
             emit(
                 DownloadState(
                     state = DownloadState.STATE_COMPLETE,
-                    currentBytes = 10000000,
-                    totalBytes = 10000000,
+                    currentBytes = 1000000,
+                    totalBytes = 100000000,
                     currentFileIndex = 0,
                     totalFileCnt = 2
                 )

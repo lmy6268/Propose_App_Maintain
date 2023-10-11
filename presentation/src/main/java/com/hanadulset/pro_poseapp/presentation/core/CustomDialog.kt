@@ -49,7 +49,7 @@ object CustomDialog {
         ) {
             Surface(
                 modifier = modifier,
-                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                shape = RoundedCornerShape(32.dp)
             ) {
                 content()
             }
@@ -81,7 +81,9 @@ object CustomDialog {
 
     @Composable
     fun DownloadAlertDialog(
+        isDownload: Boolean,
         totalSize: Long,
+        modifier: Modifier = Modifier,
         onConfirmRequest: () -> Unit,
         onDismissRequest: () -> Unit
     ) {
@@ -103,14 +105,12 @@ object CustomDialog {
         )
 
         CustomAlertDialog(
-            modifier = Modifier
-                .width(320.dp)
-                .height(200.dp),
+            modifier = modifier,
             onDismissRequest = onDismissRequest,
         ) {
-            Column(Modifier.padding(20.dp, 30.dp, 20.dp, 20.dp)) {
+            Column(modifier.padding(20.dp, 30.dp, 20.dp, 20.dp)) {
                 Text(
-                    text = "추가 리소스를 다운로드 해야합니다.\n" +
+                    text = "추가 리소스를 ${if(isDownload)"다운로드" else "업데이트"} 해야합니다.\n" +
                             "진행 하시겠습니까? ( ${(totalSize / 1e+6).roundToInt()} MB )",
                     style = mainStyle
                 )
@@ -143,7 +143,7 @@ object CustomDialog {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "앱 종료",
+                            if (isDownload) "앱 종료" else "다음에 받기",
                             style = TextStyle(
                                 fontWeight = FontWeight.Light,
                                 fontSize = 13.sp,
@@ -189,6 +189,7 @@ object CustomDialog {
 @Composable
 private fun testDownloadAlert() {
     CustomDialog.DownloadAlertDialog(
+        isDownload = false,
         totalSize = 100900200,
         onConfirmRequest = {
             Log.d("Hello", "clickConfirm")

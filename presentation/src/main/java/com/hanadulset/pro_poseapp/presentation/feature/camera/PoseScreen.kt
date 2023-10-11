@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -83,14 +84,13 @@ object PoseScreen {
         LaunchedEffect(clickedItemIndexState) {
             pagerState.animateScrollToPage(clickedItemIndexState)
         }
+
         HorizontalPager(
-            state = pagerState,
-            modifier = modifier.pointerInteropFilter {
+            state = pagerState, modifier = modifier.pointerInteropFilter {
                 if (it.action == MotionEvent.ACTION_DOWN) {
                 }
                 return@pointerInteropFilter false
-            },
-            userScrollEnabled = false
+            }, userScrollEnabled = false
         ) {
             //이곳에 각 포즈 데이터를 저장하기만 하면 됨.
             PoseItem(
@@ -109,13 +109,11 @@ object PoseScreen {
         poseData: PoseData,
         lowerBarDisplayPxSize: IntSize,
         cameraDisplayPxSize: IntSize,
-//        onPoseChangeEvent: (PoseData) -> Unit
     ) {
         val context = LocalContext.current
         val offset = remember {
             mutableStateOf(
                 Offset(
-//                    -(cameraDisplayPxSize.width / 2f), -(cameraDisplayPxSize.height / 2f)
                     (cameraDisplayPxSize.width / 4f), (cameraDisplayPxSize.height / 4f)
                 )
             )
@@ -144,15 +142,11 @@ object PoseScreen {
                     .size(200.dp)
 
             ) {
+                //여기도 이미지를 그려내는데 여기에서 이슈가 있는 것일까? -> 확인 필요
                 drawImage(
                     image = BitmapFactory.decodeResource(
-                        context.resources,
-                        poseData.poseDrawableId
-                    )
-//                            .apply {
-//                            onPoseChangeEvent(poseData)
-//                        })
-                        .asImageBitmap(),
+                        context.resources, poseData.poseDrawableId
+                    ).asImageBitmap(),
                 )
             }
         }
@@ -204,12 +198,14 @@ object PoseScreen {
             state = lazyRowState
         ) {
             //인덱스를 돌면서, 해당 리스트에 있는 데이터를 가져온다.
+
+            //여기서 버벅임이 있다.
             itemsIndexed(itemList) { idx, item ->
+                //리사이징 진행
                 val poseImage = poseDataList[idx].poseDrawableId.let {
                     if (it == -1) null
                     else BitmapFactory.decodeResource(
-                        currentContext.resources,
-                        it
+                        currentContext.resources, it
                     ).let { src ->
                         Bitmap.createScaledBitmap(
                             src, (src.width * 0.25).toInt(), (src.height * 0.25).toInt(), false
@@ -218,8 +214,7 @@ object PoseScreen {
                 }
 
 
-                MenuModule(
-                    text = item,
+                MenuModule(text = item,
                     poseImage = poseImage,
                     isSelected = clickedItemIndexState == idx,
                     onClickEvent = {
@@ -238,12 +233,13 @@ object PoseScreen {
         lowerBarDisplayPxSize: State<IntSize>,
         upperButtonsRowSize: State<IntSize>,
         onDownActionEvent: (MotionEvent) -> Unit,
-        poseResultData: Pair<DoubleArray?, List<PoseData>?>?,
+        poseResultData: List<PoseData>?,
         rememberClickIndexState: Int,
         onPoseChangeEvent: (PoseData) -> Unit,
         onPageChangeEvent: (Int) -> Unit,
-        onVisibilityEvent: () -> Unit
     ) {
+
+        val done = remember { mutableStateOf(false) }
         Box(modifier = modifier) {
             //만약에 포즈를 추천 중이라면
             if (poseResultData == null) {
@@ -252,19 +248,24 @@ object PoseScreen {
                         .sizeIn(30.dp)
                         .align(Alignment.Center)
                 )
+                done.value = true
             }
             //만약에 포즈 추천이 완료되었다면
             else {
-                ScrollableRecommendPoseScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    onDownActionEvent = onDownActionEvent,
-                    poseDataList = poseResultData.second!!,
-                    clickedItemIndexState = rememberClickIndexState,
-                    cameraDisplayPxSize = cameraDisplayPxSize.value,
-                    lowerBarDisplayPxSize = lowerBarDisplayPxSize.value,
-                    onPoseChangeEvent = onPoseChangeEvent,
-                    onPageChangeEvent = onPageChangeEvent
-                )
+                if (done.value) {
+                    ScrollableRecommendPoseScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onDownActionEvent = onDownActionEvent,
+                        poseDataList = poseResultData,
+                        clickedItemIndexState = rememberClickIndexState,
+                        cameraDisplayPxSize = cameraDisplayPxSize.value,
+                        lowerBarDisplayPxSize = lowerBarDisplayPxSize.value,
+                        onPoseChangeEvent = onPoseChangeEvent,
+                        onPageChangeEvent = onPageChangeEvent
+                    )
+                    done.value = false
+                }
+
             }
 
         }
@@ -274,10 +275,7 @@ object PoseScreen {
 //메뉴별 아이콘
 @Composable
 fun MenuModule(
-    text: String,
-    isSelected: Boolean,
-    poseImage: ImageBitmap?,
-    onClickEvent: () -> Unit
+    text: String, isSelected: Boolean, poseImage: ImageBitmap?, onClickEvent: () -> Unit
 ) {
 
     Column(
@@ -294,9 +292,13 @@ fun MenuModule(
             else 5.dp,
         ) {
 
-            if (poseImage != null) Image(
-                bitmap = poseImage, contentDescription = "포즈 이미지", modifier = Modifier.padding(5.dp)
-            )
+            if (poseImage != null)
+            //그냥 이미지를 써서 느려진 걸까? -> Glide 적용하면 좀 나을까?
+                Image(
+                    bitmap = poseImage,
+                    contentDescription = "포즈 이미지",
+                    modifier = Modifier.padding(5.dp)
+                )
 
 
         }
@@ -315,8 +317,7 @@ fun MenuModule(
             ) {
                 onClickEvent()
             }
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-        ) {
+            .padding(horizontal = 20.dp, vertical = 8.dp)) {
             //없음이 아닌 경우
 
             Text(
@@ -341,22 +342,14 @@ private fun TestMenuIcon() {
     val res = LocalContext.current.resources
     Row {
         MenuModule(
-            text = "추천#1",
-            poseImage = BitmapFactory.decodeResource(
-                res,
-                com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0
-            )
-                .asImageBitmap(),
-            isSelected = true
+            text = "추천#1", poseImage = BitmapFactory.decodeResource(
+                res, com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0
+            ).asImageBitmap(), isSelected = true
         ) {}
         MenuModule(
-            text = "추천#2",
-            poseImage = BitmapFactory.decodeResource(
-                res,
-                com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0
-            )
-                .asImageBitmap(),
-            isSelected = false
+            text = "추천#2", poseImage = BitmapFactory.decodeResource(
+                res, com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0
+            ).asImageBitmap(), isSelected = false
         ) {}
     }
 }

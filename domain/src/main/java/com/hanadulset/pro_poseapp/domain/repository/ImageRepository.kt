@@ -16,7 +16,7 @@ interface ImageRepository {
     suspend fun getRecommendCompInfo(image: Image, rotation: Int): Pair<String, Int>?
     suspend fun getRecommendPose(
         image: Image, rotation: Int
-    ): Pair<DoubleArray, List<PoseData>> //추천된 포즈데이터 반환하기
+    ): List<PoseData> //추천된 포즈데이터 반환하기
 
     fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap // 고정 화면을 보여줌
     fun getFixedScreen(imageProxy: ImageProxy): Bitmap

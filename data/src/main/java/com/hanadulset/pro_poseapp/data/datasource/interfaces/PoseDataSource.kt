@@ -11,7 +11,7 @@ interface PoseDataSource {
 
 
     /**포즈를 추천해준다.*/
-    suspend fun recommendPose(backgroundBitmap: Bitmap): Pair<DoubleArray, List<PoseData>>
+    suspend fun recommendPose(backgroundBitmap: Bitmap): List<PoseData>
 
 
 
