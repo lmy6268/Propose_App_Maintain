@@ -3,7 +3,6 @@ package com.hanadulset.pro_poseapp.presentation.core
 import android.Manifest
 import android.app.Activity
 import android.os.Build
-import androidx.camera.core.AspectRatio
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
@@ -12,7 +11,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,7 +26,6 @@ import androidx.navigation.navigation
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.google.ar.core.Session
 import com.hanadulset.pro_poseapp.presentation.core.permission.PermScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
@@ -327,7 +324,7 @@ object MainScreen {
                         navHostController.navigate(route = Page.Setting.name) {
                         }
                     },
-                    onClickRecentlyImages = {
+                    onClickGalleryBtn = {
                         navHostController.navigate(route = Page.Images.name) {}
                     },
                     cameraInit = cameraInit,

@@ -49,7 +49,6 @@ import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModules.LowerButtons
 import com.hanadulset.pro_poseapp.presentation.feature.camera.PoseScreen.PoseResultScreen
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
-import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
 
 
@@ -63,16 +62,43 @@ var saveRecentlyPoses = arrayListOf<Int>()
 fun Screen(
     cameraViewModel: CameraViewModel,
     previewView: PreviewView,
-    onClickRecentlyImages: () -> Unit,
+    onClickGalleryBtn: () -> Unit,
     onClickSettingBtnEvent: () -> Unit,
     cameraInit: () -> Unit
 ) {
     val localDensity = LocalDensity.current
+    val cropImageLauncher =
+        rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
+            if (result.isSuccessful) {
+                // Use the returned uri.
+                val uriContent = result.uriContent
+                cameraViewModel.getPoseFromImage(uriContent)
+            } else {
+                // An error occurred.
+                val exception = result.error
+            }
 
+        }
+
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri != null) {
+                val cropOptions = CropImageContractOptions(
+                    uri, CropImageOptions(
+//                        aspectRatioX = aspectRatioState.aspectRatioSize.width,
+//                        aspectRatioY = aspectRatioState.aspectRatioSize.height,
+                        fixAspectRatio = true,
+
+                        )
+                )
+                cropImageLauncher.launch(cropOptions)
+            }
+        }
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
+        val galleryImageUri by cameraViewModel.capturedBitmapState.collectAsStateWithLifecycle()
         val upperBarSize = remember { mutableStateOf(DpSize(0.dp, 0.dp)) }
         val previewAreaSize = remember {
             mutableStateOf(DpSize(0.dp, 0.dp))
@@ -81,12 +107,16 @@ fun Screen(
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
         val compState = remember { mutableStateOf(false) }
-
         val compStateInit by rememberUpdatedState(newValue = compState.value)
-
         //햔재 전달된 포즈 데이터
-        val currentPoseDataListState = remember {
-            mutableStateOf<List<PoseData>?>(null)
+        val currentPoseDataList by cameraViewModel.poseResultState.collectAsStateWithLifecycle()
+        val selectedPoseIndex = remember {
+            mutableIntStateOf(0)
+        }
+        val getEdgeFromUserImage = remember {
+            {
+
+            }
         }
 
         //이벤트 로그를 위한 이전 결과값들을 누적하는 변수
@@ -128,20 +158,36 @@ fun Screen(
                     coordinates.size.let {
                         previewAreaSize.value = DpSize(it.width.dp, it.height.dp)
                     }
-                }
+                },
+            poseList = currentPoseDataList,
+            preview = previewView,
+            selectedPoseIndex = selectedPoseIndex.intValue,
+            upperBarSize = upperBarSize.value,
+            lowerBarSize = lowerBarSize.value,
+            isRecommendCompEnabled = compState.value,
+            loadLastImage = { cameraViewModel.getLastImage() }
         )
 
         //하단바 관련 모듈
         CameraScreenUnderBar.UnderBar(
             modifier = Modifier,
+            poseList = currentPoseDataList,
+            //따오기 관련 처리
             onEdgeDetectEvent = {
+                when (it) {
+                    true -> {
 
+                    }
+
+                    else -> {
+                        cameraViewModel.controlFixedScreen(false)
+                    }
+                }
             },
             onZoomLevelChangeEvent = { zoomLevel ->
                 cameraViewModel.setZoomLevel(zoomLevel)
             },
-            onGalleryButtonClickEvent = {
-            },
+            onGalleryButtonClickEvent = onClickGalleryBtn,
             //촬영 시에 EventLog를 인자로 넘겨줘야한다.
             onShutterClickEvent = {
 //                cameraViewModel.getPhoto(
@@ -152,13 +198,17 @@ fun Screen(
             },
             //현재 선택된 인덱스에 대해서 전달하기 위함..
             //어차피 한쪽 (포즈 추천 화면)은 읽기만 하면된다.
-            onSelectedPoseIndexEvent = {
-
+            onSelectedPoseIndexEvent = { index ->
+                if (currentPoseDataList != null && currentPoseDataList!!.isNotEmpty())
+                    selectedPoseIndex.intValue = index
             },
             onFixedButtonClickEvent = { isRequest ->
                 cameraViewModel.controlFixedScreen(isRequest)
+            },
+            galleryImageUri = galleryImageUri,
+            onPoseRecommendEvent = {
+                cameraViewModel.reqPoseRecommend()
             }
-
         )
 
     }
@@ -224,33 +274,6 @@ fun Screen(
     val aspectRatioState by cameraViewModel.aspectRatState.collectAsStateWithLifecycle()
 
 
-    val cropImageLauncher =
-        rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
-            if (result.isSuccessful) {
-                // Use the returned uri.
-                val uriContent = result.uriContent
-                cameraViewModel.getPoseFromImage(uriContent)
-            } else {
-                // An error occurred.
-                val exception = result.error
-            }
-
-        }
-
-    val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) {
-                val cropOptions = CropImageContractOptions(
-                    uri, CropImageOptions(
-                        aspectRatioX = aspectRatioState.aspectRatioSize.width,
-                        aspectRatioY = aspectRatioState.aspectRatioSize.height,
-                        fixAspectRatio = true,
-
-                        )
-                )
-                cropImageLauncher.launch(cropOptions)
-            }
-        }
     val recentlyChoosePoses = arrayListOf<Int>()  //최근에 추천받은 포즈 데이터 목록
 //        뷰를 계속 업데이트 하면서 생겼던 오류
 
@@ -549,7 +572,7 @@ fun Screen(
                         )
                     else ddaogiOnState.value = false
                 },
-                onClickGalleyBtnEvent = onClickRecentlyImages
+                onClickGalleyBtnEvent = onClickGalleryBtn
             )
 
         }

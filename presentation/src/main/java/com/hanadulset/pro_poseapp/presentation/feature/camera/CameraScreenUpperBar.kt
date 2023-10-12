@@ -1,5 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.util.Size
+import androidx.camera.core.AspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,9 +15,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hanadulset.pro_poseapp.presentation.R
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModuleExtension.ExpandableButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ExpandableButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenUpperBar.UpperBar
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 
 object CameraScreenUpperBar {
@@ -59,23 +63,30 @@ object CameraScreenUpperBar {
                 onSelectedItemEvent = onSelectedViewRate,
                 isExpanded = {
                     isExpandedState.value = it
-                }
+                },
+                defaultButtonSize = 44.dp
             )
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
                 //구도추천 On/OFF
-                CameraModuleExtension.SwitchableButton(
+                CameraScreenButtons.SwitchableButton(
                     innerText = "구도 추천",
                     init = recommendCompState.value,
                     positiveColor = Color(0xFF95FA99),
-                    negativeColor = Color(0xFF999999),
+                    negativeColor = Color(0x80999999),
                     onChangeState = changeCompState
                 )
 
 
                 //정보화면 이동
-                CameraModules.NormalButton(
-                    buttonName = "정보", iconDrawableId = R.drawable.settings, onClick = moveToInfo
+                CameraScreenButtons.NormalButton(
+                    innerIconDrawableId = R.drawable.settings,
+                    buttonName = "정보",
+                    onClick = moveToInfo,
+                    colorTint = Color(0x80999999),
+                    buttonSize = 44.dp,
+                    innerIconColorTint = Color.Unspecified,
+                    innerIconDrawableSize = 24.dp
                 )
 
             }
@@ -84,5 +95,35 @@ object CameraScreenUpperBar {
 
     }
 
+
+}
+
+@Composable
+@Preview
+fun PreviewUpperBar() {
+    UpperBar(
+        compStateInit = false,
+        viewRateList = listOf(
+            ViewRate(
+                name = "3:4",
+                aspectRatioType = AspectRatio.RATIO_4_3,
+                aspectRatioSize = Size(3, 4)
+            ), ViewRate(
+                "9:16",
+                aspectRatioType = AspectRatio.RATIO_16_9,
+                aspectRatioSize = Size(9, 16)
+            )
+        ),
+        onChangeCompSetEvent = {
+
+        },
+        onSelectedViewRate = {
+
+        },
+        moveToInfo = {
+
+        }
+
+    )
 
 }

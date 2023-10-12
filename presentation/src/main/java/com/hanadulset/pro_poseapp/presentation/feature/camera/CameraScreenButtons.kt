@@ -31,6 +31,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,6 +41,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -62,10 +64,10 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModuleExtension.SwitchableButton
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraModuleExtension.ToggledButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
 
-object CameraModuleExtension {
+object CameraScreenButtons {
     private val pretendardFamily = FontFamily(
         Font(R.font.pretendard_bold, FontWeight.Bold, FontStyle.Normal),
         Font(R.font.pretendard_light, FontWeight.Light, FontStyle.Normal),
@@ -77,11 +79,12 @@ object CameraModuleExtension {
         buttonSize: Dp = 30.dp,
         initState: Boolean,
         activatedColor: Color = Color(0xFF95FA99),
-        inActivatedColor: Color = Color(0x80999999),
+        inActivatedColor: Color = Color.Unspecified,
         buttonDescription: String = "버튼",
         buttonText: String = "",
         buttonTextColor: Color = Color.White,
         iconDrawableId: Int = R.drawable.based_circle,
+        customEventValue: Boolean = false,
         onClickEvent: (Boolean) -> Unit
     ) {
         val buttonState = remember {
@@ -91,21 +94,35 @@ object CameraModuleExtension {
             buttonState.value = buttonState.value.not()
             onClickEvent(buttonState.value)
         })
+        val trigger by rememberUpdatedState(newValue = customEventValue)
+
+        LaunchedEffect(key1 = trigger) {
+            if (trigger && buttonState.value) buttonState.value = false
+        }
+
+
 
         IconButton(
-            onClick = onClicked,
             modifier = modifier
-                .size(buttonSize)
+                .size(buttonSize),
+            onClick = onClicked
         ) {
-            if (buttonText != "") Text(
-                text = buttonText,
-                fontSize = (buttonSize.value.toInt() / 5).sp, color = buttonTextColor
-            )
             Icon(
+                modifier = modifier
+                    .size(buttonSize)
+                    .alpha(if (buttonState.value.not()) 0.8f else 1f),
                 painter = painterResource(id = iconDrawableId),
                 contentDescription = buttonDescription,
                 tint = if (buttonState.value) activatedColor else inActivatedColor
             )
+            if (buttonText != "") Text(
+                text = buttonText,
+                fontSize = (buttonSize.value.toInt() / 5).sp,
+                color = if (buttonState.value.not()) buttonTextColor else Color.Black,
+                fontFamily = pretendardFamily,
+                fontWeight = if (buttonState.value) FontWeight.Bold else FontWeight.Light
+            )
+
         }
 
 
@@ -117,29 +134,35 @@ object CameraModuleExtension {
         defaultButtonSize: Dp,
         buttonValue: Int,
         selectedButtonScale: Float = 2F,
-        selectedButtonColor: Color = Color(0xFF000000),
+        selectedButtonColor: Color = Color(0xFF95FA99),
         unSelectedButtonColor: Color = Color.Unspecified,
         onClickEvent: () -> Unit
     ) {
 
-        IconButton(
-            onClick = onClickEvent,
+        Box(
             modifier = Modifier
+                .clickable(
+                    interactionSource = MutableInteractionSource(),
+                    indication = CustomIndication,
+                    onClick = onClickEvent
+                )
                 .size(defaultButtonSize)
                 .scale(
                     if (selected) selectedButtonScale else 1F
                 )
+                .alpha(if (selected.not()) 0.8f else 1f)
         ) {
-
             Icon(
+                modifier = Modifier.align(Alignment.Center),
                 painter = painterResource(id = R.drawable.based_circle),
                 contentDescription = "줌버튼",
                 tint = if (selected) selectedButtonColor else unSelectedButtonColor
             )
             Text(
-                text = "${buttonValue}X",
-                fontSize = 6.sp,
-                color = if (selected) Color.White else Color.Black,
+                modifier = Modifier.align(Alignment.Center),
+                text = if (selected) "${buttonValue}X" else buttonValue.toString(),
+                fontSize = 9.sp,
+                color = if (selected) Color.Black else Color.White,
                 fontFamily = pretendardFamily,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Light
 
@@ -227,7 +250,8 @@ object CameraModuleExtension {
     fun FixedButton(
         modifier: Modifier = Modifier,
         buttonSize: Dp = 80.dp,
-        fixedButtonPressedEvent: (Boolean) -> Unit
+        fixedButtonPressedEvent: (Boolean) -> Unit,
+        disturbFromEdgeDetector: Boolean
     ) {
         val isFixedBtnPressed = remember {
             mutableStateOf(false)
@@ -236,16 +260,20 @@ object CameraModuleExtension {
             isFixedBtnPressed.value = !isFixedBtnPressed.value
             fixedButtonPressedEvent(isFixedBtnPressed.value)
         })
+        val isDisturbed by rememberUpdatedState(newValue = disturbFromEdgeDetector)
+
 
         val fixedBtnImage = if (isFixedBtnPressed.value) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
 
-        Box(
-            modifier.clickable(
-                indication = CustomIndication, // Remove ripple effect
-                interactionSource = MutableInteractionSource(),
-                onClick = onClicked
-            )
+        LaunchedEffect(key1 = isDisturbed) {
+            if (isDisturbed && isFixedBtnPressed.value) isFixedBtnPressed.value = false
+        }
+
+
+        IconButton(
+            modifier = modifier.size(buttonSize),
+            onClick = onClicked,
         ) {
             Icon(
                 modifier = Modifier.size(buttonSize),
@@ -294,7 +322,7 @@ object CameraModuleExtension {
             override fun ContentDrawScope.drawIndication() {
                 drawContent()
                 if (isPressed.value) {
-                    drawCircle(color = Color.Gray.copy(alpha = 0.1f))
+                    drawCircle(color = Color.Gray.copy(alpha = 0.3f))
                 }
             }
         }
@@ -316,7 +344,9 @@ object CameraModuleExtension {
         type: String,  // 속성 값
         modifier: Modifier = Modifier,
         onSelectedItemEvent: (Int) -> Unit,
-        isExpanded: (Boolean) -> Unit
+        isExpanded: (Boolean) -> Unit,
+        defaultButtonSize: Dp = 44.dp,
+        defaultButtonColor: Color = Color(0x80999999)
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
@@ -376,17 +406,17 @@ object CameraModuleExtension {
                 ) {
                     Box(
                         Modifier.background(
-                            color = Color(0x80FAFAFA), shape = RoundedCornerShape(30.dp)
+                            color = defaultButtonColor, shape = RoundedCornerShape(30.dp)
                         )
                     ) {
                         //닫는 버튼
-                        IconButton(modifier = Modifier.heightIn(30.dp),
+                        IconButton(modifier = Modifier.size(defaultButtonSize),
                             onClick = {
                                 closeExpandedWindow()
                             }) {
                             Icon(
                                 painterResource(id = R.drawable.based_circle),
-                                tint = Color.Unspecified,
+                                tint = Color.White,
                                 contentDescription = "background",
                             )
                             Icon(
@@ -428,10 +458,9 @@ object CameraModuleExtension {
             ) {
                 Icon(
                     modifier = Modifier
-                        .widthIn(44.dp)
-                        .heightIn(44.dp),
+                        .size(defaultButtonSize),
                     painter = painterResource(id = R.drawable.based_circle),
-                    tint = Color.Unspecified,
+                    tint = defaultButtonColor,
                     contentDescription = type
                 )
                 Text(
@@ -443,6 +472,47 @@ object CameraModuleExtension {
         }
     }
 
+    @Composable
+    fun NormalButton(
+        modifier: Modifier = Modifier,
+        buttonSize: Dp = 20.dp,
+        buttonName: String,
+        innerIconDrawableId: Int? = null,
+        innerIconDrawableSize: Dp = 10.dp,
+        innerIconColorTint: Color = Color.White,
+        buttonText: String? = null,
+        buttonTextSize: Int = 10,
+        buttonTextColor: Color = Color.White,
+        colorTint: Color = Color(0x80FAFAFA),
+        onClick: () -> Unit
+    ) {
+        IconButton(
+            modifier = modifier.size(buttonSize),
+            onClick = onClick
+        ) {
+            Icon(
+                modifier = modifier
+                    .alpha(0.8f)
+                    .size(buttonSize),
+                painter = painterResource(id = R.drawable.based_circle),
+                tint = colorTint,
+                contentDescription = buttonName
+            )
+            if (buttonText != null)
+                Text(
+                    text = buttonText,
+                    fontSize = buttonTextSize.sp,
+                    color = buttonTextColor
+                )
+            if (innerIconDrawableId != null) Icon(
+                modifier = modifier.size(innerIconDrawableSize),
+                painter = painterResource(
+                    id = innerIconDrawableId
+                ), contentDescription = "$buttonName 아이콘",
+                tint = innerIconColorTint
+            )
+        }
+    }
 
 }
 

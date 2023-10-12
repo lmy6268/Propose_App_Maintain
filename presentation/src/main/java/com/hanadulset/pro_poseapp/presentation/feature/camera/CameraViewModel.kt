@@ -117,10 +117,9 @@ class CameraViewModel @Inject constructor(
                     _poseResultState.value = recommendPoseUseCase(
                         image = image.image!!,
                         rotation = image.imageInfo.rotationDegrees
-                    ).let {
-                        it.toMutableList().apply { add(0, PoseData(-1, -1, -1)) }
-                            .toList() //해제데이터를 넣기 위함.
-                    }
+                    ).toMutableList().apply {
+                        add(0, PoseData(-1, -1, -1))
+                    }.toList()
                 }
             }
             //구도 추천 로직
