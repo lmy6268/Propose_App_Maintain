@@ -1,6 +1,5 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
-import android.view.MotionEvent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -9,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.IndicationInstance
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.InteractionSource
@@ -19,13 +19,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
@@ -38,6 +36,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -49,7 +48,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -117,7 +115,7 @@ object CameraScreenButtons {
             )
             if (buttonText != "") Text(
                 text = buttonText,
-                fontSize = (buttonSize.value.toInt() / 5).sp,
+                fontSize = 10.sp,
                 color = if (buttonState.value.not()) buttonTextColor else Color.Black,
                 fontFamily = pretendardFamily,
                 fontWeight = if (buttonState.value) FontWeight.Bold else FontWeight.Light
@@ -161,7 +159,7 @@ object CameraScreenButtons {
             Text(
                 modifier = Modifier.align(Alignment.Center),
                 text = if (selected) "${buttonValue}X" else buttonValue.toString(),
-                fontSize = 9.sp,
+                fontSize = 10.sp,
                 color = if (selected) Color.Black else Color.White,
                 fontFamily = pretendardFamily,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Light
@@ -184,7 +182,7 @@ object CameraScreenButtons {
         gapBetweenThumbAndTrackEdge: Dp = (buttonSize.width / 9),
     ) {
 
-        val switchON = remember { mutableStateOf(init) }
+        val switchON = rememberSaveable { mutableStateOf(init) }
         val thumbRadius = (buttonSize.height / 2) - gapBetweenThumbAndTrackEdge
         // To move thumb, we need to calculate the position (along x axis)
         val animatePosition = animateFloatAsState(
@@ -253,7 +251,7 @@ object CameraScreenButtons {
         fixedButtonPressedEvent: (Boolean) -> Unit,
         disturbFromEdgeDetector: Boolean
     ) {
-        val isFixedBtnPressed = remember {
+        val isFixedBtnPressed = rememberSaveable {
             mutableStateOf(false)
         }
         val onClicked by rememberUpdatedState(newValue = {
@@ -346,14 +344,13 @@ object CameraScreenButtons {
         onSelectedItemEvent: (Int) -> Unit,
         isExpanded: (Boolean) -> Unit,
         defaultButtonSize: Dp = 44.dp,
-        defaultButtonColor: Color = Color(0x80999999)
+        defaultButtonColor: Color = Color.Black,
+        triggerClose: Boolean,
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
         }
-        val selectedIndexState = remember {
-            mutableIntStateOf(0)
-        }
+        val selectedIndexState = rememberSaveable { mutableIntStateOf(0) }
         val closeExpandedWindow by rememberUpdatedState(newValue = {
             isExpandedState.value = false
             isExpanded(false)
@@ -366,8 +363,10 @@ object CameraScreenButtons {
         val expandableBtnSize = remember {
             mutableStateOf(DpSize(100.dp, 100.dp))
         }
-        val localDensity = LocalDensity.current
 
+
+        //열려 있는 경우 닫는다.
+        if (triggerClose) closeExpandedWindow()
 
         Box(modifier = modifier
             .animateContentSize(
@@ -376,84 +375,74 @@ object CameraScreenButtons {
                     durationMillis = 200, easing = LinearEasing
                 )
             )
-            .apply {
-                if (isExpandedState.value) fillMaxWidth()
-                else widthIn(44.dp)
-            }
             .onGloballyPositioned { coordinates ->
                 coordinates.size.let {
                     expandableBtnSize.value = DpSize(it.width.dp, it.height.dp)
                 }
             }
-            .pointerInteropFilter {
-                //만약 외부 선택시 현재 화면을 닫음.
-                if (it.action == MotionEvent.ACTION_DOWN) {
-                    with(localDensity) {
-                        if (it.x > expandableBtnSize.value.width.toPx() || it.y > expandableBtnSize.value.height.toPx()) {
-                            closeExpandedWindow()
-                            true
-                        } else false
-                    }
-                } else false
 
-            }
         ) {
             if (isExpandedState.value)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .offset(x = 20.dp)
-                ) {
-                    Box(
-                        Modifier.background(
-                            color = defaultButtonColor, shape = RoundedCornerShape(30.dp)
+                Box(
+                    modifier
+                        .wrapContentSize()
+                        .background(
+                            color = defaultButtonColor.copy(alpha = 0.8f),
+                            shape = RoundedCornerShape(30.dp)
                         )
+                ) {
+                    //닫는 버튼
+                    IconButton(modifier = Modifier
+                        .size(defaultButtonSize)
+                        .align(Alignment.CenterStart),
+                        onClick = {
+                            closeExpandedWindow()
+                        }) {
+                        Icon(
+                            painterResource(id = R.drawable.based_circle),
+                            modifier = Modifier.border(
+                                width = 3.dp,
+                                shape = CircleShape,
+                                color = defaultButtonColor.copy(alpha = 0.8f)
+                            ),
+                            tint = Color.White,
+                            contentDescription = "background",
+                        )
+                        Icon(
+                            painterResource(id = R.drawable.close),
+                            contentDescription = "close",
+                        )
+                    }
+                    //선택지 화면
+                    Row(
+                        Modifier
+                            .wrapContentHeight()
+                            .align(Alignment.Center)
+                            .fillMaxWidth(0.9F),
+                        horizontalArrangement = Arrangement.SpaceAround,
                     ) {
-                        //닫는 버튼
-                        IconButton(modifier = Modifier.size(defaultButtonSize),
-                            onClick = {
-                                closeExpandedWindow()
-                            }) {
-                            Icon(
-                                painterResource(id = R.drawable.based_circle),
-                                tint = Color.White,
-                                contentDescription = "background",
-                            )
-                            Icon(
-                                painterResource(id = R.drawable.close),
-                                contentDescription = "close",
-                            )
-                        }
-                        //선택지 화면
-                        Row(
-                            Modifier
-                                .fillMaxWidth(0.9F)
-                                .align(Alignment.Center)
-                                .padding(horizontal = 40.dp),
-                            horizontalArrangement = Arrangement.SpaceAround,
-                        ) {
-                            for (idx in itemList.indices) {
-                                Box(modifier = Modifier
-                                    .wrapContentSize()
-                                    .padding(10.dp)
-                                    .clickable(indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }) {
-                                        selectedIndexState.intValue = idx
-                                        onSelectedItemEvent(idx)
-                                    }) {
-                                    Text(
-                                        text = itemList[idx],
-                                        fontSize = 12.sp,
-                                        fontWeight = if (selectedIndexState.intValue == idx) FontWeight.Bold else FontWeight.Light,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-
+                        for (idx in itemList.indices) {
+                            Box(modifier = Modifier
+                                .wrapContentSize()
+                                .clickable(indication = null,
+                                    interactionSource = remember { MutableInteractionSource() }) {
+                                    selectedIndexState.intValue = idx
+                                    onSelectedItemEvent(idx)
+                                }) {
+                                Text(
+                                    text = itemList[idx],
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selectedIndexState.intValue == idx) FontWeight.Bold else FontWeight.Light,
+                                    textAlign = TextAlign.Center
+                                )
                             }
+
                         }
                     }
                 }
             else IconButton(
+                modifier = modifier,
                 onClick = onBtnClicked
             ) {
                 Icon(
@@ -464,6 +453,7 @@ object CameraScreenButtons {
                     contentDescription = type
                 )
                 Text(
+                    color = Color.White,
                     text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
                     fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
                 )
@@ -487,6 +477,7 @@ object CameraScreenButtons {
         onClick: () -> Unit
     ) {
         IconButton(
+
             modifier = modifier.size(buttonSize),
             onClick = onClick
         ) {
@@ -502,7 +493,9 @@ object CameraScreenButtons {
                 Text(
                     text = buttonText,
                     fontSize = buttonTextSize.sp,
-                    color = buttonTextColor
+                    color = buttonTextColor,
+                    fontFamily = pretendardFamily,
+                    fontWeight = FontWeight.Bold
                 )
             if (innerIconDrawableId != null) Icon(
                 modifier = modifier.size(innerIconDrawableSize),

@@ -2,11 +2,13 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.util.Size
 import androidx.camera.core.AspectRatio
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +34,8 @@ object CameraScreenUpperBar {
         viewRateList: List<ViewRate>,
         onChangeCompSetEvent: (Boolean) -> Unit,
         moveToInfo: () -> Unit,
-        onSelectedViewRate: (Int) -> Unit
+        onSelectedViewRate: (Int) -> Unit,
+        needToCloseViewRateList: Boolean = false,
     ) {
         //변수 선언
         //구도 추천 여부
@@ -44,14 +47,12 @@ object CameraScreenUpperBar {
             recommendCompState.value = recommendCompState.value.not()
             onChangeCompSetEvent(recommendCompState.value)
         })
+        val triggerCloseValue by rememberUpdatedState(newValue = needToCloseViewRateList)
 
 
         //컴포저블 세팅
         Row(
-            modifier = modifier
-                .padding(10.dp)
-                .fillMaxWidth()
-                .height(50.dp),
+            modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceAround
         ) {
@@ -64,7 +65,8 @@ object CameraScreenUpperBar {
                 isExpanded = {
                     isExpandedState.value = it
                 },
-                defaultButtonSize = 44.dp
+                defaultButtonSize = 44.dp,
+                triggerClose = triggerCloseValue
             )
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
@@ -73,8 +75,10 @@ object CameraScreenUpperBar {
                     innerText = "구도 추천",
                     init = recommendCompState.value,
                     positiveColor = Color(0xFF95FA99),
-                    negativeColor = Color(0x80999999),
-                    onChangeState = changeCompState
+                    negativeColor = Color.Black,
+                    onChangeState = {
+                        changeCompState()
+                    }
                 )
 
 
@@ -83,9 +87,9 @@ object CameraScreenUpperBar {
                     innerIconDrawableId = R.drawable.settings,
                     buttonName = "정보",
                     onClick = moveToInfo,
-                    colorTint = Color(0x80999999),
+                    colorTint = Color.Black,
                     buttonSize = 44.dp,
-                    innerIconColorTint = Color.Unspecified,
+                    innerIconColorTint = Color.White,
                     innerIconDrawableSize = 24.dp
                 )
 

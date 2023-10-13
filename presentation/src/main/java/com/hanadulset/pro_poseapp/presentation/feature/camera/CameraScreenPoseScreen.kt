@@ -37,7 +37,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -60,7 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 
-object PoseScreen {
+object CameraScreenPoseScreen {
 
     //추천된 포즈를 스크롤 형식으로 넘겨볼 수 있게 보여주는 화면
     @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
@@ -350,37 +349,4 @@ private fun TestMenuIcon() {
             ).asImageBitmap(), isSelected = false
         ) {}
     }
-}
-
-@Preview(widthDp = 360, heightDp = 360, backgroundColor = 0xFFFFFFFF)
-@Composable
-private fun TestPager() {
-    val clickedItemIndexState = remember { mutableIntStateOf(0) }
-    val poseIdList = listOf(
-        com.hanadulset.pro_poseapp.utils.R.drawable.key_image_0,
-        com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
-        com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2
-    )
-
-//
-//    Column(Modifier.fillMaxSize()) {
-//        PoseScreen.ScrollableRecommendPoseScreen(
-//            modifier = Modifier
-//                .wrapContentSize(),
-//            pageCount = poseIdList.size,
-//            clickedItemIndexState = clickedItemIndexState.intValue,
-//            poseDataList = poseIdList,
-//        )
-//
-//        PoseScreen.RecommendedPoseSelectMenu(
-//            modifier = Modifier.wrapContentSize(),
-//            poseCnt = poseIdList.size,
-//            clickedItemIndexState = clickedItemIndexState.intValue,
-//            horizontalArrangement = Arrangement.spacedBy(10.dp),
-//            verticalAlignment = Alignment.Bottom
-//        ) { index ->
-//            clickedItemIndexState.intValue = index
-//        }
-//    }
-
 }

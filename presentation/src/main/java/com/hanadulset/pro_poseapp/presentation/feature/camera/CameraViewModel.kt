@@ -73,9 +73,8 @@ class CameraViewModel @Inject constructor(
     )
 
 
-    private val _aspectRatIdxState = MutableStateFlow(0)
-    private val _aspectRatState = MutableStateFlow(viewRateList[_aspectRatIdxState.value])
-    val aspectRatState = _aspectRatState.asStateFlow()
+    private val _aspectRatioState = MutableStateFlow(viewRateList[0])
+    val aspectRatioState = _aspectRatioState.asStateFlow()
 
 
     private val _previewState = MutableStateFlow(CameraState(CameraState.CAMERA_INIT_NOTHING))
@@ -148,7 +147,7 @@ class CameraViewModel @Inject constructor(
                 bindCameraUseCase(
                     lifecycleOwner,
                     surfaceProvider,
-                    aspectRatio = _aspectRatState.value.aspectRatioType,
+                    aspectRatio = aspectRatioState.value.aspectRatioType,
                     analyzer = imageAnalyzer,
                     previewRotation = previewRotation
                 )
@@ -178,8 +177,11 @@ class CameraViewModel @Inject constructor(
 
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
 
-    fun changeViewRate(idx: Int) {
-        _aspectRatIdxState.value = idx
+    fun changeViewRate(idx: Int): Boolean {
+        val res = _aspectRatioState.value.aspectRatioType == viewRateList[idx].aspectRatioType
+        if (res.not()) _aspectRatioState.value = viewRateList[idx]
+        return res
+
     }
 
     fun controlFixedScreen(isRequest: Boolean) {
