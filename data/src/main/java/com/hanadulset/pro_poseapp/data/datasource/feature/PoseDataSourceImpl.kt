@@ -39,6 +39,8 @@ import kotlin.math.sqrt
 class PoseDataSourceImpl(private val context: Context, private val modelRunner: ModelRunnerImpl) :
     PoseDataSource {
 
+    private val prevHogResult: String? = null
+
 
 //    //팔레트
 //    private val palette by lazy {
@@ -135,7 +137,6 @@ class PoseDataSourceImpl(private val context: Context, private val modelRunner: 
                 val bestPoseId = res.first
                 cont.resume(
                     poseRanks[bestPoseId]
-
                 )
             }
         }

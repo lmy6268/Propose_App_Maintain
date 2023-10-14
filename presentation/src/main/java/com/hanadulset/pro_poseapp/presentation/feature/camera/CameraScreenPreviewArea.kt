@@ -34,10 +34,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
@@ -67,7 +70,8 @@ object CameraScreenPreviewArea {
         upperBarSize: DpSize,
         pointerOffset: Offset?,
         initCamera: () -> Unit,
-        onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit
+        onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit,
+        triggerNewPoint: (DpSize) -> Unit
     ) {
         val localDensity = LocalDensity.current
 
@@ -82,16 +86,15 @@ object CameraScreenPreviewArea {
         }
 
         val previewViewSize = remember { mutableStateOf(DpSize(0.dp, 0.dp)) }
-        val pointOffset by rememberUpdatedState(newValue = with(localDensity) {
-            pointerOffset?.let {
-                DpOffset(it.x.toDp(), it.y.toDp())
-            }
-        })
+        val pointOffset by rememberUpdatedState(
+            newValue = pointerOffset
+        )
 
 
         //포커스링 위치
         val focusRingState = remember { mutableStateOf<Offset?>(null) }
-        LaunchedEffect(key1 = focusRingState.value) {
+        LaunchedEffect(key1 = focusRingState.value)
+        {
             if (focusRingState.value != null) {
                 delay(400)
                 focusRingState.value = null
@@ -102,14 +105,18 @@ object CameraScreenPreviewArea {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = padding)
-        ) {
+        )
+        {
             //미리보기
             AndroidView(
                 modifier = modifier
                     .animateContentSize { _, _ -> }
                     .onGloballyPositioned { coordinates ->
                         coordinates.size.let {
-                            previewViewSize.value = DpSize(it.width.dp, it.height.dp)
+                            with(localDensity) {
+                                previewViewSize.value = DpSize(it.width.toDp(), it.height.toDp())
+                            }
+
                         }
                     }
                     .pointerInteropFilter { motionEvent ->
@@ -150,9 +157,9 @@ object CameraScreenPreviewArea {
             }
             //구도 추천
             if (compSwitchValue) CameraScreenCompScreen.CompScreen(
-                modifier = modifier
-                    .size(previewViewSize.value),
+                modifier = modifier.size(previewViewSize.value),
                 pointOffSet = pointOffset,
+                triggerPoint = triggerNewPoint
             )
             //엣지 화면
             ShowEdgeImage(
@@ -268,26 +275,27 @@ object CameraScreenPreviewArea {
             mutableFloatStateOf(1F)
         }
 
+        val savedDrawableID = remember {
+            mutableStateOf<Int?>(null)
+        }
+        val updatedDrawablePainter by rememberUpdatedState(
+            newValue = if (drawableId != -1 && savedDrawableID.value != drawableId) {
+                painterResource(id = savedDrawableID.value!!).apply {
+                    savedDrawableID.value = drawableId
+                }
+            } else null
+        )
+
+
         val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
             if (zoom.floatValue * zoomChange in 0.5f..2f) zoom.floatValue *= zoomChange
             val tmp = offset.value + offsetChange
             if (tmp.x in -(boundary.width / 2f)..(boundary.width / 2f) && tmp.y in -(boundary.height / 2f)..(boundary.height / 2f))
                 offset.value += offsetChange
         }
-        val image by rememberUpdatedState(
-            newValue =
-            if (drawableId != -1)
-                BitmapFactory.decodeResource(
-                    resources,
-                    drawableId
-                )
-            else null
-        )
-        if (image != null)
-            GlideImage(
-                imageModel = {
-                    image
-                },
+        if (updatedDrawablePainter != null) {
+            Image(
+                painter = updatedDrawablePainter!!,
                 modifier = Modifier
                     .graphicsLayer(
                         scaleX = zoom.floatValue,
@@ -297,8 +305,10 @@ object CameraScreenPreviewArea {
                     )
                     .transformable(state = transformState)
                     .size(200.dp),
+                contentScale = ContentScale.Fit,
+                contentDescription = ""
             )
-        else Box(
+        } else Box(
             modifier = Modifier
                 .size(200.dp)
         )

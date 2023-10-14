@@ -3,6 +3,7 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -395,8 +397,8 @@ fun PoseSelectionItem(
     val drawableIDSaved = rememberSaveable {
         mutableStateOf<Int?>(null)
     }
-    val localBitmap = rememberSaveable { mutableStateOf<Bitmap?>(null) }
 
+    val stateColor = if (isSelected) Color.Black else Color(0x80999999)
     Column(
         modifier = modifier
             .clickable {
@@ -421,34 +423,19 @@ fun PoseSelectionItem(
         if (drawableId == -1) {
             Box(
                 modifier = Modifier
-                    .background(color = Color(0x80999999))
+                    .background(color = stateColor)
                     .border(1.dp, Color.Black)
                     .fillMaxSize()
             )
         } else {
-            LaunchedEffect(Unit) {
-                if (drawableIDSaved.value != drawableId) {
-                    var bitMap: Bitmap?
-                    BitmapFactory.Options().run {
-                        BitmapFactory.decodeResource(resources, drawableId)
-                        calculateInSampleSize(this)
-                        bitMap = BitmapFactory.decodeResource(resources, drawableId, this)
-                    }
-                    drawableIDSaved.value = drawableId
-                    localBitmap.value = bitMap
-                }
-            }
-
-            GlideImage(
+            Image(
                 modifier = Modifier
-                    .background(color = Color(0x80999999))
+                    .background(color =stateColor)
                     .border(1.dp, Color.Black)
                     .fillMaxSize(),
-                imageOptions = ImageOptions(
-                    contentScale = ContentScale.Fit,
-                ),
-                imageModel = { localBitmap.value },
-//                clearTarget = true
+                painter = painterResource(id = drawableId),
+                contentDescription = "이미지",
+                contentScale = ContentScale.Fit
             )
         }
 

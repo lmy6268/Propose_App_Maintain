@@ -2,9 +2,11 @@ package com.hanadulset.pro_poseapp.data.repository
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.Image
 import android.media.MediaActionSound
 import android.net.Uri
 import android.util.Log
+import android.util.Size
 import androidx.annotation.OptIn
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -46,6 +48,7 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         aspectRatio: Int,
         previewRotation: Int,
         analyzer: ImageAnalysis.Analyzer,
+
 
         ) = cameraDataSource.initCamera(
         lifecycleOwner, surfaceProvider, aspectRatio, previewRotation, analyzer
@@ -107,15 +110,9 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         cameraDataSource.unbindCameraResources()
 
 
-    override suspend fun trackingXYPoint(
-        inputFrame: ImageProxy,
-        inputOffset: Pair<Float, Float>,
-        radius: Int
-    ): Pair<Float, Float> = imageProcessDataSourceImpl.trackingXYPoint(
-        inputFrame, inputOffset, radius
-    )
-
-    override fun stopTracking() = imageProcessDataSourceImpl.stopTracking()
+    override suspend fun startToTrack(image: Image): Size =
+//        imageProcessDataSourceImpl.useOpticalFlow()
+        Size(0, 0)
 
 
 }

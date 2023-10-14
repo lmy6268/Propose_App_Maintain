@@ -7,6 +7,8 @@ import android.media.Image
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Size
+import android.util.SizeF
 import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
@@ -15,12 +17,8 @@ import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
-import com.hanadulset.pro_poseapp.utils.DownloadInfo
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
@@ -47,7 +45,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     }
 
 
-    override suspend fun getRecommendCompInfo(image: Image, rotation: Int): Pair<String, Int>? {
+    override suspend fun getRecommendCompInfo(image: Image, rotation: Int): Pair<String, Int> {
         val targetBitmap = imageProcessDataSource.imageToBitmap(image, rotation)
 
 
@@ -63,7 +61,6 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
 
     override fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap =
         imageProcessDataSource.getFixedImage(bitmap = backgroundBitmap).apply {
-//            modelRunnerImpl.runVapNet(backgroundBitmap)
         }
 
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
@@ -111,5 +108,9 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
 
     override suspend fun deleteCapturedImage(uri: Uri): Boolean =
         fileHandleDataSource.deleteCapturedImage(uri)
+
+    override suspend fun updateOffsetPoint(image: Image, targetOffset: SizeF, rotation: Int): SizeF? =
+        imageProcessDataSource.useOpticalFlow(image = image, targetOffset, rotation)
+
 
 }

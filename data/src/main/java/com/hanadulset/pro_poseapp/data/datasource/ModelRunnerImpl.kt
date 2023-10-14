@@ -123,7 +123,7 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
     }
 
 
-    override fun runVapNet(bitmap: Bitmap): Pair<String, Int>? {
+    override fun runVapNet(bitmap: Bitmap): Pair<String, Int> {
         val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
 
         val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
@@ -142,10 +142,13 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
         val threshold = 0.65
         val list = listOf("Left", "Right", "Up", "Down")
 
-        return if (suggestion[0] > threshold) { //조정이 필요한 경우
+        val res = if (suggestion[0] > threshold) { //조정이 필요한 경우
             val idx = adjustment.toList().indexOf(adjustment.max())
             val magOutPut = magnitude[idx]
-           Log.d("test data: ", "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})")
+            Log.d(
+                "test data: ",
+                "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})"
+            )
             when (idx) {
                 in 0..1 -> {
                     val value = (magOutPut.absoluteValue * 100).roundToInt()
@@ -165,8 +168,13 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
             }
 
 
-        } else null
+        } else {
+            Pair("good", 0)
+        }
 
+        Log.d("구도추천 결과:", res.toString())
+
+        return res
     }
 
     fun convert1DTo3D(

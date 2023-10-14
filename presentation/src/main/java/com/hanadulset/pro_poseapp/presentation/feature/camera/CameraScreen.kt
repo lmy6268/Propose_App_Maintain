@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -35,13 +36,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
+import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 
 
 //리컴포지션시 데이터가 손실되는 문제를 해결하기 위한, 전역변수
-var savedData = 0
-var saveRecentlyPoses = arrayListOf<Int>()
 
-@OptIn(ExperimentalComposeUiApi::class)
+
 @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun Screen(
@@ -85,10 +85,12 @@ fun Screen(
         contentAlignment = Alignment.Center
     ) {
         val galleryImageUri by cameraViewModel.capturedBitmapState.collectAsStateWithLifecycle()
-        val upperBarSize = remember { mutableStateOf<DpSize>(DpSize(0.dp, 0.dp)) }
+        val upperBarSize = remember { mutableStateOf(DpSize(0.dp, 0.dp)) }
         val previewAreaSize = remember {
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
+        val compPointOffset by cameraViewModel.pointOffsetState.collectAsStateWithLifecycle()
+
         val edgeImageState by cameraViewModel.fixedScreenState.collectAsStateWithLifecycle()
 
         val showPoseListUnderBarState = rememberSaveable { mutableStateOf(false) }
@@ -122,11 +124,16 @@ fun Screen(
 
         val shutterEvent = remember {
             {
-//                cameraViewModel.getPhoto(
-//                    EventLog(
-//
-//                    )
-//                )
+                cameraViewModel.getPhoto(
+                    EventLog(
+                        eventId = EventLog.EVENT_CAPTURE,
+                        poseID = currentPoseDataList?.get(selectedPoseIndex.intValue)?.poseId ?: -1,
+                        prevRecommendPoses = currentPoseDataList?.let { it.map { poseData -> poseData.poseId } },
+                        timestamp = System.currentTimeMillis().toString(),
+                        0,
+                        ""
+                    )
+                )
             }
         }
 
@@ -156,9 +163,17 @@ fun Screen(
             onFocusEvent = {
                 cameraViewModel.setFocus(it.first, it.second)
             },
-            pointerOffset = null,
+            pointerOffset = compPointOffset,
             edgeImageBitmap = edgeImageState,
-            initCamera = cameraInit
+            initCamera = cameraInit,
+            triggerNewPoint = {
+                cameraViewModel.startToTrack(with(localDensity) {
+                    Size(
+                        it.width.toPx(),
+                        it.height.toPx()
+                    )
+                })
+            }
         )
 
         //상단 버튼
@@ -184,6 +199,7 @@ fun Screen(
             viewRateList = cameraViewModel.getViewRateList(),
             onChangeCompSetEvent = {
                 compState.value = it
+                if (it.not()) cameraViewModel.stopToTrack()
             },
             moveToInfo = onClickSettingBtnEvent,
             onSelectedViewRate = { idx ->

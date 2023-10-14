@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.data.datasource
 
+//import org.opencv.core.Size
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
@@ -8,17 +9,24 @@ import android.graphics.Rect
 import android.graphics.YuvImage
 import android.media.Image
 import android.util.Log
+import android.util.SizeF
 import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ImageProcessDataSource
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.CvType
 import org.opencv.core.Mat
-import org.opencv.core.Size
+import org.opencv.core.MatOfByte
+import org.opencv.core.MatOfFloat
+import org.opencv.core.MatOfPoint
+import org.opencv.core.MatOfPoint2f
+import org.opencv.core.Point
 import org.opencv.imgproc.Imgproc
 import org.opencv.video.TrackerMIL
-import org.opencv.video.TrackerMIL_Params
+import org.opencv.video.Video
 import java.io.ByteArrayOutputStream
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 
 //이미지 처리
@@ -28,7 +36,9 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
     private var startOffset: Pair<Float, Float>? = null
     private var roi: org.opencv.core.Rect? = null
     private var afterFirstFrame = false
-
+    private var prevFrame: Mat? = null
+    private var prevPoint: SizeF? = null
+    private var prevCornerPoint: MatOfPoint2f? = null
 
     override fun getFixedImage(bitmap: Bitmap): Bitmap {
         // No implementation found ~ 에러 해결
@@ -52,7 +62,7 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
         return resMat
     }
 
-    override fun resizeBitmapWithOpenCV(bitmap: Bitmap, size: Size): Bitmap {
+    override fun resizeBitmapWithOpenCV(bitmap: Bitmap, size: org.opencv.core.Size): Bitmap {
         val inputImageMat = Mat(bitmap.width, bitmap.height, CvType.CV_8UC3)
         val outputResizeBitmap =
             Bitmap.createBitmap(size.width.toInt(), size.height.toInt(), Bitmap.Config.ARGB_8888)
@@ -128,7 +138,7 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
         height: Double,
         isScaledResize: Boolean
     ): Bitmap {
-        val size = Size(width, height)
+        val size = org.opencv.core.Size(width, height)
 
         return when (isScaledResize) {
             //스케일 줄이기
@@ -150,48 +160,101 @@ class ImageProcessDataSourceImpl() : ImageProcessDataSource {
         }
 
     }
+    
+    override suspend fun useOpticalFlow(image: Image, targetOffset: SizeF, rotation: Int): SizeF? {
 
-    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
-    override suspend fun trackingXYPoint(
-        inputFrame: ImageProxy, //입력 프레임
-        inputOffset: Pair<Float, Float>, //구도추천 포인트의 Centroid
-        radius: Int //
-    ): Pair<Float, Float> {
-        var isTrackingAvailable = false
-        //트래커 초기화
-        if (tracker == null) tracker = TrackerMIL.create()
-        val input = bitmapToMatWithOpenCV(
-            imageToBitmap(
-                image = inputFrame.image!!,
-                rotation = inputFrame.imageInfo.rotationDegrees
+        //이전 프레임이 없는 경우, 트래킹을 하지 않는다.
+
+        if (prevFrame == null) {
+            val prevBitmap = imageToBitmap(image, rotation)
+
+            prevFrame =
+                bitmapToMatWithOpenCV(prevBitmap)
+            prevPoint = targetOffset
+
+            prevCornerPoint = MatOfPoint().apply {
+                Imgproc.goodFeaturesToTrack(prevFrame, this, 1000, 0.01, 10.0)
+            }.let { goodCorner -> MatOfPoint2f().apply { fromList(goodCorner.toList()) } }
+
+            return targetOffset
+        } //흑백이미지 Matrix
+
+        else {
+            val outputBitmap = imageToBitmap(image, rotation)
+            val outputFrame =
+                bitmapToMatWithOpenCV(outputBitmap) //흑백이미지 Matrix
+
+            val outputState = MatOfByte()
+            val outputErr = MatOfFloat()
+            val outputCornerPoint = MatOfPoint().apply {
+                Imgproc.goodFeaturesToTrack(outputFrame, this, 1000, 0.01, 10.0)
+            }.let { goodCorner -> MatOfPoint2f().apply { fromList(goodCorner.toList()) } }
+
+            Video.calcOpticalFlowPyrLK(
+                prevFrame,
+                outputFrame,
+                prevCornerPoint,
+                outputCornerPoint,
+                outputState,
+                outputErr,
+//                lkParams["winSize"] as org.opencv.core.Size,
+//                lkParams["maxLevel"] as Int,
+//                lkParams["criteria"] as TermCriteria
             )
-        )//입력 프레임
-        if (startOffset == null) startOffset = inputOffset
-        if (roi == null) {
-            roi = org.opencv.core.Rect(
-                (startOffset!!.first - radius.toFloat()).toInt(), //사각형의 왼쪽 상단의 x좌표
-                (startOffset!!.second - radius.toFloat()).toInt(), //사각형의 왼쪽 상단의 y좌표
-                2 * radius, 2 * radius //사각형의 가로, 세로
+            val outputPoint =
+                calculateOffsetDiff(prevCornerPoint!!, outputCornerPoint, targetOffset)
+
+            Log.d(
+                "state array: ",
+                "state : ${outputState.toList()} , output: $outputPoint"
             )
-            tracker!!.init(input, roi!!) //트래커 초기화
-            isTrackingAvailable = true
-            afterFirstFrame = true //첫프레임 끝남을 알림
-        } else if (afterFirstFrame) {
-            isTrackingAvailable = tracker!!.update(input, roi!!) //값 업데이트
+
+            prevFrame = outputFrame //업데이트
+            prevPoint = outputPoint
+            prevCornerPoint = outputCornerPoint
+
+
+            return outputPoint
         }
-        Log.d("트래킹 활성화: ", isTrackingAvailable.toString())
-
-
-        return Pair(
-            (roi!!.x + radius).toFloat(), (roi!!.y + radius).toFloat() //Centroid 값으로 변경
-        )
     }
 
-    override fun stopTracking() {
-        startOffset = null
-        tracker = null
-        roi = null
-        afterFirstFrame = false
+
+    private fun calculateOffsetDiff(
+        prevCornerPoint: MatOfPoint2f,
+        outputCornerPoint: MatOfPoint2f,
+        targetOffset: SizeF
+    ): SizeF {
+        val distanceArr = FloatArray(outputCornerPoint.toList().size)
+
+        for (i in 0 until outputCornerPoint.toList().size) {
+            val outputPoint = outputCornerPoint.toList()[i]
+            distanceArr[i] = sqrt(
+                (outputPoint.x - targetOffset.width).pow(2) + (outputPoint.y - targetOffset.height).pow(
+                    2
+                )
+            ).toFloat()
+        }
+        val index = distanceArr.indices.minBy { distanceArr[it] }
+
+        val prevX = prevCornerPoint.toList()[index].x
+        val prevY = prevCornerPoint.toList()[index].y
+
+        val outPutX = outputCornerPoint.toList()[index].x
+        val outPutY = outputCornerPoint.toList()[index].y
+
+        return targetOffset.let {
+            SizeF(
+                it.width + (outPutX - prevX).toFloat(),
+                it.height + (outPutY - prevY).toFloat()
+            )
+        }
+    }
+
+
+    override fun stopToUseOpticalFlow() {
+        prevFrame = null
+        prevPoint = null
+        prevCornerPoint = null
     }
 
 
