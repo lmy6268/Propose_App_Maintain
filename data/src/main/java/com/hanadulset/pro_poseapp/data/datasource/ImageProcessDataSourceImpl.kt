@@ -10,7 +10,6 @@ import android.graphics.YuvImage
 import android.media.Image
 import android.util.Log
 import android.util.SizeF
-import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ImageProcessDataSource
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
@@ -20,9 +19,7 @@ import org.opencv.core.MatOfByte
 import org.opencv.core.MatOfFloat
 import org.opencv.core.MatOfPoint
 import org.opencv.core.MatOfPoint2f
-import org.opencv.core.Point
 import org.opencv.imgproc.Imgproc
-import org.opencv.video.TrackerMIL
 import org.opencv.video.Video
 import java.io.ByteArrayOutputStream
 import kotlin.math.pow
@@ -30,12 +27,8 @@ import kotlin.math.sqrt
 
 
 //이미지 처리
-class ImageProcessDataSourceImpl() : ImageProcessDataSource {
+class ImageProcessDataSourceImpl : ImageProcessDataSource {
 
-    private var tracker: TrackerMIL? = null
-    private var startOffset: Pair<Float, Float>? = null
-    private var roi: org.opencv.core.Rect? = null
-    private var afterFirstFrame = false
     private var prevFrame: Mat? = null
     private var prevPoint: SizeF? = null
     private var prevCornerPoint: MatOfPoint2f? = null

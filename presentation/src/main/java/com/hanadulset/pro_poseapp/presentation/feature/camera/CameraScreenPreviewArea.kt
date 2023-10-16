@@ -1,12 +1,14 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -25,6 +27,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -34,23 +37,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenPreviewArea.ScrollablePoseScreen
 import com.hanadulset.pro_poseapp.utils.R
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import com.skydoves.landscapist.glide.GlideImage
 import kotlinx.coroutines.delay
 
 object CameraScreenPreviewArea {
@@ -63,6 +64,7 @@ object CameraScreenPreviewArea {
         poseList: List<PoseData>?,
         padding: Dp,
         selectedPoseIndex: Int,
+        isCaptured: Boolean,
         preview: PreviewView,
         edgeImageBitmap: Bitmap?,
         isRecommendCompEnabled: Boolean,
@@ -71,7 +73,8 @@ object CameraScreenPreviewArea {
         pointerOffset: Offset?,
         initCamera: () -> Unit,
         onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit,
-        triggerNewPoint: (DpSize) -> Unit
+        triggerNewPoint: (DpSize) -> Unit,
+        onStopCaptureAnimation: () -> Unit
     ) {
         val localDensity = LocalDensity.current
 
@@ -79,6 +82,8 @@ object CameraScreenPreviewArea {
         val poseIdx by rememberUpdatedState(newValue = selectedPoseIndex)
         val previewView by rememberUpdatedState(newValue = preview)
         val compSwitchValue by rememberUpdatedState(newValue = isRecommendCompEnabled)
+
+        val captureState by rememberUpdatedState(newValue = isCaptured)
 
         //외부로 부터 받은 값이 더이상 변하지 않는 경우
         val upBarSize by remember {
@@ -88,6 +93,12 @@ object CameraScreenPreviewArea {
         val previewViewSize = remember { mutableStateOf(DpSize(0.dp, 0.dp)) }
         val pointOffset by rememberUpdatedState(
             newValue = pointerOffset
+        )
+
+        val flashColor by animateColorAsState(
+            targetValue = if (isCaptured) Color.White else Color.Unspecified,
+            animationSpec = tween(150, 0, easing = LinearEasing),
+            finishedListener = { if (isCaptured) onStopCaptureAnimation() }, label = ""
         )
 
 
@@ -110,6 +121,7 @@ object CameraScreenPreviewArea {
             //미리보기
             AndroidView(
                 modifier = modifier
+
                     .animateContentSize { _, _ -> }
                     .onGloballyPositioned { coordinates ->
                         coordinates.size.let {
@@ -155,6 +167,12 @@ object CameraScreenPreviewArea {
             ) {
 
             }
+            //플래시 화면
+            Box(
+                modifier = modifier
+                    .size(previewViewSize.value)
+                    .background(color = flashColor)
+            )
             //구도 추천
             if (compSwitchValue) CameraScreenCompScreen.CompScreen(
                 modifier = modifier.size(previewViewSize.value),
@@ -163,7 +181,8 @@ object CameraScreenPreviewArea {
             )
             //엣지 화면
             ShowEdgeImage(
-                modifier = modifier.size(previewViewSize.value),
+                modifier = modifier
+                    .size(previewViewSize.value),
                 capturedEdgesBitmap = edgeImageBitmap
             )
             if (poseList != null) {
@@ -174,8 +193,6 @@ object CameraScreenPreviewArea {
                     poseIndex = poseIdx
                 )
             }
-            //포즈 추천
-
             //포커스 위치
             if (focusRingState.value != null)
                 FocusRing(
@@ -253,8 +270,12 @@ object CameraScreenPreviewArea {
             PoseItem(
                 drawableId = poseList[poseIdx].poseDrawableId,
                 boundary = with(localDensity) {
-                    parentSize.toSize()
-                })
+                    parentSize.let {
+                        Size(it.width.toPx(), it.height.toPx())
+                    }
+                },
+                poseSize = 200.dp
+            )
         }
 
 
@@ -263,48 +284,66 @@ object CameraScreenPreviewArea {
     @Composable
     fun PoseItem(
         drawableId: Int,
+        poseSize: Dp,
         boundary: Size,
     ) {
-        val resources = LocalContext.current.resources
-        val offset = remember {
-            mutableStateOf(
-                Offset(50F, 50F)
-            )
-        }
-        val zoom = remember {
-            mutableFloatStateOf(1F)
+        val resizablePoseSize = remember {
+            mutableStateOf(poseSize)
         }
 
-        val savedDrawableID = remember {
-            mutableStateOf<Int?>(null)
-        }
-        val updatedDrawablePainter by rememberUpdatedState(
-            newValue = if (drawableId != -1 && savedDrawableID.value != drawableId) {
-                painterResource(id = savedDrawableID.value!!).apply {
-                    savedDrawableID.value = drawableId
+
+        if (drawableId != -1) {
+
+
+            val offset = rememberSaveable {
+                mutableStateOf(
+                    Pair(0F, 0F)
+                )
+            }
+            val zoom = rememberSaveable {
+                mutableFloatStateOf(1F)
+            }
+            val locDensity = LocalDensity.current
+
+
+            val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
+                if (zoom.floatValue * zoomChange in 0.5f..2f) {
+                    zoom.floatValue *= zoomChange
                 }
-            } else null
-        )
+                val tmp = offset.value.let { Offset(it.first, it.second) } + offsetChange
+                if (tmp.x in 0F..(boundary.width - with(locDensity) {
+                        resizablePoseSize.value.toPx() * zoom.floatValue
+                    })
+                    && tmp.y in 0F..(boundary.height - with(locDensity) {
+                        resizablePoseSize.value.toPx() * zoom.floatValue
+                    })
+                )
+                    offset.value.let { offsetValue ->
+                        val changed = Offset(offsetValue.first, offsetValue.second) + offsetChange
+                        offset.value = changed.let { Pair(it.x, it.y) }
+                    }
+            }
 
+            val painter = rememberAsyncImagePainter(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(drawableId)
+                    .size(with(LocalDensity.current) {
+                        poseSize.toPx().toInt()
+                    }) //현재 버튼의 크기만큼 리사이징한다.
+                    .build()
+            )
 
-        val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
-            if (zoom.floatValue * zoomChange in 0.5f..2f) zoom.floatValue *= zoomChange
-            val tmp = offset.value + offsetChange
-            if (tmp.x in -(boundary.width / 2f)..(boundary.width / 2f) && tmp.y in -(boundary.height / 2f)..(boundary.height / 2f))
-                offset.value += offsetChange
-        }
-        if (updatedDrawablePainter != null) {
             Image(
-                painter = updatedDrawablePainter!!,
+                painter = painter,
                 modifier = Modifier
                     .graphicsLayer(
                         scaleX = zoom.floatValue,
                         scaleY = zoom.floatValue,
-                        translationX = offset.value.x,
-                        translationY = offset.value.y
+                        translationX = offset.value.first,
+                        translationY = offset.value.second
                     )
                     .transformable(state = transformState)
-                    .size(200.dp),
+                    .size(poseSize),
                 contentScale = ContentScale.Fit,
                 contentDescription = ""
             )

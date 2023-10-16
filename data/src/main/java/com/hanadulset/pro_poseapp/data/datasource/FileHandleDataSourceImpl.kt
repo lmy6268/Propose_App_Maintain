@@ -148,10 +148,11 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
                 val imagesDir =
                     Environment.getExternalStoragePublicDirectory("${Environment.DIRECTORY_PICTURES}/ProPose")
                 if (imagesDir.exists()) {
-                    imagesDir.listFiles()?.forEach {
-                        resList.add(ImageResult(it.toUri(), it.lastModified().toString()))
-                        if (isReadAllImage.not()) return resList.toList() //한개의 이미지만 반환
-                    }
+                    imagesDir.listFiles().apply { this?.sortByDescending { it.lastModified() } }
+                        ?.forEach {
+                            resList.add(ImageResult(it.toUri(), it.lastModified().toString()))
+                            if (isReadAllImage.not()) return resList.toList() //한개의 이미지만 반환
+                        }
                 }
             }
         }
@@ -159,7 +160,13 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
     }
 
     override fun deleteCapturedImage(uri: Uri): Boolean {
-        val targetFile = uri.toFile()
+        val path = context.contentResolver.query(uri, null, null, null, null).use { cursor ->
+            cursor!!.moveToNext()
+            val index = cursor.getColumnIndex("_data")
+            cursor.getString(index)
+        }
+        val targetFile = File(path)
+
         return targetFile.delete()
     }
 

@@ -28,7 +28,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
+import androidx.compose.material.ripple.LocalRippleTheme
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material.ripple.RippleTheme
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -66,10 +71,32 @@ import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
 
 object CameraScreenButtons {
-    private val pretendardFamily = FontFamily(
+    val pretendardFamily = FontFamily(
         Font(R.font.pretendard_bold, FontWeight.Bold, FontStyle.Normal),
         Font(R.font.pretendard_light, FontWeight.Light, FontStyle.Normal),
     )
+
+    private object RedRippleTheme : RippleTheme {
+
+        private var defaultColor = Color.White
+        private var alphaColor = Color.Black
+        fun setRippleEffect(
+            defaultColor: Color = Color.Unspecified, alphaColor: Color = Color.Black
+        ) {
+            this.defaultColor = defaultColor
+            this.alphaColor = alphaColor
+        }
+
+        @Composable
+        override fun defaultColor() = RippleTheme.defaultRippleColor(
+            defaultColor, lightTheme = true
+        )
+
+        @Composable
+        override fun rippleAlpha(): RippleAlpha = RippleTheme.defaultRippleAlpha(
+            alphaColor, lightTheme = true
+        )
+    }
 
     @Composable
     fun ToggledButton(
@@ -77,7 +104,7 @@ object CameraScreenButtons {
         buttonSize: Dp = 30.dp,
         initState: Boolean,
         activatedColor: Color = Color(0xFF95FA99),
-        inActivatedColor: Color = Color.Unspecified,
+        inActivatedColor: Color = Color(0x80999999),
         buttonDescription: String = "버튼",
         buttonText: String = "",
         buttonTextColor: Color = Color.White,
@@ -98,32 +125,31 @@ object CameraScreenButtons {
             if (trigger && buttonState.value) buttonState.value = false
         }
 
-
-
-        IconButton(
-            modifier = modifier
-                .size(buttonSize),
-            onClick = onClicked
-        ) {
-            Icon(
-                modifier = modifier
-                    .size(buttonSize)
-                    .alpha(if (buttonState.value.not()) 0.8f else 1f),
-                painter = painterResource(id = iconDrawableId),
-                contentDescription = buttonDescription,
-                tint = if (buttonState.value) activatedColor else inActivatedColor
+        CompositionLocalProvider(LocalRippleTheme provides RedRippleTheme.apply {
+            setRippleEffect(
+                alphaColor = if (buttonState.value) activatedColor else inActivatedColor,
+                defaultColor = Color.Black
             )
-            if (buttonText != "") Text(
-                text = buttonText,
-                fontSize = 10.sp,
-                color = if (buttonState.value.not()) buttonTextColor else Color.Black,
-                fontFamily = pretendardFamily,
-                fontWeight = if (buttonState.value) FontWeight.Bold else FontWeight.Light
-            )
+        }) {
+            IconButton(
+                modifier = modifier.size(buttonSize), onClick = onClicked
+            ) {
+                Icon(
+                    modifier = modifier.size(buttonSize),
+                    painter = painterResource(id = iconDrawableId),
+                    contentDescription = buttonDescription,
+                    tint = if (buttonState.value) activatedColor else inActivatedColor
+                )
+                if (buttonText != "") Text(
+                    text = buttonText,
+                    fontSize = 10.sp,
+                    color = if (buttonState.value.not()) buttonTextColor else Color.Black,
+                    fontFamily = pretendardFamily,
+                    fontWeight = if (buttonState.value) FontWeight.Bold else FontWeight.Light
+                )
 
+            }
         }
-
-
     }
 
     @Composable
@@ -185,13 +211,11 @@ object CameraScreenButtons {
         val switchON = rememberSaveable { mutableStateOf(init) }
         val thumbRadius = (buttonSize.height / 2) - gapBetweenThumbAndTrackEdge
         // To move thumb, we need to calculate the position (along x axis)
-        val animatePosition = animateFloatAsState(
-            targetValue = if (switchON.value)
-                with(LocalDensity.current) { (buttonSize.width - thumbRadius - gapBetweenThumbAndTrackEdge).toPx() }
-            else
-                with(LocalDensity.current) { (thumbRadius + gapBetweenThumbAndTrackEdge).toPx() },
-            label = ""
-        )
+        val animatePosition =
+            animateFloatAsState(targetValue = if (switchON.value) with(LocalDensity.current) { (buttonSize.width - thumbRadius - gapBetweenThumbAndTrackEdge).toPx() }
+            else with(LocalDensity.current) { (thumbRadius + gapBetweenThumbAndTrackEdge).toPx() },
+                label = ""
+            )
 
         Column(
             modifier = modifier,
@@ -205,20 +229,16 @@ object CameraScreenButtons {
                 text = "$innerText ${if (switchON.value) "On" else "Off"}"
             )
             Column {
-                Canvas(
-                    modifier = Modifier
-                        .size(buttonSize)
-                        .scale(scale = scale)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = {
-                                    // This is called when the user taps on the canvas
-                                    switchON.value = !switchON.value
-                                    onChangeState()
-                                }
-                            )
-                        }
-                ) {
+                Canvas(modifier = Modifier
+                    .size(buttonSize)
+                    .scale(scale = scale)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            // This is called when the user taps on the canvas
+                            switchON.value = !switchON.value
+                            onChangeState()
+                        })
+                    }) {
                     // Track
                     drawRoundRect(
                         color = if (switchON.value) positiveColor else negativeColor,
@@ -231,8 +251,7 @@ object CameraScreenButtons {
                         color = if (switchON.value) positiveColor else negativeColor,
                         radius = thumbRadius.toPx(),
                         center = Offset(
-                            x = animatePosition.value,
-                            y = size.height / 2
+                            x = animatePosition.value, y = size.height / 2
                         )
                     )
                 }
@@ -260,26 +279,37 @@ object CameraScreenButtons {
         })
         val isDisturbed by rememberUpdatedState(newValue = disturbFromEdgeDetector)
 
-
         val fixedBtnImage = if (isFixedBtnPressed.value) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
+
+        val activatedColor = Color(0xFF95FA99)
+        val inActivatedColor = Color(0x80999999)
+
+
 
         LaunchedEffect(key1 = isDisturbed) {
             if (isDisturbed && isFixedBtnPressed.value) isFixedBtnPressed.value = false
         }
-
-
-        IconButton(
-            modifier = modifier.size(buttonSize),
-            onClick = onClicked,
-        ) {
-            Icon(
-                modifier = Modifier.size(buttonSize),
-                painter = painterResource(id = fixedBtnImage),
-                tint = Color.Unspecified,
-                contentDescription = "고정버튼"
+        CompositionLocalProvider(LocalRippleTheme provides RedRippleTheme.apply {
+            setRippleEffect(
+                defaultColor = if (isFixedBtnPressed.value) activatedColor
+                else inActivatedColor, alphaColor = Color.Black
             )
+        }) {
+            IconButton(
+                modifier = modifier.size(buttonSize),
+                onClick = onClicked,
+            ) {
+                Icon(
+                    modifier = Modifier.size(buttonSize),
+                    painter = painterResource(id = fixedBtnImage),
+                    tint = Color.Unspecified,
+                    contentDescription = "고정버튼"
+                )
+            }
         }
+
+
     }
 
     @Composable
@@ -297,9 +327,10 @@ object CameraScreenButtons {
 
         Box(
             modifier = modifier.clickable(
-                indication = null, //Ripple 효과 제거
-                interactionSource = interactionSource,
-                onClick = onClickEvent
+                indication = rememberRipple(
+                    color = Color(0xFF999999), bounded = true, radius = buttonSize / 2
+                ), //Ripple 효과 제거
+                interactionSource = interactionSource, onClick = onClickEvent
             )
 
         ) {
@@ -335,7 +366,6 @@ object CameraScreenButtons {
     }
 
     //확장가능한 버튼
-    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     fun ExpandableButton(
         itemList: List<String>, // 내부에 들어갈 값
@@ -355,6 +385,7 @@ object CameraScreenButtons {
             isExpandedState.value = false
             isExpanded(false)
         })
+
         val onBtnClicked by rememberUpdatedState(newValue = {
             isExpandedState.value = true
             isExpanded(true)
@@ -382,79 +413,76 @@ object CameraScreenButtons {
             }
 
         ) {
-            if (isExpandedState.value)
-                Box(
-                    modifier
-                        .wrapContentSize()
-                        .background(
-                            color = defaultButtonColor.copy(alpha = 0.8f),
-                            shape = RoundedCornerShape(30.dp)
-                        )
+            if (isExpandedState.value) Box(
+                modifier
+                    .wrapContentSize()
+                    .background(
+                        color = defaultButtonColor.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(30.dp)
+                    )
+            ) {
+                //닫는 버튼
+                IconButton(modifier = Modifier
+                    .size(defaultButtonSize)
+                    .align(Alignment.CenterStart),
+                    onClick = {
+                        closeExpandedWindow()
+                    }) {
+                    Icon(
+                        painterResource(id = R.drawable.based_circle),
+                        modifier = Modifier.border(
+                            width = 3.dp,
+                            shape = CircleShape,
+                            color = defaultButtonColor.copy(alpha = 0.8f)
+                        ),
+                        tint = Color.White,
+                        contentDescription = "background",
+                    )
+                    Icon(
+                        painterResource(id = R.drawable.close),
+                        contentDescription = "close",
+                    )
+                }
+                //선택지 화면
+                Row(
+                    Modifier
+                        .wrapContentHeight()
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.9F),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    //닫는 버튼
-                    IconButton(modifier = Modifier
-                        .size(defaultButtonSize)
-                        .align(Alignment.CenterStart),
-                        onClick = {
-                            closeExpandedWindow()
-                        }) {
-                        Icon(
-                            painterResource(id = R.drawable.based_circle),
-                            modifier = Modifier.border(
-                                width = 3.dp,
-                                shape = CircleShape,
-                                color = defaultButtonColor.copy(alpha = 0.8f)
-                            ),
-                            tint = Color.White,
-                            contentDescription = "background",
-                        )
-                        Icon(
-                            painterResource(id = R.drawable.close),
-                            contentDescription = "close",
-                        )
-                    }
-                    //선택지 화면
-                    Row(
-                        Modifier
-                            .wrapContentHeight()
-                            .align(Alignment.Center)
-                            .fillMaxWidth(0.9F),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                    ) {
-                        for (idx in itemList.indices) {
-                            Box(modifier = Modifier
-                                .wrapContentSize()
-                                .clickable(indication = null,
-                                    interactionSource = remember { MutableInteractionSource() }) {
-                                    selectedIndexState.intValue = idx
-                                    onSelectedItemEvent(idx)
-                                }) {
-                                Text(
-                                    text = itemList[idx],
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selectedIndexState.intValue == idx) FontWeight.Bold else FontWeight.Light,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-
+                    for (idx in itemList.indices) {
+                        Box(modifier = Modifier
+                            .wrapContentSize()
+                            .clickable(indication = null,
+                                interactionSource = remember { MutableInteractionSource() }) {
+                                selectedIndexState.intValue = idx
+                                onSelectedItemEvent(idx)
+                            }) {
+                            Text(
+                                text = itemList[idx],
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = if (selectedIndexState.intValue == idx) FontWeight.Bold else FontWeight.Light,
+                                textAlign = TextAlign.Center
+                            )
                         }
+
                     }
                 }
+            }
             else IconButton(
                 modifier = modifier,
                 onClick = onBtnClicked
             ) {
                 Icon(
-                    modifier = Modifier
-                        .size(defaultButtonSize),
+                    modifier = Modifier.size(defaultButtonSize),
                     painter = painterResource(id = R.drawable.based_circle),
                     tint = defaultButtonColor,
                     contentDescription = type
                 )
                 Text(
-                    color = Color.White,
-                    text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
+                    color = Color.White, text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
                     fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
                 )
             }
@@ -477,32 +505,27 @@ object CameraScreenButtons {
         onClick: () -> Unit
     ) {
         IconButton(
-
             modifier = modifier.size(buttonSize),
-            onClick = onClick
+            onClick = onClick,
         ) {
             Icon(
                 modifier = modifier
-                    .alpha(0.8f)
                     .size(buttonSize),
                 painter = painterResource(id = R.drawable.based_circle),
                 tint = colorTint,
                 contentDescription = buttonName
             )
-            if (buttonText != null)
-                Text(
-                    text = buttonText,
-                    fontSize = buttonTextSize.sp,
-                    color = buttonTextColor,
-                    fontFamily = pretendardFamily,
-                    fontWeight = FontWeight.Bold
-                )
+            if (buttonText != null) Text(
+                text = buttonText,
+                fontSize = buttonTextSize.sp,
+                color = buttonTextColor,
+                fontFamily = pretendardFamily,
+                fontWeight = FontWeight.Bold
+            )
             if (innerIconDrawableId != null) Icon(
-                modifier = modifier.size(innerIconDrawableSize),
-                painter = painterResource(
+                modifier = modifier.size(innerIconDrawableSize), painter = painterResource(
                     id = innerIconDrawableId
-                ), contentDescription = "$buttonName 아이콘",
-                tint = innerIconColorTint
+                ), contentDescription = "$buttonName 아이콘", tint = innerIconColorTint
             )
         }
     }
@@ -512,29 +535,25 @@ object CameraScreenButtons {
 @Composable
 @Preview
 fun TestSwitch() {
-    SwitchableButton(
-        init = false,
+    SwitchableButton(init = false,
         positiveColor = Color(0x99999999),
         negativeColor = Color(0xFFFFFF00),
         innerText = "구도",
         modifier = Modifier,
         onChangeState = {
 
-        }
-    )
+        })
 }
 
 @Composable
 @Preview
 fun TestToggleBtn() {
-    ToggledButton(
-        modifier = Modifier.sizeIn(10.dp, 10.dp),
+    ToggledButton(modifier = Modifier.sizeIn(10.dp, 10.dp),
         initState = true,
         activatedColor = Color(0xFF95FA99),
         inActivatedColor = Color(0x80999999),
         buttonText = "테스트용",
         onClickEvent = {
 
-        }
-    )
+        })
 }

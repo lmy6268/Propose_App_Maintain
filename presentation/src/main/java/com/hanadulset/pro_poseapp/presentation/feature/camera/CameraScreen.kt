@@ -5,7 +5,14 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.AspectRatio
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -21,7 +28,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
@@ -37,6 +43,10 @@ import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 
 //리컴포지션시 데이터가 손실되는 문제를 해결하기 위한, 전역변수
@@ -79,6 +89,7 @@ fun Screen(
                 )
                 cropImageLauncher.launch(cropOptions)
             }
+
         }
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -90,26 +101,19 @@ fun Screen(
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
         val compPointOffset by cameraViewModel.pointOffsetState.collectAsStateWithLifecycle()
-
         val edgeImageState by cameraViewModel.fixedScreenState.collectAsStateWithLifecycle()
 
         val showPoseListUnderBarState = rememberSaveable { mutableStateOf(false) }
-
-
         val lowerBarSize = remember {
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
-        val needToCloseViewRate = remember {
-            mutableStateOf(false)
-        }
-
-
+        val needToCloseViewRate = remember { mutableStateOf(false) }
         val compStateInit = false
         val compState = rememberSaveable { mutableStateOf(compStateInit) }
         //햔재 전달된 포즈 데이터
         val currentPoseDataList by cameraViewModel.poseResultState.collectAsStateWithLifecycle()
-        val selectedPoseIndex = remember {
-            mutableIntStateOf(0)
+        val selectedPoseIndex = rememberSaveable {
+            mutableIntStateOf(1)
         }
         val getEdgeFromUserImage = remember {
             {
@@ -118,10 +122,13 @@ fun Screen(
                         mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
                     )
                 )
+
             }
         }
+        val captureBtnClickState = remember { mutableStateOf(false) }
 
 
+        //셔터버튼을 눌렀을 때 발생되는 이벤트
         val shutterEvent = remember {
             {
                 cameraViewModel.getPhoto(
@@ -134,6 +141,7 @@ fun Screen(
                         ""
                     )
                 )
+                captureBtnClickState.value = true
             }
         }
 
@@ -141,7 +149,7 @@ fun Screen(
         val recordForEventLog = remember {
             mutableStateOf(null)
         }
-//중간 ( 미리보기, 포즈 추천, 구도 추천 보기 화면 ) 모듈
+        //중간 ( 미리보기, 포즈 추천, 구도 추천 보기 화면 ) 모듈
         CameraScreenPreviewArea.PreviewArea(
             modifier = Modifier
                 .aspectRatio(aspectRatio.aspectRatioSize.let { (it.width.toFloat() / it.height.toFloat()) })
@@ -153,6 +161,7 @@ fun Screen(
                 .align(Alignment.TopCenter)
                 .zIndex(1f)
                 .shadow(elevation = 2.dp, shape = RectangleShape),
+            initCamera = cameraInit,
             padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value.height else 0.dp,
             poseList = currentPoseDataList,
             preview = previewView,
@@ -165,7 +174,6 @@ fun Screen(
             },
             pointerOffset = compPointOffset,
             edgeImageBitmap = edgeImageState,
-            initCamera = cameraInit,
             triggerNewPoint = {
                 cameraViewModel.startToTrack(with(localDensity) {
                     Size(
@@ -173,6 +181,10 @@ fun Screen(
                         it.height.toPx()
                     )
                 })
+            },
+            isCaptured = captureBtnClickState.value,
+            onStopCaptureAnimation = {
+                captureBtnClickState.value = false
             }
         )
 
@@ -204,27 +216,39 @@ fun Screen(
             moveToInfo = onClickSettingBtnEvent,
             onSelectedViewRate = { idx ->
                 if (cameraViewModel.changeViewRate(idx = idx).not()) cameraInit()
+
             },
             compStateInit = compStateInit,
             needToCloseViewRateList = needToCloseViewRate.value
         )
 
-        if (showPoseListUnderBarState.value.not())
-        //하단바 관련 모듈
-            CameraScreenUnderBar.UnderBar(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .onGloballyPositioned { coordinates ->
-                        with(localDensity) {
-                            lowerBarSize.value.let { lowSize ->
-                                if (lowSize.width == 0.dp && lowSize.height == 0.dp)
-                                    lowerBarSize.value = coordinates.size.let {
-                                        DpSize(it.width.toDp(), it.height.toDp())
-                                    }
-                            }
+        AnimatedVisibility(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .onGloballyPositioned { coordinates ->
+                    with(localDensity) {
+                        lowerBarSize.value.let { lowSize ->
+                            if (lowSize.width == 0.dp && lowSize.height == 0.dp)
+                                lowerBarSize.value = coordinates.size.let {
+                                    DpSize(it.width.toDp(), it.height.toDp())
+                                }
                         }
-                    },
+                    }
+                },
+            visible = showPoseListUnderBarState.value.not(),
+            enter = slideInHorizontally(
+                animationSpec = tween(durationMillis = 150, easing = LinearOutSlowInEasing),
+                initialOffsetX = { fullHeight -> -fullHeight }
+            ).plus(fadeIn()),
+            exit = slideOutHorizontally(
+                animationSpec = tween(durationMillis = 250, easing = LinearOutSlowInEasing),
+                targetOffsetX = { fullHeight -> -fullHeight }
+            ).plus(fadeOut())
+        ) {
+            //하단바 관련 모듈
+            CameraScreenUnderBar.UnderBar(
+
                 //따오기 관련 처리
                 onEdgeDetectEvent = {
                     when (it) {
@@ -241,16 +265,11 @@ fun Screen(
                 onShutterClickEvent = shutterEvent,
                 //현재 선택된 인덱스에 대해서 전달하기 위함..
                 //어차피 한쪽 (포즈 추천 화면)은 읽기만 하면된다.
-                onSelectedPoseIndexEvent = { index ->
-                    if (currentPoseDataList != null && currentPoseDataList!!.isNotEmpty()) selectedPoseIndex.intValue =
-                        index
-                },
                 //고정 버튼 클릭시
                 onFixedButtonClickEvent = { isRequest ->
                     cameraViewModel.controlFixedScreen(isRequest)
                 },
                 //썸네일 이미지 설정
-                galleryImageUri = galleryImageUri,
                 //포즈 추천버튼 눌렀을 때
                 onPoseRecommendEvent = {
                     if (currentPoseDataList == null)
@@ -259,32 +278,49 @@ fun Screen(
                     showPoseListUnderBarState.value = true
                 },
                 lowerLayerPaddingBottom = 50.dp,
-                aboveSize = previewAreaSize.value.height + upperBarSize.value.height
+                aboveSize = previewAreaSize.value.height + upperBarSize.value.height,
+                galleryImageUri = galleryImageUri
             )
-        else {
+        }
+        AnimatedVisibility(
+            modifier = Modifier
+                .animateContentSize { _, _ -> }
+                .sizeIn(lowerBarSize.value.width, lowerBarSize.value.height)
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 50.dp),
+            visible = showPoseListUnderBarState.value,
+            enter = slideInHorizontally(
+                animationSpec = tween(durationMillis = 150, easing = LinearOutSlowInEasing),
+                initialOffsetX = { fullHeight -> fullHeight }
+            ).plus(fadeIn()),
+            exit = slideOutHorizontally(
+                animationSpec = tween(durationMillis = 250, easing = LinearOutSlowInEasing),
+                targetOffsetX = { fullHeight -> fullHeight }
+            ).plus(fadeOut())
+        ) {
             //여기에 포즈 리스트를 담은 하단 버튼 배열을 띄워준다.
             ClickPoseBtnUnderBar(
-                modifier = Modifier
-                    .animateContentSize { _, _ -> }
-                    .sizeIn(lowerBarSize.value.width, lowerBarSize.value.height)
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 50.dp),
                 poseList = currentPoseDataList,
                 onRefreshPoseData = {
-                    cameraViewModel.reqPoseRecommend()
-                    selectedPoseIndex.intValue = 0
+                    CoroutineScope(Dispatchers.Main).launch {
+                        cameraViewModel.reqPoseRecommend()
+                        cameraViewModel.poseResultState.collectLatest {
+                            if (it == null) selectedPoseIndex.intValue = 1
+                        }
+                    }
                 },
                 onClickShutterBtn = shutterEvent,
                 onSelectedPoseIndexEvent = {
                     selectedPoseIndex.intValue = it
                 },
+                currentSelectedIdx = selectedPoseIndex.intValue,
                 onClickCloseBtn = {
                     showPoseListUnderBarState.value = showPoseListUnderBarState.value.not()
                 }
             )
-
         }
+
 
     }
 

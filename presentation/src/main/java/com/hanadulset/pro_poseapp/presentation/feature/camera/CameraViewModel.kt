@@ -25,6 +25,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetFocusUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
@@ -57,8 +58,9 @@ class CameraViewModel @Inject constructor(
     private val setFocusUseCase: SetFocusUseCase,
     private val writeUserLogUseCase: WriteUserLogUseCase,
     private val updatePointOffsetUseCase: UpdatePointOffsetUseCase,
+    private val stopPointOffsetUseCase: StopPointOffsetUseCase
 
-    ) : ViewModel() {
+) : ViewModel() {
 
     private val reqFixState = MutableStateFlow(false)// 포즈 추천 요청 on/off
     private val reqPoseState = MutableStateFlow(false)// 포즈 추천 요청 on/off
@@ -247,8 +249,9 @@ class CameraViewModel @Inject constructor(
 
     fun getViewRateList() = viewRateList
 
-    fun reqPoseRecommend() {
+    fun reqPoseRecommend(): Boolean {
         if (reqPoseState.value.not()) reqPoseState.value = true
+        return true
     }
 
 
@@ -261,6 +264,7 @@ class CameraViewModel @Inject constructor(
     fun stopToTrack() {
         _trackingSwitchON.value = false
         _modifiedPointState.value = null
+        stopPointOffsetUseCase()
     }
 
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)

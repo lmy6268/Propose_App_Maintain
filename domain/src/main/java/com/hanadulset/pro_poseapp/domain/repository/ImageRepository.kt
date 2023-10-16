@@ -29,5 +29,6 @@ interface ImageRepository {
     suspend fun deleteCapturedImage(uri: Uri): Boolean
 
     suspend fun updateOffsetPoint(image: Image, targetOffset: SizeF, rotation: Int): SizeF?
+    fun stopPointOffset()
 
 }

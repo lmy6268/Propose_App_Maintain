@@ -109,8 +109,16 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     override suspend fun deleteCapturedImage(uri: Uri): Boolean =
         fileHandleDataSource.deleteCapturedImage(uri)
 
-    override suspend fun updateOffsetPoint(image: Image, targetOffset: SizeF, rotation: Int): SizeF? =
+    override suspend fun updateOffsetPoint(
+        image: Image,
+        targetOffset: SizeF,
+        rotation: Int
+    ): SizeF? =
         imageProcessDataSource.useOpticalFlow(image = image, targetOffset, rotation)
+
+    override fun stopPointOffset() {
+        imageProcessDataSource.stopToUseOpticalFlow()
+    }
 
 
 }

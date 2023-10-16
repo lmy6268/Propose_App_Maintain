@@ -4,6 +4,17 @@ import android.Manifest
 import android.app.Activity
 import android.os.Build
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
@@ -12,6 +23,8 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -38,6 +51,8 @@ import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceView
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 object MainScreen {
     enum class Page {
@@ -313,33 +328,70 @@ object MainScreen {
             composable(
                 route = Page.Cam.name
             ) {
-                Screen(
-                    cameraViewModel,
+
+                AnimatedVisibility(visibleState = MutableTransitionState(initialState = false).apply {
+                    targetState = true
+                }, enter = slideInHorizontally(animationSpec = tween(500)) { -it / 2 },
+                    exit = slideOutHorizontally(animationSpec = tween(500)) { it / 2 }
+                ) {
+                    Screen(
+                        cameraViewModel,
 //                    showBackContinueDialog = {
 //                        activeActivity.finish() //앱 종료
 ////                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
 //                    },
-                    previewView = previewView,
-                    onClickSettingBtnEvent = {
-                        navHostController.navigate(route = Page.Setting.name) {
-                        }
-                    },
-                    onClickGalleryBtn = {
-                        navHostController.navigate(route = Page.Images.name) {}
-                    },
-                    cameraInit = cameraInit,
-                )
+                        previewView = previewView,
+                        onClickSettingBtnEvent = {
+                            navHostController.navigate(route = Page.Setting.name) {
+                            }
+                        },
+                        onClickGalleryBtn = {
+                            navHostController.navigate(route = Page.Images.name) {}
+                        },
+                        cameraInit = cameraInit,
+                    )
+                }
             }
 
             //최근 촬영된 이미지들 보여주는 함수
-            composable(route = Page.Images.name) {
+            composable(
+                route = Page.Images.name,
+
+                ) {
                 val imageList = galleryViewModel.capturedImageState.collectAsState()
+
+                LaunchedEffect(Unit) {
+                    galleryViewModel.loadImages()
+                }
+                val coroutineScope = rememberCoroutineScope()
+
                 if (imageList.value != null) {
-                    GalleryScreen.GalleryScreen(
-                        imageList = imageList.value!!,
-                        onLoadImages = { galleryViewModel.loadImages() },
-                        onDeleteImage = { index -> galleryViewModel.deleteImage(index) }
-                    )
+                    AnimatedVisibility(visibleState = MutableTransitionState(
+                        initialState = false
+                    ).apply { targetState = true },
+                        enter = slideInHorizontally(animationSpec = tween(500)) { it / 2 },
+                        exit = slideOutHorizontally(animationSpec = tween(500)) { - it / 2 }
+                    ) {
+                        GalleryScreen.GalleryScreen(
+                            modifier = Modifier.fillMaxSize(),
+                            imageList = imageList.value!!,
+                            onLoadImages = { galleryViewModel.loadImages() },
+                            onDeleteImage = { index, func ->
+                                coroutineScope.launch {
+                                    galleryViewModel.deleteImage(index)
+                                    galleryViewModel.deleteCompleteState.collectLatest {
+                                        if (it!!) func()
+                                    }
+                                }
+
+                            },
+                            onBackPressed = {
+                                navHostController.navigateUp()
+                            }
+                        )
+                    }
+
+
                 }
             }
 
