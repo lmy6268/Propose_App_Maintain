@@ -113,6 +113,8 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         downloadList.addAll(needToDownload.toList())
 
 
+
+
         //검증 결과를 응답으로 전달
         return@withContext CheckResponse(
             needToDownload = needToDownload.isNotEmpty(),
@@ -165,6 +167,8 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                     .defaultBucket(BuildConfig.BUCKET_ID) //버킷 이름
                     .s3Client(s3Client).build()
 
+
+            //처음과 끝만 데이터 받게됨,..
             val dataFlow = callbackFlow {
                 downloadList.forEachIndexed { index, fileName ->
                     val targetFile = File(applicationContext.dataDir.absolutePath, fileName)

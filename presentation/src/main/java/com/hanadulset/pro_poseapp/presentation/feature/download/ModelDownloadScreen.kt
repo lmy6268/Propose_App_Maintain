@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Surface
@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -87,12 +88,12 @@ object ModelDownloadScreen {
     //모델 다운로드가 진행될 화면
     @Composable
     fun ModelDownloadRequestScreen(
-        prepareServiceViewModel: PrepareServiceViewModel,
+        isCheck: CheckResponse?,
         moveToLoading: () -> Unit,
         moveToDownloadProgress: (Int) -> Unit
     ) {
         val context = LocalContext.current
-        val checkState by prepareServiceViewModel.checkDownloadState.collectAsState()
+        val checkState by rememberUpdatedState(newValue = isCheck)
 
         if (checkState != null)
             Box(
@@ -101,9 +102,11 @@ object ModelDownloadScreen {
             ) {
                 val toLoadingPage by rememberUpdatedState(newValue = moveToLoading)
                 val toDownloadProgress by rememberUpdatedState(newValue = moveToDownloadProgress)
+
                 CustomDialog.DownloadAlertDialog(
-                    isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD || checkState!!.downloadType == CheckResponse.TYPE_ERROR,
-                    modifier = Modifier.align(Alignment.BottomCenter),
+                    isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
+                            || checkState!!.downloadType == CheckResponse.TYPE_ERROR,
+                    modifier = Modifier.fillMaxWidth(),
                     totalSize = checkState!!.totalSize,
                     onDismissRequest = {
                         if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD || checkState!!.downloadType == CheckResponse.TYPE_ERROR
@@ -115,16 +118,6 @@ object ModelDownloadScreen {
                     }
                 )
             }
-
-
-
-
-        DisposableEffect(Unit)
-        {
-            onDispose {
-                prepareServiceViewModel.clearStates()
-            }
-        }
 
 
     }
@@ -143,6 +136,8 @@ object ModelDownloadScreen {
         val context = LocalContext.current
         val onDownloading = if (isDownload == null || isDownload) "다운로드" else "업데이트"
         val stopDownload = if (isDownload == null || isDownload) "앱 종료" else "다음에 받기"
+        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
 
         if (data != null) {
@@ -155,79 +150,83 @@ object ModelDownloadScreen {
                 }
 
             } else
-                Surface(
-                    modifier = Modifier
-                        .width(270.dp)
-                        .wrapContentHeight(),
-                    shape = RoundedCornerShape(32.dp),
-                ) {
-                    Column(
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Surface(
                         modifier = Modifier
-                            .padding(20.dp)
-                            .fillMaxWidth()
+                            .sizeIn(screenHeight / 3)
+                            .align(Alignment.Center),
+                        shape = RoundedCornerShape(32.dp),
                     ) {
-                        Text(
-                            text = "리소스 $onDownloading", style = mainStyle
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Text(
-                            text = "리소스 $onDownloading 중... ( ${data!!.currentFileIndex + 1} / ${data!!.totalFileCnt})",
-                            style = subStyle
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        CustomLinearProgressBar(
+                        Column(
                             modifier = Modifier
-                                .width(245.dp)
-                                .height(15.dp)
-                                .align(Alignment.CenterHorizontally),
-                            progress = data!!.let {
-                                ((it.currentBytes / 1e+6) / (it.totalBytes / 1e+6)).toFloat()
-                            },
-
-                            )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Text(
-                            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End,
-                            text =
-                            data!!.let {
-                                val byteC = (it.currentBytes / 1e+6).roundToLong()
-                                val byteT = (it.totalBytes / 1e+6).roundToLong()
-                                "$byteC MB / $byteT MB"
-                            }, style = subStyle
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = Color(0xFFFFAFAF),
-                                    shape = RoundedCornerShape(size = 12.dp)
-                                )
+                                .padding(20.dp)
                                 .fillMaxWidth()
-                                .height(50.dp)
-                                .clickable(
-                                    indication = null, //Ripple 효과 제거
-                                    interactionSource = remember {
-                                        MutableInteractionSource()
-                                    }
-                                ) {
-
-                                    onDismissEvent(context)
-                                }
-
                         ) {
                             Text(
-                                text = stopDownload,
-                                modifier = Modifier.align(Alignment.Center), style = TextStyle(
-                                    lineHeight = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    fontFamily = pretendardFamily
-                                )
+                                text = "리소스 $onDownloading", style = mainStyle
                             )
-                        }
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                text = "리소스 $onDownloading 중... ( ${data!!.currentFileIndex + 1} / ${data!!.totalFileCnt})",
+                                style = subStyle
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            CustomLinearProgressBar(
+                                modifier = Modifier
+                                    .width(245.dp)
+                                    .height(15.dp)
+                                    .align(Alignment.CenterHorizontally),
+                                progress = data!!.let {
+                                    ((it.currentBytes / 1e+6) / (it.totalBytes / 1e+6)).toFloat()
+                                },
 
+                                )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Text(
+                                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End,
+                                text =
+                                data!!.let {
+                                    val byteC = (it.currentBytes / 1e+6).roundToLong()
+                                    val byteT = (it.totalBytes / 1e+6).roundToLong()
+                                    "$byteC MB / $byteT MB"
+                                }, style = subStyle
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = Color(0xFFFFAFAF),
+                                        shape = RoundedCornerShape(size = 12.dp)
+                                    )
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .clickable(
+                                        indication = null, //Ripple 효과 제거
+                                        interactionSource = remember {
+                                            MutableInteractionSource()
+                                        }
+                                    ) {
+
+                                        onDismissEvent(context)
+                                    }
+
+                            ) {
+                                Text(
+                                    text = stopDownload,
+                                    modifier = Modifier.align(Alignment.Center), style = TextStyle(
+                                        lineHeight = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        fontFamily = pretendardFamily
+                                    )
+                                )
+                            }
+
+                        }
                     }
                 }
+
+
         }
         DisposableEffect(Unit) {
             onDispose {
@@ -315,4 +314,14 @@ private fun TestRequestModal() {
     )
 
 
+}
+
+@Preview
+@Composable
+private fun TestDialog() {
+    ModelDownloadScreen.ModelDownloadRequestScreen(
+        isCheck = CheckResponse(),
+        moveToLoading = { /*TODO*/ },
+        moveToDownloadProgress = {}
+    )
 }

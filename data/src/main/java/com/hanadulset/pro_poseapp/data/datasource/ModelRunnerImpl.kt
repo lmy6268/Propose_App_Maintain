@@ -21,7 +21,6 @@ import kotlin.math.roundToInt
 
 class ModelRunnerImpl(private val context: Context) : ModelRunner {
 
-    private lateinit var resNetModule: Module
     private lateinit var yoloModule: Module
     private lateinit var bbPredictionModule: Module
     private lateinit var vapNetModule: Module
@@ -48,20 +47,6 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
             file.absolutePath
         }
         return LiteModuleLoader.load(path)
-    }
-
-
-    override fun runResNet(bitmap: Bitmap): FloatArray {
-        val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
-
-        val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
-        val stdArray = arrayOf(0.229F, 0.224F, 0.225F).toFloatArray()
-
-        val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
-            resizedBitmap, meanArray, stdArray
-        )
-        val output = resNetModule.forward(IValue.from(inputTensor))
-        return output.toTensor().dataAsFloatArray
     }
 
     // [Bounding Box Prediction] 을 진행한다.
@@ -114,9 +99,6 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
     //모델을 예열한다.
     override suspend fun preRun() = suspendCoroutine {
         CoroutineScope(Dispatchers.Main).launch {
-            resNetModule = loadModel("model_resnet.ptl")
-//            yoloModule = loadModel("model_yolov5s.ptl")
-//            bbPredictionModule = loadModel("model_bbprediction_dqlite.ptl")
             vapNetModule = loadModel("vapnet.ptl")
             it.resume(true)
         }
@@ -163,7 +145,7 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
                     Pair(
                         "vertical",
                         if (idx == 2) -value else value
-                    ) //UP 인 경우, 좌표상으로는 -이므로, 앞에 -를 붙여준다
+                    ) //UP 인 경우, 좌표상으로는 - 이므로, 앞에 -를 붙여준다
                 }
             }
 

@@ -8,6 +8,7 @@ import android.util.SizeF
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
@@ -28,6 +29,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
+import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
@@ -37,10 +39,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
-import kotlin.system.measureTimeMillis
 
 @ExperimentalGetImage
 @HiltViewModel
@@ -75,7 +78,8 @@ class CameraViewModel @Inject constructor(
     )
 
 
-    private val backgroundDataState = MutableStateFlow(null)
+    private val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
+    val backgroundDataState = _backgroundDataState.asStateFlow()
 
     private val reqCompState = MutableStateFlow(false)
     private val _aspectRatioState = MutableStateFlow(viewRateList[0])
@@ -103,102 +107,23 @@ class CameraViewModel @Inject constructor(
 
     val fixedScreenState = _fixedScreenState.asStateFlow()
     val previewState = _previewState.asStateFlow()
+    private val _bitmapState = MutableStateFlow<Bitmap?>(null)
+    private val _bitmapDemandNow = MutableStateFlow(false)
     private var lastAnalyzedTimeStamp = 0L
 
+
     private var previewSizeState: androidx.compose.ui.geometry.Size? = null
+    private val _poseOnRecommend = MutableStateFlow(false)
 
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer { imageProxy ->
-
-        imageProxy.use { image ->
-
-            if (reqFixState.value) {
-                reqFixState.value = false
-                val res = showFixedScreenUseCase(image)
-                _fixedScreenState.value = res
-            }
-
-            //포즈 선정 로직
-            if (reqPoseState.value) {
-                reqPoseState.value = false
-                _poseResultState.value = null
-                viewModelScope.launch {
-                    _poseResultState.value = recommendPoseUseCase(
-                        image = image.image!!, rotation = image.imageInfo.rotationDegrees
-                    ).toMutableList().apply {
-                        add(0, PoseData(-1, -1, -1))
-                    }.toList()
-                }
-            }
-
-            //첫 구도 트리거 포인트 얻어내기
-
-            if (reqCompState.value) {
-                reqCompState.value = false
-
-                viewModelScope.launch {
-//                    Log.d("추론 시간:", measureTimeMillis {
-                    recommendCompInfoUseCase(
-                        image = image.image!!,
-                        rotation = imageProxy.imageInfo.rotationDegrees
-                    ).let { res ->
-                        _modifiedPointState.value = previewSizeState!!.center.let {
-                            Offset(
-                                it.x * (1f + if (res.first == "horizon") res.second / 100f else 0f),
-                                it.y * (1f + if (res.first == "vertical") res.second / 100f else 0f)
-                            )
-                        }
-
-                    }
-//                    }.toString() + "ms")
-
-                }
-
-
-            }
-
-
-            //구도 추천 로직
-            if (_trackingSwitchON.value && _modifiedPointState.value != null && image.image != null) {
-                //Frame Time마다 읽기
-//                cnt += 1
-//                if (cnt > maxFps) {
-//                    cnt = 0
-                lastAnalyzedTimeStamp = image.imageInfo.timestamp
-                //이미지 사용하기
-                val analyzedImageSize = Size(image.width, image.height)
-
-                viewModelScope.launch {
-                    val res = updatePointOffsetUseCase(
-                        image = image.image!!,
-                        rotation = image.imageInfo.rotationDegrees,
-                        targetOffset = convertAnalyzedOffsetToPreviewOffset(
-                            reversed = true,
-                            offset = SizeF(
-                                _modifiedPointState.value!!.x,
-                                _modifiedPointState.value!!.y
-                            ),
-                            analyzedImageSize = analyzedImageSize
-                        )
-                    )
-                    if (res == null) {
-                        stopToTrack() //만약 에러인 경우 추적을 그만함.
-                    } else {
-                        _modifiedPointState.value = convertAnalyzedOffsetToPreviewOffset(
-                            false,
-                            res,
-                            analyzedImageSize = analyzedImageSize
-                        ).let { Offset(it.width, it.height) }
-                        Log.d("moved Offset: ", _modifiedPointState.value.toString())
-//                        }
-
-                    }
-
-                }
-            }
+        imageProxy.use {
+            _bitmapState.value = ImageUtils.imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
+            trackToNewOffset()
         }
     }
+
 
     private fun convertAnalyzedOffsetToPreviewOffset(
         reversed: Boolean,
@@ -249,16 +174,74 @@ class CameraViewModel @Inject constructor(
 
     fun getViewRateList() = viewRateList
 
-    fun reqPoseRecommend(): Boolean {
-        if (reqPoseState.value.not()) reqPoseState.value = true
-        return true
+    fun reqPoseRecommend() {
+        if (_poseOnRecommend.value.not()) {
+            _poseOnRecommend.value = true //포즈 추천이 시작됨을 알림
+            _poseResultState.value = null
+            if (_bitmapDemandNow.value.not()) _bitmapDemandNow.value = true
+            viewModelScope.launch {
+                _bitmapState.value?.let { bitmap ->
+                    val recommendedData = recommendPoseUseCase(bitmap)
+                    _poseResultState.value =
+                        recommendedData.poseDataList.apply { add(0, PoseData(-1, -1, -1)) }
+                    _backgroundDataState.value =
+                        recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
+                    _poseOnRecommend.value = false//포즈 추천이 끝남을 알림
+                }
+            }
+        }
+    }
+
+
+    private fun trackToNewOffset() {
+        //구도 추천 로직
+        if (_trackingSwitchON.value && _modifiedPointState.value != null) {
+            val backgroundBitmap = _bitmapState.value!!
+            //이미지 사용하기
+            val analyzedImageSize = Size(backgroundBitmap.width, backgroundBitmap.height)
+
+            viewModelScope.launch {
+                val res = updatePointOffsetUseCase(
+                    targetOffset = convertAnalyzedOffsetToPreviewOffset(
+                        reversed = true,
+                        offset = SizeF(
+                            _modifiedPointState.value!!.x,
+                            _modifiedPointState.value!!.y
+                        ),
+                        analyzedImageSize = analyzedImageSize
+                    ),
+                    backgroundBitmap = backgroundBitmap
+                )
+                if (res == null) {
+                    stopToTrack() //만약 에러인 경우 추적을 그만함.
+                } else {
+                    _modifiedPointState.value = convertAnalyzedOffsetToPreviewOffset(
+                        false,
+                        res,
+                        analyzedImageSize = analyzedImageSize
+                    ).let { Offset(it.width, it.height) }
+                }
+            }
+        }
     }
 
 
     fun startToTrack(previewSize: androidx.compose.ui.geometry.Size) {
         previewSizeState = previewSize
         _trackingSwitchON.value = true
-        if (reqCompState.value.not()) reqCompState.value = true
+        viewModelScope.launch {
+            _bitmapState.value?.let { bitmap ->
+                recommendCompInfoUseCase(bitmap).let { res ->
+                    _modifiedPointState.value = previewSizeState!!.center.let {
+                        Offset(
+                            it.x * (1f + if (res.first == "horizon") res.second / 100f else 0f),
+                            it.y * (1f + if (res.first == "vertical") res.second / 100f else 0f)
+                        )
+                    }
+
+                }
+            }
+        }
     }
 
     fun stopToTrack() {
@@ -270,15 +253,24 @@ class CameraViewModel @Inject constructor(
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
 
     fun changeViewRate(idx: Int): Boolean {
-        val res = _aspectRatioState.value.aspectRatioType == viewRateList[idx].aspectRatioType
+        val res =
+            _aspectRatioState.value.aspectRatioType == viewRateList[idx].aspectRatioType
         if (res.not()) _aspectRatioState.value = viewRateList[idx]
         return res
 
     }
 
     fun controlFixedScreen(isRequest: Boolean) {
-        reqFixState.value = isRequest
-        if (isRequest.not()) _fixedScreenState.value = null
+        if (isRequest) {
+            viewModelScope.launch {
+                _bitmapState.value?.let { backgroundBitmap ->
+                    _fixedScreenState.value = showFixedScreenUseCase(
+                        backgroundBitmap = backgroundBitmap
+                    )
+                }
+            }
+        } else _fixedScreenState.value = null
+
     }
 
     fun getPoseFromImage(uri: Uri?) {

@@ -18,6 +18,7 @@ import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.UserDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
+import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import kotlinx.serialization.builtins.serializer
 import javax.inject.Inject
@@ -58,12 +59,11 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override suspend fun takePhoto() =
         cameraDataSource.takePhoto()
             .let { data ->
-                //만약 셔터 소리를 설정해놓은 경우, 셔터음을 켠다.
                 val res: Uri
                 val elapseTime = measureTimeMillis {
                     res = data.use {
                         fileHandleDataSourceImpl.saveImageToGallery(
-                            imageProcessDataSourceImpl.convertCaptureImageToBitmap(
+                            ImageUtils.imageToBitmap(
                                 it.image!!,
                                 it.imageInfo.rotationDegrees
                             )
@@ -103,16 +103,11 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     }
 
     override fun sendUserFeedBackData(eventLogs: ArrayList<EventLog>) {
-        TODO("Not yet implemented")
+
     }
 
     override fun unbindCameraResource() =
         cameraDataSource.unbindCameraResources()
-
-
-    override suspend fun startToTrack(image: Image): Size =
-//        imageProcessDataSourceImpl.useOpticalFlow()
-        Size(0, 0)
 
 
 }

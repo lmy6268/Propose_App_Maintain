@@ -18,9 +18,6 @@ interface ModelRunner {
     //파일명을 이용하여, AI 모델을 로드한다.
     fun loadModel(moduleAssetName: String): Module
 
-    //ResNet
-    fun runResNet(bitmap: Bitmap): FloatArray
-
     //Bounding Box
     fun runBbPrediction(originBitmap: Bitmap, layoutBitmap: Bitmap): DoubleArray
 

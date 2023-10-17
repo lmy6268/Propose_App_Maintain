@@ -49,7 +49,7 @@ object CustomDialog {
         ) {
             Surface(
                 modifier = modifier,
-                shape = RoundedCornerShape(32.dp)
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
             ) {
                 content()
             }
@@ -187,7 +187,7 @@ object CustomDialog {
 
 @Preview(widthDp = 320, heightDp = 300)
 @Composable
-private fun testDownloadAlert() {
+private fun TestDownloadAlert() {
     CustomDialog.DownloadAlertDialog(
         isDownload = false,
         totalSize = 100900200,
@@ -202,7 +202,7 @@ private fun testDownloadAlert() {
 
 @Preview(widthDp = 320, heightDp = 300)
 @Composable
-private fun testImageAlert() {
+private fun TestImageAlert() {
     CustomDialog.ImageDeleteAlertDialog(onConfirmRequest = { }) {
 
     }

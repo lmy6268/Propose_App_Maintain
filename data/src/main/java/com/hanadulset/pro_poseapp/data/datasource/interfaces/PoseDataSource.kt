@@ -3,6 +3,7 @@ package com.hanadulset.pro_poseapp.data.datasource.interfaces
 import android.graphics.Bitmap
 import android.graphics.Rect
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
+import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
 import com.hanadulset.pro_poseapp.utils.pose.YoloPredictResult
 import org.opencv.core.Mat
 import org.opencv.core.Size
@@ -11,7 +12,7 @@ interface PoseDataSource {
 
 
     /**포즈를 추천해준다.*/
-    suspend fun recommendPose(backgroundBitmap: Bitmap): List<PoseData>
+    suspend fun recommendPose(backgroundBitmap: Bitmap): PoseDataResult
 
 
 

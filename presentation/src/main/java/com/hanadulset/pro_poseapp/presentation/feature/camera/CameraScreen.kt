@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,8 +61,12 @@ fun Screen(
     previewView: PreviewView,
     onClickGalleryBtn: () -> Unit,
     onClickSettingBtnEvent: () -> Unit,
-    cameraInit: () -> Unit
+    cameraInit: () -> Unit,
+    onFinishEvent: () -> Unit
 ) {
+    BackHandler(onBack = onFinishEvent)
+
+    val openGalleryEvent by rememberUpdatedState(newValue = onClickGalleryBtn)
     val localDensity = LocalDensity.current
     val aspectRatio by cameraViewModel.aspectRatioState.collectAsStateWithLifecycle()
     val cropImageLauncher =
@@ -75,6 +81,9 @@ fun Screen(
             }
 
         }
+
+    //포즈 추천 결과
+    val backgroundAnalysisResult by cameraViewModel.backgroundDataState.collectAsStateWithLifecycle()
 
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -137,18 +146,15 @@ fun Screen(
                         poseID = currentPoseDataList?.get(selectedPoseIndex.intValue)?.poseId ?: -1,
                         prevRecommendPoses = currentPoseDataList?.let { it.map { poseData -> poseData.poseId } },
                         timestamp = System.currentTimeMillis().toString(),
-                        0,
-                        ""
+                        backgroundId = backgroundAnalysisResult?.first,
+                        backgroundHog = backgroundAnalysisResult?.second?.toString()
                     )
                 )
                 captureBtnClickState.value = true
             }
         }
 
-        //이벤트 로그를 위한 이전 결과값들을 누적하는 변수
-        val recordForEventLog = remember {
-            mutableStateOf(null)
-        }
+
         //중간 ( 미리보기, 포즈 추천, 구도 추천 보기 화면 ) 모듈
         CameraScreenPreviewArea.PreviewArea(
             modifier = Modifier
@@ -158,9 +164,7 @@ fun Screen(
                         previewAreaSize.value = DpSize(it.width.dp, it.height.dp)
                     }
                 }
-                .align(Alignment.TopCenter)
-                .zIndex(1f)
-                .shadow(elevation = 2.dp, shape = RectangleShape),
+                .align(Alignment.TopCenter),
             initCamera = cameraInit,
             padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value.height else 0.dp,
             poseList = currentPoseDataList,
@@ -248,7 +252,6 @@ fun Screen(
         ) {
             //하단바 관련 모듈
             CameraScreenUnderBar.UnderBar(
-
                 //따오기 관련 처리
                 onEdgeDetectEvent = {
                     when (it) {
@@ -260,7 +263,7 @@ fun Screen(
                 onZoomLevelChangeEvent = { zoomLevel ->
                     cameraViewModel.setZoomLevel(zoomLevel)
                 },
-                onGalleryButtonClickEvent = onClickGalleryBtn,
+                onGalleryButtonClickEvent = openGalleryEvent,
                 //촬영 시에 EventLog를 인자로 넘겨줘야한다.
                 onShutterClickEvent = shutterEvent,
                 //현재 선택된 인덱스에 대해서 전달하기 위함..
@@ -274,7 +277,6 @@ fun Screen(
                 onPoseRecommendEvent = {
                     if (currentPoseDataList == null)
                         cameraViewModel.reqPoseRecommend()
-
                     showPoseListUnderBarState.value = true
                 },
                 lowerLayerPaddingBottom = 50.dp,
@@ -317,7 +319,9 @@ fun Screen(
                 currentSelectedIdx = selectedPoseIndex.intValue,
                 onClickCloseBtn = {
                     showPoseListUnderBarState.value = showPoseListUnderBarState.value.not()
-                }
+                },
+                onGalleryButtonClickEvent = openGalleryEvent,
+                galleryImageUri = galleryImageUri
             )
         }
 

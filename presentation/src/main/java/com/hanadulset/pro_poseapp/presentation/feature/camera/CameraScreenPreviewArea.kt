@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenPreviewArea.ScrollablePoseScreen
@@ -83,7 +84,6 @@ object CameraScreenPreviewArea {
         val previewView by rememberUpdatedState(newValue = preview)
         val compSwitchValue by rememberUpdatedState(newValue = isRecommendCompEnabled)
 
-        val captureState by rememberUpdatedState(newValue = isCaptured)
 
         //외부로 부터 받은 값이 더이상 변하지 않는 경우
         val upBarSize by remember {
@@ -95,6 +95,7 @@ object CameraScreenPreviewArea {
             newValue = pointerOffset
         )
 
+        //카메라 촬영 시, 촬영 Effect
         val flashColor by animateColorAsState(
             targetValue = if (isCaptured) Color.White else Color.Unspecified,
             animationSpec = tween(150, 0, easing = LinearEasing),
@@ -121,7 +122,6 @@ object CameraScreenPreviewArea {
             //미리보기
             AndroidView(
                 modifier = modifier
-
                     .animateContentSize { _, _ -> }
                     .onGloballyPositioned { coordinates ->
                         coordinates.size.let {
@@ -173,17 +173,18 @@ object CameraScreenPreviewArea {
                     .size(previewViewSize.value)
                     .background(color = flashColor)
             )
-            //구도 추천
-            if (compSwitchValue) CameraScreenCompScreen.CompScreen(
-                modifier = modifier.size(previewViewSize.value),
-                pointOffSet = pointOffset,
-                triggerPoint = triggerNewPoint
-            )
+
             //엣지 화면
             ShowEdgeImage(
                 modifier = modifier
                     .size(previewViewSize.value),
                 capturedEdgesBitmap = edgeImageBitmap
+            )
+            //구도 추천
+            if (compSwitchValue) CameraScreenCompScreen.CompScreen(
+                modifier = modifier.size(previewViewSize.value),
+                pointOffSet = pointOffset,
+                triggerPoint = triggerNewPoint
             )
             if (poseList != null) {
                 ScrollablePoseScreen(
@@ -196,7 +197,7 @@ object CameraScreenPreviewArea {
             //포커스 위치
             if (focusRingState.value != null)
                 FocusRing(
-                    modifier = modifier,
+                    modifier = modifier.zIndex(2F),
                     duration = 2000L,
                     color = Color.White,
                     pointer = focusRingState.value!!
@@ -213,7 +214,6 @@ object CameraScreenPreviewArea {
         duration: Long,
         modifier: Modifier = Modifier, color: Color, pointer: Offset
     ) {
-
 
         val animationSize = remember {
             AnimationState(150F)
@@ -293,11 +293,9 @@ object CameraScreenPreviewArea {
 
 
         if (drawableId != -1) {
-
-
             val offset = rememberSaveable {
                 mutableStateOf(
-                    Pair(0F, 0F)
+                    Pair(boundary.width / 4, boundary.height / 4)
                 )
             }
             val zoom = rememberSaveable {

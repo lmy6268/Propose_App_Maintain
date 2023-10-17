@@ -21,12 +21,12 @@ android {
 
 dependencies {
     var compose_version = '1.4.3'
-    var nav_version = "2.5.3"
+    var nav_version = "2.7.4"
     var version = "0.31.6-rc"
     implementation project(":domain")
     implementation project(":utils")
     //Navigation
-    implementation 'androidx.navigation:navigation-ui-ktx:2.6.0'
+    implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
 
     //Ar
     implementation 'com.google.ar:core:1.39.0'

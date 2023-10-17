@@ -3,36 +3,52 @@ package com.hanadulset.pro_poseapp.presentation.feature.gallery
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.Card
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +60,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
@@ -52,109 +69,146 @@ import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 
 object GalleryScreen {
     //최근 찍힌 이미지들을 목록으로 보여준다.
-    @OptIn(ExperimentalFoundationApi::class)
+    @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
     @Composable
     fun GalleryScreen(
-        modifier: Modifier = Modifier,
         imageList: List<ImageResult>,
         onLoadImages: () -> Unit,
         onDeleteImage: (Int, () -> Unit) -> Unit,
         onBackPressed: () -> Unit
     ) {
+        //변수 목록
+        val showMenuBarState =
+            remember { mutableStateOf(true) } //삭제 및 공유 버튼 , 갤러리 메뉴 버튼을 볼 수 있도록 하는 뷰보이기
         val updatedImageList by rememberUpdatedState(newValue = imageList) //새로이 가져온 이미지 데이터
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.StartActivityForResult()
+        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val galleryOpenLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+            onResult = {}) //갤러리를 열 때 사용하는 런처
+
+        val horizontalPagerState = rememberPagerState(
+            initialPage = 0,
+            initialPageOffsetFraction = 0F,
+            pageCount = { updatedImageList.size }) //페이저의 상태를 가지고 있는 변수
+        val localDensity = LocalDensity.current
+        val fontSize = 20.sp
+
+        //갤러리 화면 틀 구성
+        Box( //Parent
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
         ) {
 
-        }
-        // Get screen dimensions and density
-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-        val pagerHeight = screenHeight / 2
 
-        Box(modifier = modifier) {
-            Row(
-                Modifier
-                    .align(Alignment.TopStart)
-                    .fillMaxWidth()
-                    .padding(vertical = 40.dp, horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+            //Child 2
+            //사진이 보이는 화면
+            CustomHorizontalPager(
+                pagerState = horizontalPagerState, modifier = Modifier
+                    .fillMaxSize(), pageSpacing = 0.dp
             ) {
-                IconButton(
-                    onClick = {
-                        onBackPressed()
-                    }, modifier = Modifier
-                        .size(30.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.left_arrow),
-                        contentDescription = "뒤로가기"
-                    )
-                }
-
-                Text(modifier = Modifier.clickable {
-                    openGallery(launcher)
-                }, text = "갤러리")
+                ImageContent(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    imgUri = imageList[it].dataUri!!,
+                    imgSize = screenWidth,
+                    onClickEvent = {
+                        showMenuBarState.value = showMenuBarState.value.not()
+                    }
+                )
             }
-            Column(
-                modifier = modifier,
-                verticalArrangement = Arrangement.spacedBy(40.dp, Alignment.CenterVertically)
+            //Child 1
+            //만약 메뉴화면이 존재해야 하는 경우
+            AnimatedVisibility(
+                visible = showMenuBarState.value,
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
-                if (updatedImageList.isEmpty()) {
-                    //이미지 없음을 알려줌
+                //UpperBar -> 상단바 (뒤로가기, 현재 사진 수 ,갤러리 화면)
+                Box(modifier = Modifier.fillMaxSize()) {
 
-                } else {
-                    val horizontalPagerState =
-                        rememberPagerState(initialPage = 0, 0F) { updatedImageList.size }
-
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = "${horizontalPagerState.currentPage + 1}/${updatedImageList.size}",
-                        fontSize = 20.sp,
-                        fontFamily = CameraScreenButtons.pretendardFamily,
-                        fontWeight = FontWeight.Light,
-                        textAlign = TextAlign.Center
-                    )
-                    HorizontalPager(
+                    Row(
                         modifier = Modifier
-                            .animateContentSize { initialValue, targetValue -> }
-                            .height(pagerHeight),
-                        state = horizontalPagerState,
-                        contentPadding = PaddingValues(horizontal = pagerHeight / 6)
-                    ) { idx ->
-                        val currentImgUri = imageList[idx].dataUri!!
-                        ImageContent(
-                            modifier = Modifier.padding(horizontal = 10.dp),
-                            imgUri = currentImgUri,
-                            imgSize = pagerHeight
+                            .background(Color.Black)
+                            .fillMaxWidth()
+                            .padding(top = 40.dp, start = 20.dp, end = 20.dp)
+                            .align(Alignment.TopCenter)
+                            .height(screenHeight / 8),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = {
+                                onBackPressed()
+                            },
+                            modifier = Modifier
+                                .padding(end = 30.dp)
+                                .size(with(localDensity) { fontSize.toDp() })
+
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.left_arrow),
+                                contentDescription = "뒤로가기",
+                                tint = Color.White
+                            )
+                        }
+                        Text(
+                            modifier = Modifier
+                                .wrapContentSize(align = Alignment.Center),
+                            text = "${horizontalPagerState.currentPage + 1}/${updatedImageList.size}",
+                            fontSize = fontSize,
+                            fontFamily = CameraScreenButtons.pretendardFamily,
+                            fontWeight = FontWeight.Light,
+                            color = Color.White
+                        )
+                        Text(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .clickable {
+                                    openGallery(galleryOpenLauncher)
+                                },
+                            text = "갤러리",
+                            fontSize = fontSize,
+                            fontFamily = CameraScreenButtons.pretendardFamily,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            color = Color.White
                         )
                     }
-                    IconButton(
-                        onClick = {
-                            //삭제하시겠습니까? 다이얼로그 보여주기
-                            onDeleteImage(horizontalPagerState.currentPage) {
-                                onLoadImages()
-                            }
 
-                        },
+
+
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(30.dp),
+                            .align(Alignment.BottomCenter)
+                            .height(screenHeight / 5)
+                            .navigationBarsPadding()
+                            .background(Color.Black),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            tint = Color.Black,
-                            painter = painterResource(id = R.drawable.icon_delete),
-                            contentDescription = "지우기"
-                        )
+                        IconButton(
+                            onClick = {
+                                //삭제하시겠습니까? 다이얼로그 보여주기
+                                onDeleteImage(horizontalPagerState.currentPage) {
+                                    onLoadImages()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(30.dp),
+                        ) {
+                            Icon(
+                                tint = Color.White,
+                                painter = painterResource(id = R.drawable.icon_delete),
+                                contentDescription = "지우기"
+                            )
+                        }
                     }
-
-
                 }
-
-
             }
         }
-
     }
 
     private fun openGallery(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
@@ -182,6 +236,7 @@ object GalleryScreen {
         modifier: Modifier,
         imgUri: Uri,
         imgSize: Dp,
+        onClickEvent: () -> Unit,
     ) {
         val imagePainter = rememberAsyncImagePainter(
             model = ImageRequest.Builder(LocalContext.current)
@@ -191,25 +246,100 @@ object GalleryScreen {
                 }) //뷰 사이즈의 크기 만큼 이미지 리사이징
                 .build()
         )
-        Box(
-            modifier = modifier
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            Card {
-                Image(
-                    painter = imagePainter,
-                    contentScale = ContentScale.Fit,
-                    contentDescription = "저장된 이미지",
-                    alignment = Alignment.Center
-                )
-            }
+        Image(
+            modifier = modifier.clickable(
+                indication = null,
+                interactionSource = MutableInteractionSource()
+            ) {
+                onClickEvent()
 
+            },
+            painter = imagePainter,
+            contentScale = ContentScale.Fit,
+            contentDescription = "저장된 이미지",
+            alignment = Alignment.Center
+        )
+    }
 
+    @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+    @Composable
+    fun CustomHorizontalPager(
+        modifier: Modifier = Modifier,
+        pagerState: PagerState,
+        pageSpacing: Dp,
+        content: @Composable (Int) -> Unit
+    ) {
+        val context = LocalContext.current
+        val gestureDetector = remember {
+            GestureDetector(
+                context,
+                object : GestureDetector.OnGestureListener {
+                    override fun onDown(e: MotionEvent): Boolean {
+                        // Handle the ACTION_DOWN event as needed
+                        return true
+                    }
+
+                    override fun onShowPress(p0: MotionEvent) {
+                        Log.d("화면 터치:", "Pressed")
+                    }
+
+                    override fun onSingleTapUp(e: MotionEvent): Boolean {
+                        // Handle the single tap event here
+                        Log.d("화면 터치:", "터치 감지됨")
+                        return true
+                    }
+
+                    override fun onScroll(
+                        p0: MotionEvent?,
+                        p1: MotionEvent,
+                        p2: Float,
+                        p3: Float
+                    ): Boolean {
+                        Log.d("화면 터치:", "스크롤 감지됨 ")
+                        return false
+                    }
+
+                    override fun onLongPress(p0: MotionEvent) {
+                    }
+
+                    override fun onFling(
+                        p0: MotionEvent?,
+                        p1: MotionEvent,
+                        p2: Float,
+                        p3: Float
+                    ): Boolean {
+                        return false
+                    }
+
+                }
+            )
         }
 
+        val interceptTouch = remember { mutableStateOf(false) }
 
+        Box(
+            modifier = modifier.pointerInput(Unit) {
+                detectTransformGestures { _: Offset, _: Offset, _: Float, _: Float ->
+                    interceptTouch.value = true
+                }
+            }
+        ) {
+            HorizontalPager(state = pagerState, pageSpacing = pageSpacing) { page ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInteropFilter { motionEvent ->
+                            gestureDetector.onTouchEvent(motionEvent)
+                            interceptTouch.value
+                        }
+                ) {
+                    content(page)
+                }
+            }
+        }
     }
+
+
 }
 
 
@@ -217,7 +347,6 @@ object GalleryScreen {
 @Composable
 fun Test() {
     GalleryScreen.GalleryScreen(
-        modifier = Modifier.fillMaxSize(),
         imageList = listOf(ImageResult(), ImageResult(), ImageResult(), ImageResult()),
         onLoadImages = { },
         onDeleteImage = { index, func ->

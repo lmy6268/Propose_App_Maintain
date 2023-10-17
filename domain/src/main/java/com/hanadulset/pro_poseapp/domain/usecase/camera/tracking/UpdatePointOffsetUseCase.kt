@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.domain.usecase.camera.tracking
 
+import android.graphics.Bitmap
 import android.media.Image
 import android.util.Size
 import android.util.SizeF
@@ -9,12 +10,11 @@ import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import javax.inject.Inject
 
 class UpdatePointOffsetUseCase @Inject constructor(
-//    private val cameraRepository: CameraRepository,
     private val imageRepository: ImageRepository
 ) {
     suspend operator fun invoke(
-        image: Image, targetOffset: SizeF, rotation: Int
-    ) = imageRepository.updateOffsetPoint(image, targetOffset, rotation)
+        targetOffset: SizeF, backgroundBitmap: Bitmap
+    ) = imageRepository.updateOffsetPoint(backgroundBitmap, targetOffset)
 
 
 }

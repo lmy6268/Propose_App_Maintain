@@ -27,10 +27,6 @@ interface CameraRepository {
     fun sendCameraSound()
     fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long)
 
-    suspend fun startToTrack(
-        image: Image
-    ): Size
-
 
     fun sendUserFeedBackData(eventLogs: ArrayList<EventLog>)
     fun unbindCameraResource(): Boolean

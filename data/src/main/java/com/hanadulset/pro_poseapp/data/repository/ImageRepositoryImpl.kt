@@ -7,7 +7,6 @@ import android.media.Image
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import android.util.Size
 import android.util.SizeF
 import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
@@ -19,6 +18,7 @@ import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
+import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
 
 class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
@@ -26,7 +26,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     }
 
     private val poseDataSourceImpl by lazy {
-        PoseDataSourceImpl(context, modelRunnerImpl)
+        PoseDataSourceImpl(context)
     }
 
     private val imageProcessDataSource by lazy {
@@ -45,31 +45,20 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     }
 
 
-    override suspend fun getRecommendCompInfo(image: Image, rotation: Int): Pair<String, Int> {
-        val targetBitmap = imageProcessDataSource.imageToBitmap(image, rotation)
+    override suspend fun getRecommendCompInfo(backgroundBitmap: Bitmap) =
+        compDataSource.recommendCompData(backgroundBitmap)
 
-
-        return compDataSource.recommendCompData(targetBitmap)
-    }
 
     override suspend fun getRecommendPose(
-        image: Image, rotation: Int
-    ): List<PoseData> = poseDataSourceImpl.recommendPose(
-        imageProcessDataSource.imageToBitmap(image, rotation)
-    )
+        backgroundBitmap: Bitmap
+    ): PoseDataResult =
+        poseDataSourceImpl.recommendPose(backgroundBitmap)
 
 
     override fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap =
         imageProcessDataSource.getFixedImage(bitmap = backgroundBitmap).apply {
         }
 
-    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
-    override fun getFixedScreen(imageProxy: ImageProxy): Bitmap =
-        imageProcessDataSource.getFixedImage(
-            imageProcessDataSource.imageToBitmap(
-                imageProxy.image!!, imageProxy.imageInfo.rotationDegrees
-            )
-        )
 
 
     override suspend fun getLatestImage(): Uri? {
@@ -97,9 +86,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
             MediaStore.Images.Media.getBitmap(context.contentResolver, uri);
         }
         val softwareBitmap = backgroundBitmap.copy(Bitmap.Config.ARGB_8888, false)
-        getFixedScreen(
-            softwareBitmap
-        )
+        getFixedScreen(softwareBitmap)
     } else null
 
     override suspend fun loadAllCapturedImages(): List<ImageResult> =
@@ -110,11 +97,13 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         fileHandleDataSource.deleteCapturedImage(uri)
 
     override suspend fun updateOffsetPoint(
-        image: Image,
-        targetOffset: SizeF,
-        rotation: Int
+        backgroundBitmap: Bitmap,
+        targetOffset: SizeF
     ): SizeF? =
-        imageProcessDataSource.useOpticalFlow(image = image, targetOffset, rotation)
+        imageProcessDataSource.useOpticalFlow(
+            targetOffset = targetOffset,
+            bitmap = backgroundBitmap
+        )
 
     override fun stopPointOffset() {
         imageProcessDataSource.stopToUseOpticalFlow()

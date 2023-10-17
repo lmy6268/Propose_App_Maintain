@@ -8,15 +8,10 @@ import javax.inject.Inject
 
 class ShowFixedScreenUseCase @Inject constructor(
     private val imageRepository: ImageRepository,
-//    private val cameraRepository: CameraRepository
 ) {
     operator fun invoke(
-        imageProxy: ImageProxy
-    ) =
-        imageRepository.getFixedScreen(
-//            cameraRepository.takePhoto(isFixedRequest = true) as Bitmap
-            imageProxy
-        )
+        backgroundBitmap: Bitmap
+    ) = imageRepository.getFixedScreen(backgroundBitmap)
 
 
 }

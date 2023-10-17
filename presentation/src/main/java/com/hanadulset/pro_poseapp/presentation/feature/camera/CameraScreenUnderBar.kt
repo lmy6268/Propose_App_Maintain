@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -299,17 +300,25 @@ fun ZoomButtonRow(
 fun ClickPoseBtnUnderBar(
     modifier: Modifier = Modifier,
     poseList: List<PoseData>?,
+    galleryImageUri: Uri?,
     currentSelectedIdx: Int,
     onRefreshPoseData: () -> Unit,
     onClickShutterBtn: () -> Unit,
+    onGalleryButtonClickEvent: () -> Unit,
     onClickCloseBtn: () -> Unit,
     onSelectedPoseIndexEvent: (Int) -> Unit,
 ) {
+
+    val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
+
+    BackHandler(onBack = onClickCloseBtn) //뒤로가기 버튼을 누르면 이전 화면으로 돌아감.
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+
         //포즈 선택 할 수 있는 Row
         PoseSelectRow(
             modifier = Modifier
@@ -326,15 +335,22 @@ fun ClickPoseBtnUnderBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             //창 닫는 버튼
-            CameraScreenButtons.NormalButton(
-                buttonName = "닫기",
-                onClick = onClickCloseBtn,
-
-                buttonSize = 44.dp,
-                colorTint = Color.Black,
-                innerIconDrawableId = R.drawable.left_arrow,
-                innerIconDrawableSize = 20.dp
+            GalleryImageButton(
+                galleryImageUri = galleryImageState,
+                buttonSize = 60.dp,
+                onClickEvent = onGalleryButtonClickEvent
             )
+
+
+//            CameraScreenButtons.NormalButton(
+//                buttonName = "닫기",
+//                onClick = ,
+//
+//                buttonSize = 44.dp,
+//                colorTint = Color.Black,
+//                innerIconDrawableId = R.drawable.left_arrow,
+//                innerIconDrawableSize = 20.dp
+//            )
 
             //셔터 버튼
             CameraScreenButtons.ShutterButton(
@@ -348,7 +364,7 @@ fun ClickPoseBtnUnderBar(
                 colorTint = Color.Black,
                 innerIconDrawableId = R.drawable.refresh,
                 onClick = onRefreshPoseData,
-                buttonSize = 44.dp
+                buttonSize = 60.dp
             )
         }
     }
@@ -626,6 +642,10 @@ fun PreviewSelector() {
         onClickCloseBtn = {},
         onClickShutterBtn = {},
         onRefreshPoseData = {},
-        currentSelectedIdx = 0
+        currentSelectedIdx = 0,
+        galleryImageUri = null,
+        onGalleryButtonClickEvent = {
+
+        }
     )
 }

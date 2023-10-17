@@ -6,10 +6,9 @@ buildscript {
     ext {
         kotlin_version = '1.4.10'
     }
-
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
-
+        classpath("com.spotify.ruler:ruler-gradle-plugin:1.4.0")
     }
 }// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
@@ -19,6 +18,7 @@ plugins {
     id 'org.jetbrains.kotlin.android' version '1.8.10' apply false
     id 'com.google.dagger.hilt.android' version '2.44' apply false
     id 'com.google.devtools.ksp' version '1.8.10-1.0.9' apply false
+
 }
 Properties properties = new Properties()
 properties.load(project.rootProject.file('local.properties').newDataInputStream())
@@ -39,8 +39,8 @@ subprojects {
                     consumerProguardFiles "consumer-rules.pro"
                     if (project.getName() != "opencv") {
                         for (item in properties.keys()) {
-                            if(item!="sdk.dir")
-                            buildConfigField "String", "${item.toUpperCase()}", properties[item]
+                            if (item != "sdk.dir")
+                                buildConfigField "String", "${item.toUpperCase()}", properties[item]
                         }
                     }
 

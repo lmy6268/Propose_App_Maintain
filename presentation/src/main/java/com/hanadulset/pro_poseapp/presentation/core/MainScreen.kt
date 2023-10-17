@@ -5,6 +5,7 @@ import android.app.Activity
 import android.os.Build
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -18,16 +19,19 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -62,16 +66,12 @@ object MainScreen {
         Cam, //카메라 화면
         Setting,//설정화면
         Splash, //스플래시 화면
-        CloseAsk, //종료 요청
         AppLoading, //앱 로딩화면
         Images,//촬영된 이미지 목록 보여주기
     }
 
     enum class Graph {
-        NotPermissionAllowed,
-        PermissionAllowed,
-        UsingCamera,
-        DownloadProcess
+        NotPermissionAllowed, PermissionAllowed, UsingCamera, DownloadProcess
     }
 
 
@@ -182,8 +182,7 @@ object MainScreen {
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
-                navHostController,
-                Page.Perm.name
+                navHostController, Page.Perm.name
             )
             composable(route = Page.Perm.name) {
                 //여기서부터는 Composable 영역
@@ -193,8 +192,7 @@ object MainScreen {
                         navHostController.navigate(route = Graph.UsingCamera.name)
                     })
             }
-            runAppLoadingScreen(
-                navHostController = navHostController,
+            runAppLoadingScreen(navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
                 cameraInit = cameraInit,
                 previewState = previewState,
@@ -202,18 +200,15 @@ object MainScreen {
                     navHostController.navigate(Graph.DownloadProcess.name) {
                         popUpTo(it) { inclusive = true }
                     }
-                }
-            )
-            relatedWithDownload(
-                routeName = Graph.DownloadProcess.name,
+                })
+            relatedWithDownload(routeName = Graph.DownloadProcess.name,
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navHostController,
                 onDoneDownload = {
                     navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
                         popUpTo(Page.AppLoading.name) {}
                     }
-                }
-            )
+                })
 
         }
     }
@@ -226,8 +221,8 @@ object MainScreen {
     ) {
         navigation(startDestination = Page.ModelDownloadRequest.name, route = routeName) {
             composable(route = Page.ModelDownloadRequest.name) {
-                ModelDownloadScreen.ModelDownloadRequestScreen(
-                    prepareServiceViewModel = prepareServiceViewModel,
+                val checkState by prepareServiceViewModel.checkDownloadState.collectAsState()
+                ModelDownloadScreen.ModelDownloadRequestScreen(isCheck = checkState,
                     moveToLoading = {
                         navHostController.navigate(Page.AppLoading.name) {
                             popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
@@ -238,16 +233,21 @@ object MainScreen {
                         navHostController.navigate(Page.ModelDownloadProgress.name + "?isDownload=$isDownload") {
                             popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
                         }
+                    })
+                DisposableEffect(Unit) {
+                    onDispose {
+                        prepareServiceViewModel.clearStates()
                     }
-                )
+                }
+
             }
-            composable(route = Page.ModelDownloadProgress.name,
-                arguments = listOf(
-                    navArgument("isDownload") {
-                        type = NavType.BoolType
-                        defaultValue = true
-                    }
-                )) {
+            composable(
+                route = Page.ModelDownloadProgress.name,
+                arguments = listOf(navArgument("isDownload") {
+                    type = NavType.BoolType
+                    defaultValue = true
+                })
+            ) {
                 val state by prepareServiceViewModel.downloadInfoState.collectAsStateWithLifecycle()
                 val isDownload = it.arguments?.getBoolean("isDownload")
                 LaunchedEffect(key1 = Unit) {
@@ -255,8 +255,7 @@ object MainScreen {
                 }
 
                 if (state != null) {
-                    ModelDownloadScreen.ModelDownloadProgressScreen(
-                        isDownload = isDownload,
+                    ModelDownloadScreen.ModelDownloadProgressScreen(isDownload = isDownload,
                         downloadResponse = state!!,
                         onDispose = {
                             prepareServiceViewModel.clearStates()
@@ -267,8 +266,7 @@ object MainScreen {
                         },
                         onDoneDownload = {
                             onDoneDownload()
-                        }
-                    )
+                        })
                 }
 
             }
@@ -284,11 +282,9 @@ object MainScreen {
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
-                navHostController,
-                Page.AppLoading.name
+                navHostController, Page.AppLoading.name
             )
-            runAppLoadingScreen(
-                navHostController = navHostController,
+            runAppLoadingScreen(navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
                 previewState = previewState,
                 cameraInit = cameraInit,
@@ -296,18 +292,15 @@ object MainScreen {
                     navHostController.navigate(Graph.DownloadProcess.name) {
                         popUpTo(it) { inclusive = true }
                     }
-                }
-            )
-            relatedWithDownload(
-                routeName = Graph.DownloadProcess.name,
+                })
+            relatedWithDownload(routeName = Graph.DownloadProcess.name,
                 prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navHostController,
                 onDoneDownload = {
                     navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
                         popUpTo(Page.AppLoading.name) {}
                     }
-                }
-            )
+                })
         }
 
 
@@ -328,76 +321,51 @@ object MainScreen {
             composable(
                 route = Page.Cam.name
             ) {
-
-                AnimatedVisibility(visibleState = MutableTransitionState(initialState = false).apply {
-                    targetState = true
-                }, enter = slideInHorizontally(animationSpec = tween(500)) { -it / 2 },
-                    exit = slideOutHorizontally(animationSpec = tween(500)) { it / 2 }
+                val isOnClose = remember { mutableStateOf(false) }
+                val localActivity = LocalContext.current as Activity
+                AnimatedVisibility(
+                    visible = isOnClose.value.not(),
+                   enter = fadeIn(), exit = fadeOut()
                 ) {
-                    Screen(
-                        cameraViewModel,
-//                    showBackContinueDialog = {
-//                        activeActivity.finish() //앱 종료
-////                        navHostController.navigate(route = page.CloseAsk.name) //종료 여부 파악 화면으로 이동
-//                    },
-                        previewView = previewView,
-                        onClickSettingBtnEvent = {
-                            navHostController.navigate(route = Page.Setting.name) {
-                            }
-                        },
-                        onClickGalleryBtn = {
+                    Screen(cameraViewModel,
+                        previewView = previewView, onClickSettingBtnEvent = {
+                            navHostController.navigate(route = Page.Setting.name) {}
+                        }, onClickGalleryBtn = {
                             navHostController.navigate(route = Page.Images.name) {}
-                        },
-                        cameraInit = cameraInit,
-                    )
+                        }, cameraInit = cameraInit, onFinishEvent = {
+                            isOnClose.value = true
+                            localActivity.finish()
+                        })
                 }
             }
 
             //최근 촬영된 이미지들 보여주는 함수
             composable(
                 route = Page.Images.name,
-
-                ) {
+            ) {
                 val imageList = galleryViewModel.capturedImageState.collectAsState()
-
                 LaunchedEffect(Unit) {
                     galleryViewModel.loadImages()
                 }
                 val coroutineScope = rememberCoroutineScope()
-
                 if (imageList.value != null) {
-                    AnimatedVisibility(visibleState = MutableTransitionState(
-                        initialState = false
-                    ).apply { targetState = true },
-                        enter = slideInHorizontally(animationSpec = tween(500)) { it / 2 },
-                        exit = slideOutHorizontally(animationSpec = tween(500)) { - it / 2 }
-                    ) {
-                        GalleryScreen.GalleryScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            imageList = imageList.value!!,
-                            onLoadImages = { galleryViewModel.loadImages() },
-                            onDeleteImage = { index, func ->
-                                coroutineScope.launch {
-                                    galleryViewModel.deleteImage(index)
-                                    galleryViewModel.deleteCompleteState.collectLatest {
-                                        if (it!!) func()
-                                    }
+                    GalleryScreen.GalleryScreen(
+                        imageList = imageList.value!!,
+                        onLoadImages = { galleryViewModel.loadImages() },
+                        onDeleteImage = { index, func ->
+                            coroutineScope.launch {
+                                galleryViewModel.deleteImage(index)
+                                galleryViewModel.deleteCompleteState.collectLatest {
+                                    if (it!!) func()
                                 }
-
-                            },
-                            onBackPressed = {
-                                navHostController.navigateUp()
                             }
-                        )
-                    }
+                        },
+                        onBackPressed = {
+                            navHostController.navigateUp()
+                        })
 
 
                 }
-            }
-
-            //앱 종료 여부 파악 화면
-            composable(route = Page.CloseAsk.name) {
-
             }
             //설정 화면
             composable(route = Page.Setting.name) {
@@ -409,8 +377,7 @@ object MainScreen {
     }
 
     private fun NavGraphBuilder.runSplashScreen(
-        navHostController: NavHostController,
-        nextPage: String
+        navHostController: NavHostController, nextPage: String
     ) {
         val splashPage = Page.Splash.name
         composable(route = splashPage) {
@@ -435,13 +402,10 @@ object MainScreen {
         onMoveToDownload: (String) -> Unit,
     ) {
         val appLoadingPage = Page.AppLoading.name
-        composable(route = appLoadingPage, arguments =
-        listOf(
-            navArgument("afterDownload") {
-                type = NavType.BoolType
-                defaultValue = false
-            }
-        )) {
+        composable(route = appLoadingPage, arguments = listOf(navArgument("afterDownload") {
+            type = NavType.BoolType
+            defaultValue = false
+        })) {
             val afterDownload = it.arguments?.getBoolean("afterDownload")
 
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
@@ -450,8 +414,7 @@ object MainScreen {
                 cameraInit = cameraInit,
                 prepareServiceViewModel = prepareServiceViewModel,
                 onAfterLoadedEvent = {
-                    navHostController.navigate(Graph.UsingCamera.name)
-                    {
+                    navHostController.navigate(Graph.UsingCamera.name) {
                         //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
                         popUpTo(route = appLoadingPage) { inclusive = true }
                     }
