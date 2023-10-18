@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -29,12 +30,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -48,6 +53,7 @@ import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -55,6 +61,7 @@ import kotlinx.coroutines.launch
 //리컴포지션시 데이터가 손실되는 문제를 해결하기 위한, 전역변수
 
 
+@OptIn(ExperimentalComposeUiApi::class)
 @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun Screen(
@@ -105,8 +112,28 @@ fun Screen(
             }
 
         }
+    val needToCloseViewRate = remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
+                when (motionEvent.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        scope.launch {
+                            needToCloseViewRate.value = true
+                            delay(10L)
+                            needToCloseViewRate.value = false
+                        }
+                        false
+                    }
+
+                    else -> {
+                        false
+                    }
+                }
+
+            },
         contentAlignment = Alignment.Center
     ) {
         val galleryImageUri by cameraViewModel.capturedBitmapState.collectAsStateWithLifecycle()
@@ -121,7 +148,7 @@ fun Screen(
         val lowerBarSize = remember {
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
-        val needToCloseViewRate = remember { mutableStateOf(false) }
+
         val compStateInit = false
         val compState = rememberSaveable { mutableStateOf(compStateInit) }
         //햔재 전달된 포즈 데이터

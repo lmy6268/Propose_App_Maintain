@@ -428,9 +428,9 @@ object CameraScreenButtons {
             mutableStateOf(DpSize(100.dp, 100.dp))
         }
 
+        if (triggerClose && isExpandedState.value) closeExpandedWindow()
 
-        //열려 있는 경우 닫는다.
-        if (triggerClose) closeExpandedWindow()
+
 
         Box(modifier = modifier
             .animateContentSize(
@@ -515,8 +515,10 @@ object CameraScreenButtons {
                     contentDescription = type
                 )
                 Text(
-                    color = Color.White, text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
-                    fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
+                    color = Color.White,
+                    text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
+                    fontWeight = FontWeight(FontWeight.Bold.weight),
+                    fontSize = 12.sp
                 )
             }
 
