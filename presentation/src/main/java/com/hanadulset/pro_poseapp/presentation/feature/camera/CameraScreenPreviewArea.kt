@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationState
@@ -50,7 +49,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenPreviewArea.ScrollablePoseScreen
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenPreviewArea.PoseScreen
 import com.hanadulset.pro_poseapp.utils.R
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
@@ -75,7 +74,8 @@ object CameraScreenPreviewArea {
         initCamera: () -> Unit,
         onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit,
         triggerNewPoint: (DpSize) -> Unit,
-        onStopCaptureAnimation: () -> Unit
+        onStopCaptureAnimation: () -> Unit,
+        onStopTrackPoint: () -> Unit
     ) {
         val localDensity = LocalDensity.current
 
@@ -105,6 +105,8 @@ object CameraScreenPreviewArea {
 
         //포커스링 위치
         val focusRingState = remember { mutableStateOf<Offset?>(null) }
+
+        //포커스링 활성화 시점
         LaunchedEffect(key1 = focusRingState.value)
         {
             if (focusRingState.value != null) {
@@ -128,30 +130,28 @@ object CameraScreenPreviewArea {
                             with(localDensity) {
                                 previewViewSize.value = DpSize(it.width.toDp(), it.height.toDp())
                             }
-
                         }
                     }
-                    .pointerInteropFilter { motionEvent ->
+                    .pointerInteropFilter { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
                         when (motionEvent.action) {
                             MotionEvent.ACTION_DOWN -> {
-                                if (poseList == null) {
-                                    focusRingState.value = null
-                                    val untouchableArea =
-                                        with(localDensity) { upBarSize.height.toPx() }
-                                    if (motionEvent.y > untouchableArea) {
-                                        val pointer = Offset(motionEvent.x, motionEvent.y)
-                                        focusRingState.value = pointer.copy()
-                                        onFocusEvent(
-                                            Pair(
-                                                previewView.meteringPointFactory.createPoint(
-                                                    pointer.x,
-                                                    pointer.y
-                                                ), 2000L
-                                            )
+
+                                focusRingState.value = null
+                                val untouchableArea =
+                                    with(localDensity) { upBarSize.height.toPx() }
+                                if (motionEvent.y > untouchableArea) {
+                                    val pointer = Offset(motionEvent.x, motionEvent.y)
+                                    focusRingState.value = pointer.copy()
+                                    onFocusEvent(
+                                        Pair(
+                                            previewView.meteringPointFactory.createPoint(
+                                                pointer.x,
+                                                pointer.y
+                                            ), 2000L
                                         )
-                                    }
-                                    true
-                                } else false
+                                    )
+                                }
+                                true
                             }
 
                             else -> {
@@ -181,13 +181,18 @@ object CameraScreenPreviewArea {
                 capturedEdgesBitmap = edgeImageBitmap
             )
             //구도 추천
-            if (compSwitchValue) CameraScreenCompScreen.CompScreen(
-                modifier = modifier.size(previewViewSize.value),
-                pointOffSet = pointOffset,
-                triggerPoint = triggerNewPoint
-            )
+            if (compSwitchValue)
+                CameraScreenCompScreen.CompScreen(
+                    modifier = modifier.size(previewViewSize.value),
+                    pointOffSet = pointOffset,
+                    triggerPoint = triggerNewPoint,
+                    stopToTracking = onStopTrackPoint
+                )
+
+
+            //포즈 화면 구성
             if (poseList != null) {
-                ScrollablePoseScreen(
+                PoseScreen(
                     modifier.size(previewViewSize.value),
                     parentSize = previewViewSize.value,
                     poseList = poseList,
@@ -198,7 +203,6 @@ object CameraScreenPreviewArea {
             if (focusRingState.value != null)
                 FocusRing(
                     modifier = modifier.zIndex(2F),
-                    duration = 2000L,
                     color = Color.White,
                     pointer = focusRingState.value!!
                 )
@@ -211,8 +215,8 @@ object CameraScreenPreviewArea {
 
     @Composable
     private fun FocusRing(
-        duration: Long,
-        modifier: Modifier = Modifier, color: Color, pointer: Offset
+        modifier: Modifier = Modifier,
+        color: Color, pointer: Offset
     ) {
 
         val animationSize = remember {
@@ -257,7 +261,7 @@ object CameraScreenPreviewArea {
     }
 
     @Composable
-    fun ScrollablePoseScreen(
+    fun PoseScreen(
         modifier: Modifier = Modifier,
         parentSize: DpSize,
         poseList: List<PoseData>,
@@ -358,7 +362,7 @@ object CameraScreenPreviewArea {
 @Composable
 @Preview
 fun Pre() {
-    ScrollablePoseScreen(
+    PoseScreen(
         modifier = Modifier.fillMaxSize(),
         parentSize = DpSize(500.dp, 500.dp),
         poseIndex = 2,

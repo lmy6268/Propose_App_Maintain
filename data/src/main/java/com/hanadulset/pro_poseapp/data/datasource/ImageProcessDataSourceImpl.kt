@@ -100,15 +100,19 @@ class ImageProcessDataSourceImpl : ImageProcessDataSource {
                 outputState,
                 outputErr,
             )
-            val outputPoint =
-                calculateOffsetDiff(prevCornerPoint!!, outputCornerPoint, targetOffset)
 
-            prevFrame = outputFrame //업데이트
-            prevPoint = outputPoint
-            prevCornerPoint = outputCornerPoint
+            //트래킹에 실패하면, outputState.toList().map { it.toInt() }.toSet() <-  이 값이 [0]이 된다.
+            val isFailToTrack = (outputState.toList().map { it.toInt() }.toSet() == setOf(0))
 
 
-            return outputPoint
+            return if (isFailToTrack.not()) {
+                val outputPoint =
+                    calculateOffsetDiff(prevCornerPoint!!, outputCornerPoint, targetOffset)
+                prevFrame = outputFrame //업데이트
+                prevPoint = outputPoint
+                prevCornerPoint = outputCornerPoint
+                outputPoint
+            } else null
         }
     }
 

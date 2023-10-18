@@ -17,8 +17,10 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
@@ -31,11 +33,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -66,6 +67,10 @@ fun Screen(
 ) {
     BackHandler(onBack = onFinishEvent)
 
+    val screenSize =
+        LocalConfiguration.current.let { DpSize(it.screenWidthDp.dp, it.screenHeightDp.dp) }
+
+
     val openGalleryEvent by rememberUpdatedState(newValue = onClickGalleryBtn)
     val localDensity = LocalDensity.current
     val aspectRatio by cameraViewModel.aspectRatioState.collectAsStateWithLifecycle()
@@ -79,8 +84,9 @@ fun Screen(
                 // An error occurred.
                 val exception = result.error
             }
-
         }
+    val stopTrackingPoint = remember { { cameraViewModel.stopToTrack() } }
+
 
     //포즈 추천 결과
     val backgroundAnalysisResult by cameraViewModel.backgroundDataState.collectAsStateWithLifecycle()
@@ -93,8 +99,7 @@ fun Screen(
                         aspectRatioX = aspectRatio.aspectRatioSize.width,
                         aspectRatioY = aspectRatio.aspectRatioSize.height,
                         fixAspectRatio = true,
-
-                        )
+                    )
                 )
                 cropImageLauncher.launch(cropOptions)
             }
@@ -105,7 +110,7 @@ fun Screen(
         contentAlignment = Alignment.Center
     ) {
         val galleryImageUri by cameraViewModel.capturedBitmapState.collectAsStateWithLifecycle()
-        val upperBarSize = remember { mutableStateOf(DpSize(0.dp, 0.dp)) }
+        val upperBarSize = remember { DpSize(screenSize.width, screenSize.height / 9 + 30.dp) }
         val previewAreaSize = remember {
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
@@ -131,13 +136,11 @@ fun Screen(
                         mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
                     )
                 )
-
             }
         }
         val captureBtnClickState = remember { mutableStateOf(false) }
 
-
-        //셔터버튼을 눌렀을 때 발생되는 이벤트
+        //셔터 버튼을 눌렀을 때 발생되는 이벤트
         val shutterEvent = remember {
             {
                 cameraViewModel.getPhoto(
@@ -150,6 +153,7 @@ fun Screen(
                         backgroundHog = backgroundAnalysisResult?.second?.toString()
                     )
                 )
+                stopTrackingPoint() // 구도 추천을 다시 시작함.
                 captureBtnClickState.value = true
             }
         }
@@ -166,11 +170,11 @@ fun Screen(
                 }
                 .align(Alignment.TopCenter),
             initCamera = cameraInit,
-            padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value.height else 0.dp,
+            padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.height else 0.dp,
             poseList = currentPoseDataList,
             preview = previewView,
             selectedPoseIndex = selectedPoseIndex.intValue,
-            upperBarSize = upperBarSize.value,
+            upperBarSize = upperBarSize,
             isRecommendCompEnabled = compState.value,
             loadLastImage = { cameraViewModel.getLastImage() },
             onFocusEvent = {
@@ -186,6 +190,7 @@ fun Screen(
                     )
                 })
             },
+            onStopTrackPoint = stopTrackingPoint,
             isCaptured = captureBtnClickState.value,
             onStopCaptureAnimation = {
                 captureBtnClickState.value = false
@@ -195,32 +200,20 @@ fun Screen(
         //상단 버튼
         CameraScreenUpperBar.UpperBar(
             modifier = Modifier
-                .heightIn(130.dp)
-                .onGloballyPositioned { coordinates ->
-                    with(localDensity) {
-                        upperBarSize.value.let { upSize ->
-                            if (upSize.width == 0.dp && upSize.height == 0.dp)
-                                upperBarSize.value = coordinates.size.let {
-                                    DpSize(it.width.toDp(), it.height.toDp())
-                                }
-                        }
-                    }
-                }
-                .zIndex(2F)
+                .padding(top = 30.dp)
+                .height(screenSize.height / 9)
                 .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .background(Color(0x50FFFFFF)),
-
-
+                .fillMaxWidth(),
             viewRateList = cameraViewModel.getViewRateList(),
             onChangeCompSetEvent = {
                 compState.value = it
-                if (it.not()) cameraViewModel.stopToTrack()
+                if (it.not()) stopTrackingPoint()
             },
             moveToInfo = onClickSettingBtnEvent,
             onSelectedViewRate = { idx ->
+                // 화면 비율을 조절할 때 발생하는 이벤트
                 if (cameraViewModel.changeViewRate(idx = idx).not()) cameraInit()
-
+                stopTrackingPoint()
             },
             compStateInit = compStateInit,
             needToCloseViewRateList = needToCloseViewRate.value
@@ -280,7 +273,6 @@ fun Screen(
                     showPoseListUnderBarState.value = true
                 },
                 lowerLayerPaddingBottom = 50.dp,
-                aboveSize = previewAreaSize.value.height + upperBarSize.value.height,
                 galleryImageUri = galleryImageUri
             )
         }
@@ -324,8 +316,6 @@ fun Screen(
                 galleryImageUri = galleryImageUri
             )
         }
-
-
     }
 
 

@@ -6,6 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+import android.util.Range
 import android.view.OrientationEventListener
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DrawerDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,7 +30,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -36,31 +42,35 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 object CameraScreenCompScreen {
+    const val SHAKE_THRESHOLD_DISTANCE = 80F * 80F // Threshold for check shaking
+
 
     @Composable
     fun CompScreen(
-        modifier: Modifier = Modifier, pointOffSet: Offset?, triggerPoint: (DpSize) -> Unit
+        modifier: Modifier = Modifier,
+        pointOffSet: Offset?,
+        triggerPoint: (DpSize) -> Unit,
+        stopToTracking: () -> Unit = {} //만약 트래커의 Offset이 화면을 벗어나는 경우, 트래킹을 멈춤
     ) {
-        val localDensity = LocalDensity.current
+        val localDensity = LocalDensity.current //현재 밀도
         val horizontalCheckCircleRadius = 60F
+        //구도 추천 화면의 크기
         val compSize = remember {
             mutableStateOf<DpSize?>(null)
         }
-
 
         //현재 구도추천 포인트의 위치  -> 아마 애니메이션 넣어줘야 할 듯
         val pointOffsetNow by rememberUpdatedState(newValue = pointOffSet)
         //구도추천 활성화 여부
         val isPointOn = remember { mutableStateOf(false) }
-        val current = remember {
-            mutableStateOf<Triple<Int, Int, Pair<Int, Float>>?>(null)
-        }
 
         Box(modifier = modifier
             .fillMaxSize()
@@ -74,34 +84,37 @@ object CameraScreenCompScreen {
                 }
             }) {
             if (compSize.value != null) {
-                //구도추천 포인트 표시
-                if (isPointOn.value && pointOffsetNow != null) CompGuidePoint(
-                    areaSize = compSize.value!!,
-                    pointOffSet = pointOffsetNow!!
-                )
-                else {
+                //구도 추천 값이 바뀔 때마다 확인함
+                LaunchedEffect(pointOffsetNow) {
+                    pointOffsetNow?.run {
+                        val comp = with(localDensity) {
+                            compSize.value!!.let {
+                                Size(
+                                    it.width.toPx(), it.height.toPx()
+                                )
+                            }
+                        }
+                        val xRange = Range(0F, comp.width)
+                        val yRange = Range(0F, comp.height)
+                        val isInBoundary = this.x in xRange && this.y in yRange //영역 내에 포인트가 있는지 확인
+                        if (isInBoundary.not()) {
+                            stopToTracking() //구도 포인트를 제거함
+                        }
+                    }
+                }
+
+                //구도 추천 포인트 표시
+                if (isPointOn.value && pointOffsetNow != null) {
+                    CompGuidePoint(
+                        areaSize = compSize.value!!,
+                        pointOffSet = pointOffsetNow!!,
+                    )
+                } else {
                     //흔들림 감지 -> 구도 포인트가 없을 때만, 흔들림을 감지 하기 시작한다.
                     SensorTrigger(onTracking = {
                         isPointOn.value = true
                         triggerPoint(compSize.value!!)
-                    },
-                        onChangeShake = {
-                            current.value = it
-                        }
-                    )
-                    if (current.value != null)
-                        current.value!!.let {
-                            val distance =
-                                sqrt(((it.first * it.first) + (it.second * it.second) + (it.third.first * it.third.first)).toFloat()).toInt()
-                            Text(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(top = 100.dp, start = 20.dp),
-                                text = "now Sensor distance: $distance, Dt: ${it.third.second} ",
-                                fontSize = 10.sp
-                            )
-                        }
-
+                    })
                 }
 
                 //수평계
@@ -127,8 +140,34 @@ object CameraScreenCompScreen {
         areaSize: DpSize,
         pointOffSet: Offset,
         pointColor: Color = Color(0x80FFFFFF),
-        pointRadius: Float = 55F
+        pointRadius: Float = 55F,
     ) {
+        val areaCentroid = LocalDensity.current.run {
+            with(areaSize.center) { Offset(x.toPx(), y.toPx()) }
+        } //화면 중심부의 좌표
+
+        val isMatched = remember {
+            mutableStateOf(false)
+        }
+
+
+        val point by rememberUpdatedState {
+            val distance = with(Pair(areaCentroid, pointOffSet)) {
+                sqrt((first.x - second.x).pow(2) + (first.y - second.y).pow(2))
+            }
+            val catchThreshold = 80F
+            if (distance in 0F..catchThreshold) {
+                //색 변경
+                isMatched.value = true
+                //위치 고정
+                areaCentroid
+            } else {
+                //원래대로 색 되돌리기
+                isMatched.value = false
+                pointOffSet
+            }
+        }
+
 
         Box(
             modifier = modifier.size(areaSize)
@@ -136,9 +175,27 @@ object CameraScreenCompScreen {
             Canvas(
                 modifier = Modifier
             ) {
-                drawCircle(
-                    center = pointOffSet, radius = pointRadius, color = pointColor
+
+                if (isMatched.value.not()) drawCircle(
+                    center = point(),
+                    radius = pointRadius,
+                    color = pointColor,
                 )
+                else {
+                    drawCircle(
+                        center = point(),
+                        radius = pointRadius,
+                        color = Color.Yellow,
+                        style = Stroke(
+                            width = 10F
+                        )
+                    )
+                    drawCircle(
+                        center = point(),
+                        radius = pointRadius,
+                        color = Color(0x80000000),
+                    )
+                }
             }
         }
     }
@@ -146,14 +203,12 @@ object CameraScreenCompScreen {
     @Composable
     fun SensorTrigger(
         onTracking: () -> Unit,
-        onChangeShake: (Triple<Int, Int, Pair<Int, Float>>) -> Unit,
     ) {
         val context = LocalContext.current
 
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
-        val SHAKE_THRESHOLD_DISTANCE = 80F * 80F //Threshold
         val comboNonShakingDTThreshold = 0.4F //Dt
 
         val timestamp = remember {
@@ -163,9 +218,6 @@ object CameraScreenCompScreen {
             mutableStateOf(true)
         }
 
-        val value = remember {
-            mutableStateOf<Triple<Int, Int, Pair<Int, Float>>?>(null)
-        }
 
         var comboDT = 0F
 
@@ -210,9 +262,6 @@ object CameraScreenCompScreen {
         LaunchedEffect(key1 = shakeState.value) {
             if (shakeState.value.not()) onTracking()
         }
-        LaunchedEffect(key1 = value.value) {
-            if (value.value != null) onChangeShake(value.value!!)
-        }
 
         LaunchedEffect(Unit) {
             sensorManager.registerListener(
@@ -255,13 +304,11 @@ object CameraScreenCompScreen {
 
                     if (orientation != -1) {
                         rotationState.intValue = when (orientation) {
-                            in 180 - angleThreshold..180 -> 180
+                            in 180 - angleThreshold..180 + angleThreshold -> 180
                             in 0..angleThreshold -> 0
-                            in 180..angleThreshold + 180 -> 180
                             in 360 - angleThreshold..360 -> 360
                             else -> orientation
                         }
-                        Log.d("각도 : ", orientation.toString())
                     }
                 }
             }
@@ -294,12 +341,11 @@ object CameraScreenCompScreen {
                 -rotationState.intValue.toFloat(), pivot = centroid //회전 기준점
             ) {
                 val calibrationDegree = -rotationState.intValue
-                if (calibrationDegree in listOf(0, 180)
-                ) {
+                if (calibrationDegree in listOf(0, -180)) {
                     drawLine(
                         start = leftStartOffset,
                         end = rightEndOffset,
-                        strokeWidth = 2F,
+                        strokeWidth = 10F,
                         color = Color(0x90FFFF00)
                     )
                     drawCircle(
@@ -312,10 +358,10 @@ object CameraScreenCompScreen {
                     )
                 } else {
                     drawLine(
-                        Color.White, leftStartOffset, leftEndOffset, strokeWidth = 5F
+                        Color.White, leftStartOffset, leftEndOffset, strokeWidth = 10F
                     )
                     drawLine(
-                        Color.White, rightStartOffset, rightEndOffset, strokeWidth = 5F
+                        Color.White, rightStartOffset, rightEndOffset, strokeWidth = 10F
                     )
                     drawCircle(
                         color = Color(0x90FFFFFF),

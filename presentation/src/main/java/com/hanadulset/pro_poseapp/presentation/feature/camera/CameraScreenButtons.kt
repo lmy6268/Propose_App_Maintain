@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -32,6 +33,8 @@ import androidx.compose.material.ripple.LocalRippleTheme
 import androidx.compose.material.ripple.RippleAlpha
 import androidx.compose.material.ripple.RippleTheme
 import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ShapeDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -43,17 +46,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
@@ -66,9 +71,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import coil.size.Scale
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
+import java.lang.IllegalStateException
 
 object CameraScreenButtons {
     val pretendardFamily = FontFamily(
@@ -158,8 +167,8 @@ object CameraScreenButtons {
         defaultButtonSize: Dp,
         buttonValue: Int,
         selectedButtonScale: Float = 2F,
-        selectedButtonColor: Color = Color(0xFF95FA99),
-        unSelectedButtonColor: Color = Color.Unspecified,
+        selectedButtonColor: Color = Color(0xFF95FFA7),
+        unSelectedButtonColor: Color = Color(0xFF999999),
         onClickEvent: () -> Unit
     ) {
 
@@ -283,7 +292,7 @@ object CameraScreenButtons {
         else R.drawable.fixbutton_unfixed
 
         val activatedColor = Color(0xFF95FA99)
-        val inActivatedColor = Color(0x80999999)
+        val inActivatedColor = Color(0xFF999999)
 
 
 
@@ -296,9 +305,22 @@ object CameraScreenButtons {
                 else inActivatedColor, alphaColor = Color.Black
             )
         }) {
-            IconButton(
-                modifier = modifier.size(buttonSize),
-                onClick = onClicked,
+
+            Surface(
+                modifier = modifier
+                    .wrapContentSize()
+                    .clickable(
+                        indication = rememberRipple(
+                            color = if (isFixedBtnPressed.value) activatedColor.compositeOver(
+                                Color.Black
+                            ) else inActivatedColor.compositeOver(Color.Black),
+                            bounded = true,
+                            radius = buttonSize / 2
+                        ), //Ripple 효과 제거
+                        interactionSource = MutableInteractionSource(),
+                        onClick = onClicked
+                    ),
+                shape = CircleShape
             ) {
                 Icon(
                     modifier = Modifier.size(buttonSize),
@@ -324,24 +346,35 @@ object CameraScreenButtons {
         //버튼 이미지 배치
         val buttonImg = if (isPressed) R.drawable.ic_shutter_pressed
         else R.drawable.ic_shutter_normal
+        val imageDrawable = rememberAsyncImagePainter(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(buttonImg)
+                .size(LocalDensity.current.run {
+                    buttonSize.toPx().toInt()
+                }) //뷰 사이즈의 크기 만큼 이미지 리사이징
+                .build()
+        )
 
-        Box(
-            modifier = modifier.clickable(
-                indication = rememberRipple(
-                    color = Color(0xFF999999), bounded = true, radius = buttonSize / 2
-                ), //Ripple 효과 제거
-                interactionSource = interactionSource, onClick = onClickEvent
-            )
-
+        Surface(
+            shadowElevation = 4.dp,
+            modifier = modifier
+                .clickable(
+                    indication = rememberRipple(
+                        color = Color(0xFF999999), bounded = true, radius = buttonSize / 2
+                    ), //Ripple 효과 제거
+                    interactionSource = interactionSource,
+                    onClick = onClickEvent
+                ),
+            shape = CircleShape
         ) {
             Icon(
-                modifier = modifier.size(buttonSize),
+                modifier = modifier
+                    .size(buttonSize),
                 tint = Color.Unspecified,
-                painter = painterResource(id = buttonImg),
+                painter = imageDrawable,
                 contentDescription = "촬영버튼"
             )
         }
-
     }
 
     object CustomIndication : Indication {

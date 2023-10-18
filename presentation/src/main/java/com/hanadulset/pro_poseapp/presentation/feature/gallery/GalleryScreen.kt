@@ -94,6 +94,7 @@ object GalleryScreen {
         val localDensity = LocalDensity.current
         val fontSize = 20.sp
 
+
         //갤러리 화면 틀 구성
         Box( //Parent
             modifier = Modifier
@@ -104,19 +105,22 @@ object GalleryScreen {
 
             //Child 2
             //사진이 보이는 화면
-            CustomHorizontalPager(
-                pagerState = horizontalPagerState, modifier = Modifier
+            HorizontalPager(
+                state = horizontalPagerState, modifier = Modifier
                     .fillMaxSize(), pageSpacing = 0.dp
             ) {
+
                 ImageContent(
                     modifier = Modifier
                         .fillMaxSize(),
-                    imgUri = imageList[it].dataUri!!,
+                    imgUri = if (imageList.isNotEmpty()) imageList[it].dataUri!! else null,
                     imgSize = screenWidth,
                     onClickEvent = {
                         showMenuBarState.value = showMenuBarState.value.not()
                     }
                 )
+
+
             }
             //Child 1
             //만약 메뉴화면이 존재해야 하는 경우
@@ -156,7 +160,7 @@ object GalleryScreen {
                         Text(
                             modifier = Modifier
                                 .wrapContentSize(align = Alignment.Center),
-                            text = "${horizontalPagerState.currentPage + 1}/${updatedImageList.size}",
+                            text = if (updatedImageList.isEmpty()) "이미지 없음" else "${horizontalPagerState.currentPage + 1}/${updatedImageList.size}",
                             fontSize = fontSize,
                             fontFamily = CameraScreenButtons.pretendardFamily,
                             fontWeight = FontWeight.Light,
@@ -190,9 +194,11 @@ object GalleryScreen {
                     ) {
                         IconButton(
                             onClick = {
-                                //삭제하시겠습니까? 다이얼로그 보여주기
-                                onDeleteImage(horizontalPagerState.currentPage) {
-                                    onLoadImages()
+                                if (imageList.isNotEmpty()) {
+                                    //삭제하시겠습니까? 다이얼로그 보여주기
+                                    onDeleteImage(horizontalPagerState.currentPage) {
+                                        onLoadImages()
+                                    }
                                 }
                             },
                             modifier = Modifier
@@ -234,13 +240,15 @@ object GalleryScreen {
     @Composable
     private fun ImageContent(
         modifier: Modifier,
-        imgUri: Uri,
+        imgUri: Uri?,
         imgSize: Dp,
         onClickEvent: () -> Unit,
     ) {
         val imagePainter = rememberAsyncImagePainter(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(imgUri)
+                .data(
+                    imgUri.run { this ?: R.drawable.impossible_icon }
+                )
                 .size(with(LocalDensity.current) {
                     imgSize.toPx().toInt()
                 }) //뷰 사이즈의 크기 만큼 이미지 리사이징
@@ -259,84 +267,6 @@ object GalleryScreen {
             contentDescription = "저장된 이미지",
             alignment = Alignment.Center
         )
-    }
-
-    @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
-    @Composable
-    fun CustomHorizontalPager(
-        modifier: Modifier = Modifier,
-        pagerState: PagerState,
-        pageSpacing: Dp,
-        content: @Composable (Int) -> Unit
-    ) {
-        val context = LocalContext.current
-        val gestureDetector = remember {
-            GestureDetector(
-                context,
-                object : GestureDetector.OnGestureListener {
-                    override fun onDown(e: MotionEvent): Boolean {
-                        // Handle the ACTION_DOWN event as needed
-                        return true
-                    }
-
-                    override fun onShowPress(p0: MotionEvent) {
-                        Log.d("화면 터치:", "Pressed")
-                    }
-
-                    override fun onSingleTapUp(e: MotionEvent): Boolean {
-                        // Handle the single tap event here
-                        Log.d("화면 터치:", "터치 감지됨")
-                        return true
-                    }
-
-                    override fun onScroll(
-                        p0: MotionEvent?,
-                        p1: MotionEvent,
-                        p2: Float,
-                        p3: Float
-                    ): Boolean {
-                        Log.d("화면 터치:", "스크롤 감지됨 ")
-                        return false
-                    }
-
-                    override fun onLongPress(p0: MotionEvent) {
-                    }
-
-                    override fun onFling(
-                        p0: MotionEvent?,
-                        p1: MotionEvent,
-                        p2: Float,
-                        p3: Float
-                    ): Boolean {
-                        return false
-                    }
-
-                }
-            )
-        }
-
-        val interceptTouch = remember { mutableStateOf(false) }
-
-        Box(
-            modifier = modifier.pointerInput(Unit) {
-                detectTransformGestures { _: Offset, _: Offset, _: Float, _: Float ->
-                    interceptTouch.value = true
-                }
-            }
-        ) {
-            HorizontalPager(state = pagerState, pageSpacing = pageSpacing) { page ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInteropFilter { motionEvent ->
-                            gestureDetector.onTouchEvent(motionEvent)
-                            interceptTouch.value
-                        }
-                ) {
-                    content(page)
-                }
-            }
-        }
     }
 
 

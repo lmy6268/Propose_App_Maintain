@@ -160,12 +160,17 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
     }
 
     override fun deleteCapturedImage(uri: Uri): Boolean {
-        val path = context.contentResolver.query(uri, null, null, null, null).use { cursor ->
-            cursor!!.moveToNext()
-            val index = cursor.getColumnIndex("_data")
-            cursor.getString(index)
+        val targetFile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val path = context.contentResolver.query(uri, null, null, null, null).use { cursor ->
+                cursor!!.moveToNext()
+                val index = cursor.getColumnIndex("_data")
+                cursor.getString(index)
+            }
+            File(path)
+        } else {
+            uri.toFile()
         }
-        val targetFile = File(path)
+
 
         return targetFile.delete()
     }

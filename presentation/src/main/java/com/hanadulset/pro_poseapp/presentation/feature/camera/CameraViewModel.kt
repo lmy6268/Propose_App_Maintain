@@ -8,7 +8,6 @@ import android.util.SizeF
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
@@ -25,7 +24,6 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.GetLatestImageUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetFocusUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
@@ -39,10 +37,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import okhttp3.internal.notify
 import javax.inject.Inject
 
 @ExperimentalGetImage
@@ -50,7 +47,6 @@ import javax.inject.Inject
 class CameraViewModel @Inject constructor(
     //UseCases
     private val bindCameraUseCase: BindCameraUseCase,
-    private val unbindCameraUseCase: UnbindCameraUseCase,
     private val captureImageUseCase: CaptureImageUseCase,
     private val showFixedScreenUseCase: ShowFixedScreenUseCase,
     private val setZoomLevelUseCase: SetZoomLevelUseCase,
@@ -65,8 +61,6 @@ class CameraViewModel @Inject constructor(
 
 ) : ViewModel() {
 
-    private val reqFixState = MutableStateFlow(false)// 포즈 추천 요청 on/off
-    private val reqPoseState = MutableStateFlow(false)// 포즈 추천 요청 on/off
     private val _trackingSwitchON = MutableStateFlow(false)
 
     private val viewRateList = listOf(
@@ -81,7 +75,6 @@ class CameraViewModel @Inject constructor(
     private val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
     val backgroundDataState = _backgroundDataState.asStateFlow()
 
-    private val reqCompState = MutableStateFlow(false)
     private val _aspectRatioState = MutableStateFlow(viewRateList[0])
     val aspectRatioState = _aspectRatioState.asStateFlow()
 
@@ -109,7 +102,6 @@ class CameraViewModel @Inject constructor(
     val previewState = _previewState.asStateFlow()
     private val _bitmapState = MutableStateFlow<Bitmap?>(null)
     private val _bitmapDemandNow = MutableStateFlow(false)
-    private var lastAnalyzedTimeStamp = 0L
 
 
     private var previewSizeState: androidx.compose.ui.geometry.Size? = null
@@ -118,6 +110,12 @@ class CameraViewModel @Inject constructor(
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer { imageProxy ->
+
+        _bitmapState.onSubscription {
+            Log.d("현재 인식됨: ","네")
+        }
+
+
         imageProxy.use {
             _bitmapState.value = ImageUtils.imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
             trackToNewOffset()
@@ -199,7 +197,6 @@ class CameraViewModel @Inject constructor(
             val backgroundBitmap = _bitmapState.value!!
             //이미지 사용하기
             val analyzedImageSize = Size(backgroundBitmap.width, backgroundBitmap.height)
-
             viewModelScope.launch {
                 val res = updatePointOffsetUseCase(
                     targetOffset = convertAnalyzedOffsetToPreviewOffset(

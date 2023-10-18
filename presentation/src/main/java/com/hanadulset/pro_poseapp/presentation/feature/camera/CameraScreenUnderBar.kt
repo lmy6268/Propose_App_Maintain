@@ -22,7 +22,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ShapeDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +41,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -47,6 +54,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
@@ -74,7 +82,6 @@ object CameraScreenUnderBar {
         onZoomLevelChangeEvent: (Float) -> Unit,
         onFixedButtonClickEvent: (Boolean) -> Unit,
         lowerLayerPaddingBottom: Dp = 0.dp,
-        aboveSize: Dp,
     ) {
         //필요할 때만 리컴포지션을 진행함.
         //https://kotlinworld.com/256 참고
@@ -104,9 +111,9 @@ object CameraScreenUnderBar {
         val galleryThumbUri by rememberUpdatedState(newValue = galleryImageUri)
 
         Column(
-            modifier = modifier,
+            modifier = modifier.padding(bottom = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             UpperLayer(
                 modifier = Modifier.fillMaxWidth(),
@@ -160,11 +167,11 @@ fun UpperLayer(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        //포즈 추천 버튼 -> 토글 형식이 아니었던가..?
+
         CameraScreenButtons.NormalButton(
             buttonSize = buttonSize,
             buttonName = "포즈 추천 버튼",
-            buttonText = "포즈\n추천",
+            buttonText = "포즈",
             colorTint = Color.Black,
             onClick = onRecommendPoseEvent
         )
@@ -218,7 +225,7 @@ fun LowerLayer(
 
         //셔터
         CameraScreenButtons.ShutterButton(
-            buttonSize = 100.dp
+            buttonSize = 80.dp
         ) { onShutterClickEvent() }
 
         //고정
@@ -248,21 +255,27 @@ private fun GalleryImageButton(
             .build()
     )
 
+    Surface(
+        shadowElevation = 1.dp,
+        shape = CircleShape,
+        modifier = Modifier.wrapContentSize(),
+    ) {
+        Image(
+            painter = imagePainter,
+            contentDescription = "갤러리 이미지",
+            modifier = modifier
+                .size(buttonSize)
+                .clip(CircleShape)
+                .background(color = defaultBackgroundColor)
+                .clickable(
+                    interactionSource = MutableInteractionSource(),
+                    indication = CameraScreenButtons.CustomIndication,
+                    onClick = onClickEvent
+                ),
+            contentScale = ContentScale.Crop,
+        )
+    }
 
-    Image(
-        painter = imagePainter,
-        contentDescription = "갤러리 이미지",
-        modifier = modifier
-            .size(buttonSize)
-            .clip(CircleShape)
-            .background(color = defaultBackgroundColor)
-            .clickable(
-                interactionSource = MutableInteractionSource(),
-                indication = CameraScreenButtons.CustomIndication,
-                onClick = onClickEvent
-            ),
-        contentScale = ContentScale.Crop,
-    )
 }
 
 
@@ -314,9 +327,9 @@ fun ClickPoseBtnUnderBar(
     BackHandler(onBack = onClickCloseBtn) //뒤로가기 버튼을 누르면 이전 화면으로 돌아감.
 
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(bottom = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
 
         //포즈 선택 할 수 있는 Row
@@ -342,19 +355,10 @@ fun ClickPoseBtnUnderBar(
             )
 
 
-//            CameraScreenButtons.NormalButton(
-//                buttonName = "닫기",
-//                onClick = ,
-//
-//                buttonSize = 44.dp,
-//                colorTint = Color.Black,
-//                innerIconDrawableId = R.drawable.left_arrow,
-//                innerIconDrawableSize = 20.dp
-//            )
-
             //셔터 버튼
             CameraScreenButtons.ShutterButton(
-                onClickEvent = onClickShutterBtn, buttonSize = 100.dp
+                onClickEvent = onClickShutterBtn,
+                buttonSize = 80.dp
             )
 
             //포즈 새로고침 버튼
@@ -436,21 +440,22 @@ fun PoseSelectRow(
         flingBehavior = rememberSnapperFlingBehavior(layoutInfo),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (poseList != null) itemsIndexed(poseList) { idx, posedata ->
-            PoseSelectionItem(
-                modifier = Modifier.padding(horizontal = 10.dp),
-                isSelected = idx == nowSelected,
-                drawableId = posedata.poseDrawableId,
-                poseIndex = idx,
-                onClickEvent = {
-                    onSelectedPoseIndexEvent(idx)
-                    /*코루틴을 컴포저블에서 사용하기 위해서는 rememberCoroutineScope()를 사용해야 함.*/
-                    rememberCoroutineScope.launch {
-                        scrollState.animateScrollToItem(idx)
-                    }
-                }, poseSize = 70
-            )
-        }
+        if (poseList != null)
+            itemsIndexed(poseList) { idx, posedata ->
+                PoseSelectionItem(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    isSelected = idx == nowSelected,
+                    drawableId = posedata.poseDrawableId,
+                    poseIndex = idx,
+                    onClickEvent = {
+                        onSelectedPoseIndexEvent(idx)
+                        /*코루틴을 컴포저블에서 사용하기 위해서는 rememberCoroutineScope()를 사용해야 함.*/
+                        rememberCoroutineScope.launch {
+                            scrollState.animateScrollToItem(idx)
+                        }
+                    }, poseSize = 70
+                )
+            }
         else { //아직 포즈를 찾고 있는 중 일 때
             item {
                 Column(
@@ -464,7 +469,6 @@ fun PoseSelectRow(
                         color = Color(0xFF95FA99)
                     )
                     Text(
-
                         text = "포즈 추천 중..",
                         textAlign = TextAlign.Center,
                         fontFamily = CameraScreenButtons.pretendardFamily,
@@ -480,6 +484,7 @@ fun PoseSelectRow(
     }
 }
 
+//클릭 할 수 있는 포즈 아이템 카드
 @Composable
 fun PoseSelectionItem(
     modifier: Modifier = Modifier,
@@ -489,47 +494,86 @@ fun PoseSelectionItem(
     poseSize: Int,
     onClickEvent: () -> Unit
 ) {
+    val unSelectedColor = Color(0x50999999)
+    val selectedColor = Color(0xFF95FFA7)
+    val stateColor = if (isSelected) selectedColor else unSelectedColor
+    val defaultModifier = Modifier
+        .wrapContentSize()
+        .clickable(
+            interactionSource = MutableInteractionSource(),
+            indication = rememberRipple(
+                color = if (isSelected) selectedColor
+                else Color(0xFF999999),
+                bounded = true,
+                radius = poseSize.dp / 2
+            )
+        ) { onClickEvent() }
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(
+                drawableId.run {
+                    if (this == -1) R.drawable.impossible_icon
+                    else this
+                }
+            )
+            .size(with(LocalDensity.current) {
+                poseSize.dp.toPx().toInt()
+            }) //현재 버튼의 크기만큼 리사이징한다.
+            .build()
+    )
 
-
-    val stateColor = if (isSelected) Color(0x8095FFA7) else Color(0x80999999)
     Column(
-        modifier = modifier
-            .clickable {
-                onClickEvent()
-            }
-            .wrapContentSize(),
-
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        val checkedPainter = rememberAsyncImagePainter(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(R.drawable.selected_icon)
+                .build()
+        )
 
-
-        if (drawableId == -1) {
-            Box(
-                modifier = Modifier
-                    .background(color = stateColor)
-                    .size(poseSize.dp)
-            )
-        } else {
-            val painter = rememberAsyncImagePainter(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(drawableId)
-                    .size(with(LocalDensity.current) {
-                        poseSize.dp.toPx().toInt()
-                    }) //현재 버튼의 크기만큼 리사이징한다.
-                    .build()
-            )
-            Image(
-                modifier = Modifier
-                    .background(color = stateColor)
-                    .size(poseSize.dp),
-                painter = painter,
-                contentDescription = "이미지",
-                contentScale = ContentScale.Fit
-            )
+        Surface(
+            shadowElevation = 4.dp,
+            color = stateColor,
+            shape = ShapeDefaults.Medium,
+            modifier = Modifier.wrapContentSize()
+        ) {
+            Box(modifier = Modifier.wrapContentSize()) {
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .padding(2.dp)
+                            .size(poseSize.dp)
+                            .zIndex(1F)
+                    ) {
+                        Image(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size((poseSize / 2).dp),
+                            painter = checkedPainter, contentDescription = "",
+                            colorFilter = ColorFilter.tint(color = Color.White)
+                        )
+                    }
+                }
+                Card(
+                    modifier = defaultModifier
+                ) {
+                    Image(
+                        modifier = Modifier
+                            .background(color = stateColor)
+                            .padding(2.dp)
+                            .size(poseSize.dp),
+                        painter = painter,
+                        contentDescription = "이미지",
+                        contentScale = ContentScale.Fit,
+                        colorFilter = if (drawableId != -1) ColorFilter.tint(color = Color.Black) else null
+                    )
+                }
+            }
         }
-        Text(
 
+        Text(
             text = if (drawableId == -1) "없음" else "포즈 #$poseIndex",
             textAlign = TextAlign.Center,
             fontFamily = CameraScreenButtons.pretendardFamily,
@@ -542,6 +586,8 @@ fun PoseSelectionItem(
 
 
     }
+
+
 }
 
 
@@ -567,8 +613,7 @@ fun PreviewUnderBar() {
         onShutterClickEvent = { /*TODO*/ },
         onGalleryButtonClickEvent = { /*TODO*/ },
         onZoomLevelChangeEvent = {},
-        onFixedButtonClickEvent = {},
-        aboveSize = 0.dp
+        onFixedButtonClickEvent = {}
     )
 }
 
