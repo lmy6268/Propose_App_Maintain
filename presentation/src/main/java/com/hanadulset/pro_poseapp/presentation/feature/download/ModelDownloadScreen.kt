@@ -7,23 +7,26 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Surface
+import androidx.compose.material3.Surface
 import androidx.compose.material.Text
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -35,6 +38,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -47,11 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.core.CustomDialog
-import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
 import com.hanadulset.pro_poseapp.utils.CheckResponse
-import com.hanadulset.pro_poseapp.utils.DownloadResponse
 import com.hanadulset.pro_poseapp.utils.DownloadState
-import kotlinx.coroutines.flow.flow
 import kotlin.math.roundToLong
 
 object ModelDownloadScreen {
@@ -95,26 +96,30 @@ object ModelDownloadScreen {
         val context = LocalContext.current
         val checkState by rememberUpdatedState(newValue = isCheck)
 
+
         if (checkState != null)
             Box(
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(Color(0xFF95FFA7))
+                    .navigationBarsPadding(),
             ) {
-                val toLoadingPage by rememberUpdatedState(newValue = moveToLoading)
-                val toDownloadProgress by rememberUpdatedState(newValue = moveToDownloadProgress)
 
                 CustomDialog.DownloadAlertDialog(
                     isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
                             || checkState!!.downloadType == CheckResponse.TYPE_ERROR,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .align(Alignment.BottomCenter),
                     totalSize = checkState!!.totalSize,
                     onDismissRequest = {
-                        if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD || checkState!!.downloadType == CheckResponse.TYPE_ERROR
+                        if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
+                            || checkState!!.downloadType == CheckResponse.TYPE_ERROR
                         ) (context as Activity).finish()
-                        else toLoadingPage()
+                        else moveToLoading()
                     },
                     onConfirmRequest = {
-                        toDownloadProgress(checkState!!.downloadType)
+                        moveToDownloadProgress(checkState!!.downloadType)
                     }
                 )
             }
@@ -127,71 +132,82 @@ object ModelDownloadScreen {
     @Composable
     fun ModelDownloadProgressScreen(
         isDownload: Boolean?,
-        downloadResponse: DownloadResponse,
+        downloadedInfo: DownloadState,
         onDismissEvent: (Context) -> Unit,
         onDispose: () -> Unit,
         onDoneDownload: () -> Unit,
     ) {
-        val data by downloadResponse.data!!.collectAsState(null)
         val context = LocalContext.current
         val onDownloading = if (isDownload == null || isDownload) "다운로드" else "업데이트"
         val stopDownload = if (isDownload == null || isDownload) "앱 종료" else "다음에 받기"
-        val screenWidth = LocalConfiguration.current.screenWidthDp.dp
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        LaunchedEffect(key1 = downloadedInfo) {
+            Log.d("현재 상태 : ", downloadedInfo.toString())
+        }
 
 
-        if (data != null) {
-            //다운로드가 완료된 경우
-            val now = data!!
-            Log.d("now Data State: ", now.toString())
-            if (data!!.currentFileIndex + 1 == data!!.totalFileCnt && data!!.state == DownloadState.STATE_COMPLETE) {
-                LaunchedEffect(Unit) {
-                    onDoneDownload()
-                }
+        //다운로드가 완료된 경우
+        if (downloadedInfo.currentFileIndex + 1 == downloadedInfo.totalFileCnt
+            && downloadedInfo.state == DownloadState.STATE_COMPLETE
+        ) {
+            LaunchedEffect(Unit) {
+                onDoneDownload()
+            }
+        } else {
+            val currentBytesMB = downloadedInfo.currentBytes / 1e+6
+            val totalBytesMB = downloadedInfo.totalBytes / 1e+6
+            val progressRate = (currentBytesMB / totalBytesMB).toFloat()
 
-            } else
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Surface(
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF95FFA7))
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .sizeIn(screenHeight / 3)
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding(),
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                    shadowElevation = 2.dp
+                ) {
+                    Column(
                         modifier = Modifier
-                            .sizeIn(screenHeight / 3)
-                            .align(Alignment.Center),
-                        shape = RoundedCornerShape(32.dp),
+                            .padding(20.dp)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.Start
                     ) {
-                        Column(
+                        Text(
+                            text = "리소스 $onDownloading", style = mainStyle
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "리소스 $onDownloading 중... ( ${downloadedInfo.currentFileIndex + 1} / ${downloadedInfo.totalFileCnt})",
+                            style = subStyle
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        CustomLinearProgressBar(
                             modifier = Modifier
-                                .padding(20.dp)
                                 .fillMaxWidth()
+                                .align(Alignment.CenterHorizontally),
+                            progress = progressRate,
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End,
+                            text = downloadedInfo.run {
+                                val byteC = (currentBytes / 1e+6).roundToLong()
+                                val byteT = (totalBytes / 1e+6).roundToLong()
+                                "$byteC MB / $byteT MB"
+                            }, style = subStyle
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Surface(
+                            modifier = Modifier.wrapContentSize(),
+                            shape = ShapeDefaults.Medium,
+                            shadowElevation = 2.dp
                         ) {
-                            Text(
-                                text = "리소스 $onDownloading", style = mainStyle
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Text(
-                                text = "리소스 $onDownloading 중... ( ${data!!.currentFileIndex + 1} / ${data!!.totalFileCnt})",
-                                style = subStyle
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            CustomLinearProgressBar(
-                                modifier = Modifier
-                                    .width(245.dp)
-                                    .height(15.dp)
-                                    .align(Alignment.CenterHorizontally),
-                                progress = data!!.let {
-                                    ((it.currentBytes / 1e+6) / (it.totalBytes / 1e+6)).toFloat()
-                                },
-
-                                )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            Text(
-                                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End,
-                                text =
-                                data!!.let {
-                                    val byteC = (it.currentBytes / 1e+6).roundToLong()
-                                    val byteT = (it.totalBytes / 1e+6).roundToLong()
-                                    "$byteC MB / $byteT MB"
-                                }, style = subStyle
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
                             Box(
                                 modifier = Modifier
                                     .background(
@@ -206,7 +222,6 @@ object ModelDownloadScreen {
                                             MutableInteractionSource()
                                         }
                                     ) {
-
                                         onDismissEvent(context)
                                     }
 
@@ -221,13 +236,18 @@ object ModelDownloadScreen {
                                     )
                                 )
                             }
-
                         }
+
+
                     }
+
                 }
-
-
+            }
         }
+
+
+
+
         DisposableEffect(Unit) {
             onDispose {
                 onDispose()
@@ -242,11 +262,14 @@ object ModelDownloadScreen {
         backgroundColor: Color = Color(0xFFF0F0F0),
         color: Color = Color(0xFF95FFA7),
     ) {
+        val strokeWidth = LocalDensity.current.run { 15.dp.toPx() }
+
         Canvas(
             modifier
+                .height(15.dp)
+                .padding(horizontal = 5.dp)
                 .progressSemantics(progress)
         ) {
-            val strokeWidth = size.height
             drawLinearIndicatorBackground(backgroundColor, strokeWidth)
             drawLinearIndicator(0f, progress, color, strokeWidth)
         }
@@ -286,23 +309,19 @@ object ModelDownloadScreen {
 
 }
 
-@Preview(widthDp = 300, heightDp = 300, showSystemUi = true)
+@Preview(showSystemUi = true)
 @Composable
 private fun TestRequestModal() {
 
     ModelDownloadScreen.ModelDownloadProgressScreen(
-        isDownload = false,
-        DownloadResponse(DownloadResponse.STATE_GOOD_TO_DOWNLOAD, flow {
-            emit(
-                DownloadState(
-                    state = DownloadState.STATE_COMPLETE,
-                    currentBytes = 1000000,
-                    totalBytes = 100000000,
-                    currentFileIndex = 0,
-                    totalFileCnt = 2
-                )
-            )
-        }),
+        isDownload = true,
+        DownloadState(
+            state = DownloadState.STATE_COMPLETE,
+            currentBytes = 1000000,
+            totalBytes = 100000000,
+            currentFileIndex = 0,
+            totalFileCnt = 2
+        ),
         onDismissEvent = {
 
         },
@@ -316,7 +335,7 @@ private fun TestRequestModal() {
 
 }
 
-@Preview
+@Preview(showSystemUi = true)
 @Composable
 private fun TestDialog() {
     ModelDownloadScreen.ModelDownloadRequestScreen(

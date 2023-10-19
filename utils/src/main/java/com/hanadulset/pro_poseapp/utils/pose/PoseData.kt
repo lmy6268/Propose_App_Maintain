@@ -5,5 +5,4 @@ data class PoseData(
     val poseId: Int,
     val poseDrawableId: Int,
     val poseCat: Int,
-
 )

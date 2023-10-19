@@ -4,7 +4,11 @@ import android.Manifest
 import android.app.Activity
 import android.os.Build
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
@@ -17,6 +21,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -86,13 +91,14 @@ object MainScreen {
 
     @Composable
     fun MainScreen(
+        modifier: Modifier = Modifier,
         navHostController: NavHostController,
         cameraViewModel: CameraViewModel,
         prepareServiceViewModel: PrepareServiceViewModel,
         galleryViewModel: GalleryViewModel
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize()
+            modifier = modifier
         ) {
             ContainerView(
                 navController = navHostController,
@@ -164,7 +170,6 @@ object MainScreen {
                 cameraViewModel = cameraViewModel,
                 galleryViewModel = galleryViewModel,
                 previewView = previewView,
-                activeActivity = activity,
                 cameraInit = cameraInit,
             )
         }
@@ -186,8 +191,7 @@ object MainScreen {
             )
             composable(route = Page.Perm.name) {
                 //여기서부터는 Composable 영역
-                PermScreen.PermScreen(
-                    multiplePermissionsState = multiplePermissionsState,
+                PermScreen.PermScreen(multiplePermissionsState = multiplePermissionsState,
                     permissionAllowed = {
                         navHostController.navigate(route = Graph.UsingCamera.name)
                     })
@@ -206,7 +210,7 @@ object MainScreen {
                 navHostController = navHostController,
                 onDoneDownload = {
                     navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
-                        popUpTo(Page.AppLoading.name) {}
+//                        popUpTo(Page.AppLoading.name) {}
                     }
                 })
 
@@ -220,7 +224,24 @@ object MainScreen {
         onDoneDownload: () -> Unit
     ) {
         navigation(startDestination = Page.ModelDownloadRequest.name, route = routeName) {
-            composable(route = Page.ModelDownloadRequest.name) {
+            //다운로드 요청 페이지
+            composable(route = Page.ModelDownloadRequest.name,
+                enterTransition = {
+                    fadeIn(
+                        animationSpec = tween(
+                            300, easing = LinearEasing
+                        )
+                    ) + slideIntoContainer(
+                        animationSpec = tween(300, easing = EaseOut),
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start
+                    )
+                }, exitTransition = {
+                    fadeOut(
+                        animationSpec = tween(
+                            300, easing = LinearEasing
+                        )
+                    )
+                }) {
                 val checkState by prepareServiceViewModel.checkDownloadState.collectAsState()
                 ModelDownloadScreen.ModelDownloadRequestScreen(isCheck = checkState,
                     moveToLoading = {
@@ -230,7 +251,9 @@ object MainScreen {
                     },
                     moveToDownloadProgress = { type ->
                         val isDownload = type == CheckResponse.TYPE_MUST_DOWNLOAD
-                        navHostController.navigate(Page.ModelDownloadProgress.name + "?isDownload=$isDownload") {
+                        navHostController.navigate(
+                            Page.ModelDownloadProgress.name + "?isDownload=$isDownload"
+                        ) {
                             popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
                         }
                     })
@@ -241,22 +264,32 @@ object MainScreen {
                 }
 
             }
-            composable(
-                route = Page.ModelDownloadProgress.name,
+            //다운로드 진행 페이지
+            composable(route = Page.ModelDownloadProgress.name,
                 arguments = listOf(navArgument("isDownload") {
                     type = NavType.BoolType
                     defaultValue = true
-                })
-            ) {
-                val state by prepareServiceViewModel.downloadInfoState.collectAsStateWithLifecycle()
+                }),
+                enterTransition = {
+                    fadeIn()
+                },
+                exitTransition = {
+                    fadeOut(
+                        animationSpec = tween(300, easing = LinearEasing)
+                    ) + slideOutOfContainer(
+                        animationSpec = tween(300, easing = EaseOut),
+                        towards = AnimatedContentTransitionScope.SlideDirection.End
+                    )
+                }) {
                 val isDownload = it.arguments?.getBoolean("isDownload")
+                val downloadState by prepareServiceViewModel.downloadState.collectAsStateWithLifecycle()
                 LaunchedEffect(key1 = Unit) {
                     prepareServiceViewModel.requestForDownload()
                 }
 
-                if (state != null) {
+                if (downloadState != null) {
                     ModelDownloadScreen.ModelDownloadProgressScreen(isDownload = isDownload,
-                        downloadResponse = state!!,
+                        downloadedInfo = downloadState!!,
                         onDispose = {
                             prepareServiceViewModel.clearStates()
                         },
@@ -313,7 +346,6 @@ object MainScreen {
         previewView: PreviewView,
         cameraViewModel: CameraViewModel,
         galleryViewModel: GalleryViewModel,
-        activeActivity: Activity,
         cameraInit: () -> Unit,
     ) {
         navigation(startDestination = Page.Cam.name, route = routeName) {
@@ -324,18 +356,16 @@ object MainScreen {
                 val isOnClose = remember { mutableStateOf(false) }
                 val localActivity = LocalContext.current as Activity
                 AnimatedVisibility(
-                    visible = isOnClose.value.not(),
-                   enter = fadeIn(), exit = fadeOut()
+                    visible = isOnClose.value.not(), enter = fadeIn(), exit = fadeOut()
                 ) {
-                    Screen(cameraViewModel,
-                        previewView = previewView, onClickSettingBtnEvent = {
-                            navHostController.navigate(route = Page.Setting.name) {}
-                        }, onClickGalleryBtn = {
-                            navHostController.navigate(route = Page.Images.name) {}
-                        }, cameraInit = cameraInit, onFinishEvent = {
-                            isOnClose.value = true
-                            localActivity.finish()
-                        })
+                    Screen(cameraViewModel, previewView = previewView, onClickSettingBtnEvent = {
+                        navHostController.navigate(route = Page.Setting.name) {}
+                    }, onClickGalleryBtn = {
+                        navHostController.navigate(route = Page.Images.name) {}
+                    }, cameraInit = cameraInit, onFinishEvent = {
+                        isOnClose.value = true
+                        localActivity.finish()
+                    })
                 }
             }
 
@@ -349,8 +379,7 @@ object MainScreen {
                 }
                 val coroutineScope = rememberCoroutineScope()
                 if (imageList.value != null) {
-                    GalleryScreen.GalleryScreen(
-                        imageList = imageList.value!!,
+                    GalleryScreen.GalleryScreen(imageList = imageList.value!!,
                         onLoadImages = { galleryViewModel.loadImages() },
                         onDeleteImage = { index, func ->
                             coroutineScope.launch {
@@ -380,7 +409,19 @@ object MainScreen {
         navHostController: NavHostController, nextPage: String
     ) {
         val splashPage = Page.Splash.name
-        composable(route = splashPage) {
+        composable(route = splashPage, enterTransition = {
+            fadeIn(
+                animationSpec = tween(
+                    300, easing = LinearEasing
+                )
+            )
+        }, exitTransition = {
+            fadeOut(
+                animationSpec = tween(
+                    300, easing = LinearEasing
+                )
+            )
+        }) {
             //여기서부터는 Composable 영역
             PrepareServiceScreens.SplashScreen()
             LaunchedEffect(Unit) {
@@ -405,7 +446,22 @@ object MainScreen {
         composable(route = appLoadingPage, arguments = listOf(navArgument("afterDownload") {
             type = NavType.BoolType
             defaultValue = false
-        })) {
+        }), enterTransition = {
+            fadeIn(
+                animationSpec = tween(
+                    300, easing = LinearEasing
+                )
+            )
+        }, exitTransition = {
+            fadeOut(
+                animationSpec = tween(
+                    300, easing = LinearEasing
+                )
+            ) + slideOutOfContainer(
+                animationSpec = tween(300, easing = EaseOut),
+                towards = AnimatedContentTransitionScope.SlideDirection.End
+            )
+        }) {
             val afterDownload = it.arguments?.getBoolean("afterDownload")
 
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.

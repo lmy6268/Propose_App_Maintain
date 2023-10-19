@@ -2,6 +2,7 @@ package com.hanadulset.pro_poseapp.data.datasource.feature
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.PoseDataSource
 import com.hanadulset.pro_poseapp.utils.R
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
@@ -17,6 +18,8 @@ import org.opencv.core.Mat
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -63,6 +66,7 @@ class PoseDataSourceImpl(private val context: Context) :
             }
             resMutableList
         }
+
         val keyDrawableArray = context.resources.obtainTypedArray(R.array.keypointImage)
         rankList.forEachIndexed { index, doubleList ->
             val tmpPoseList = mutableListOf<PoseData>()
@@ -482,6 +486,24 @@ class PoseDataSourceImpl(private val context: Context) :
         return angleMap.toList()
     }
 
+//    private fun loadPoseImages(): List<Uri> {
+//        val file = File(context.dataDir, "/silhouettes")
+//        if (file.exists().not()) {
+//            val tmpFile = File(context.dataDir, SILHOUETTE_IMAGE_ZIP)
+//            context.assets.open(SILHOUETTE_IMAGE_ZIP).use { `is` ->
+//                FileOutputStream(file).use { os ->
+//                    val buffer = ByteArray(4 * 1024)
+//                    var read: Int
+//                    while (`is`.read(buffer).also { read = it } != -1) {
+//                        os.write(buffer, 0, read)
+//                    }
+//                    os.flush()
+//                }
+//            }
+//        }
+//
+//    }
+
 
     companion object {
 
@@ -496,6 +518,9 @@ class PoseDataSourceImpl(private val context: Context) :
             const val nBins: Int = 18 //10.01 수정
 
         }
+
+        const val SILHOUETTE_IMAGE_ZIP = "silhouette_image.zip"
+
     }
 
 

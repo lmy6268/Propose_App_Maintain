@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.util.Range
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
@@ -113,6 +115,7 @@ fun Screen(
 
         }
     val needToCloseViewRate = remember { mutableStateOf(false) }
+    val upperBarSize = remember { mutableStateOf<DpSize?>(null) }
     val scope = rememberCoroutineScope()
     Box(
         modifier = Modifier
@@ -120,10 +123,21 @@ fun Screen(
             .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
                 when (motionEvent.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        scope.launch {
-                            needToCloseViewRate.value = true
-                            delay(10L)
-                            needToCloseViewRate.value = false
+                        upperBarSize.value?.run {
+                            localDensity.run {
+                                val xRange = Range(0F, width.toPx())
+                                val yRange = Range(0F, height.toPx())
+                                val isOkayToClose =
+                                    (motionEvent.x in xRange && motionEvent.y in yRange).not()
+
+
+                                //화면 변경 창 닫기
+                                if (isOkayToClose) scope.launch {
+                                    needToCloseViewRate.value = true
+                                    delay(100L)
+                                    needToCloseViewRate.value = false
+                                }
+                            }
                         }
                         false
                     }
@@ -137,7 +151,7 @@ fun Screen(
         contentAlignment = Alignment.Center
     ) {
         val galleryImageUri by cameraViewModel.capturedBitmapState.collectAsStateWithLifecycle()
-        val upperBarSize = remember { DpSize(screenSize.width, screenSize.height / 9 + 30.dp) }
+
         val previewAreaSize = remember {
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
@@ -197,11 +211,12 @@ fun Screen(
                 }
                 .align(Alignment.TopCenter),
             initCamera = cameraInit,
-            padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.height else 0.dp,
+            padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value?.height
+                ?: 0.dp else 0.dp,
             poseList = currentPoseDataList,
             preview = previewView,
             selectedPoseIndex = selectedPoseIndex.intValue,
-            upperBarSize = upperBarSize,
+            upperBarSize = upperBarSize.value ?: DpSize(0.dp, 0.dp),
             isRecommendCompEnabled = compState.value,
             loadLastImage = { cameraViewModel.getLastImage() },
             onFocusEvent = {
@@ -227,6 +242,15 @@ fun Screen(
         //상단 버튼
         CameraScreenUpperBar.UpperBar(
             modifier = Modifier
+                .onGloballyPositioned { coordinates ->
+                    if (upperBarSize.value == null) {
+                        coordinates.size.run {
+                            upperBarSize.value = with(localDensity) {
+                                DpSize(width = width.toDp(), height = height.toDp())
+                            }
+                        }
+                    }
+                }
                 .padding(top = 30.dp)
                 .height(screenSize.height / 9)
                 .align(Alignment.TopCenter)

@@ -6,8 +6,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.PreLoadModelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.CheckForDownloadModelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.DownloadModelUseCase
 import com.hanadulset.pro_poseapp.utils.CheckResponse
-import com.hanadulset.pro_poseapp.utils.DownloadInfo
-import com.hanadulset.pro_poseapp.utils.DownloadResponse
+import com.hanadulset.pro_poseapp.utils.DownloadState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,8 +20,11 @@ class PrepareServiceViewModel @Inject constructor(
     private val preLoadModelUseCase: PreLoadModelUseCase,
 
     ) : ViewModel() {
-    private val _downloadResponseState = MutableStateFlow<DownloadResponse?>(null)
-    val downloadInfoState = _downloadResponseState.asStateFlow()
+
+    private val _downloadState = MutableStateFlow<DownloadState?>(null)
+    val downloadState = _downloadState.asStateFlow()
+
+
     private val _totalLoadedState = MutableStateFlow(false)
     private val _modelLoadedState = MutableStateFlow(false)
     val totalLoadedState = _totalLoadedState.asStateFlow()
@@ -52,12 +54,14 @@ class PrepareServiceViewModel @Inject constructor(
     fun requestForDownload() {
         viewModelScope.launch {
             //다운로드를 요청하고,정상적으로 다운로드가 진행되는 경우,
-            _downloadResponseState.value = downloadModelUseCase()
+            downloadModelUseCase().collect {
+                _downloadState.value = it
+            }
         }
     }
 
     fun clearStates() {
-        _downloadResponseState.value = null
+        _downloadState.value = null
         _checkDownloadState.value = null
     }
 
@@ -65,8 +69,6 @@ class PrepareServiceViewModel @Inject constructor(
     private fun checkLoadAllPreRunMethod() {
         if (_modelLoadedState.value) _totalLoadedState.value = true
     }
-
-
 
 
 }

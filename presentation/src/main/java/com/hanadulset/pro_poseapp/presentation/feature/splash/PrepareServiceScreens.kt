@@ -92,10 +92,10 @@ object PrepareServiceScreens {
         val afterLoaded by rememberUpdatedState(newValue = onAfterLoadedEvent)
         LaunchedEffect(Unit) {
             delay(1000)
-//            if (isAfterDownload) {
+            if (isAfterDownload) {
             prepareServiceViewModel.preLoadModel()
             cameraInit()
-//            } else prepareServiceViewModel.requestForCheckDownload()
+            } else prepareServiceViewModel.requestForCheckDownload()
         }
         LaunchedEffect(checkNeedToDownloadState) {
             if (checkNeedToDownloadState != null) {

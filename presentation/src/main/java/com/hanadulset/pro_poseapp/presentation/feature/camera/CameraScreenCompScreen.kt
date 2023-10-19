@@ -155,7 +155,7 @@ object CameraScreenCompScreen {
             val distance = with(Pair(areaCentroid, pointOffSet)) {
                 sqrt((first.x - second.x).pow(2) + (first.y - second.y).pow(2))
             }
-            val catchThreshold = 80F
+            val catchThreshold = 50F
             if (distance in 0F..catchThreshold) {
                 //색 변경
                 isMatched.value = true
@@ -185,7 +185,7 @@ object CameraScreenCompScreen {
                     drawCircle(
                         center = point(),
                         radius = pointRadius,
-                        color = Color.Yellow,
+                        color = Color(0x90FFFF00),
                         style = Stroke(
                             width = 10F
                         )
@@ -193,7 +193,7 @@ object CameraScreenCompScreen {
                     drawCircle(
                         center = point(),
                         radius = pointRadius,
-                        color = Color(0x80000000),
+                        color = Color(0x8095FFA7),
                     )
                 }
             }

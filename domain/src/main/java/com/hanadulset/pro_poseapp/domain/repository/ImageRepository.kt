@@ -1,16 +1,13 @@
 package com.hanadulset.pro_poseapp.domain.repository
 
 import android.graphics.Bitmap
-import android.media.Image
 import android.net.Uri
-import android.util.Size
 import android.util.SizeF
-import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.utils.CheckResponse
-import com.hanadulset.pro_poseapp.utils.DownloadResponse
+import com.hanadulset.pro_poseapp.utils.DownloadState
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
-import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
+import kotlinx.coroutines.flow.Flow
 
 //이미지 저장 및 분석을 담당하는 레포지토리
 interface ImageRepository {
@@ -21,7 +18,7 @@ interface ImageRepository {
 
     fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap // 고정 화면을 보여줌
     suspend fun getLatestImage(): Uri?
-    suspend fun downloadResources(): DownloadResponse
+    suspend fun downloadResources(): Flow<DownloadState>
     suspend fun checkForDownloadResources(): CheckResponse
     suspend fun preRunModel(): Boolean
     fun getPoseFromImage(uri: Uri?): Bitmap?

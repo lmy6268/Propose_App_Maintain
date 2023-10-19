@@ -5,8 +5,7 @@
       "cnt": 60
     },
     "models": [
-      "vapnet.ptl",
-      ""
+      "vapnet.ptl"
     ]
   },
   "settings": {

@@ -3,12 +3,10 @@ package com.hanadulset.pro_poseapp.data.repository
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
-import android.media.Image
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.SizeF
-import androidx.camera.core.ImageProxy
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
@@ -16,9 +14,10 @@ import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
+import com.hanadulset.pro_poseapp.utils.DownloadState
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
-import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
+import kotlinx.coroutines.flow.Flow
 
 class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
@@ -60,14 +59,15 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         }
 
 
-
     override suspend fun getLatestImage(): Uri? {
         val data = fileHandleDataSource.loadCapturedImages(false)
         return if (data.isEmpty()) null
         else data[0].dataUri
     }
 
-    override suspend fun downloadResources() = downloadResourcesDataSource.startToDownload()
+    override suspend fun downloadResources(): Flow<DownloadState> {
+        return downloadResourcesDataSource.startToDownload()
+    }
 
 
     override suspend fun checkForDownloadResources() =

@@ -9,23 +9,21 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.amazonaws.AmazonClientException
 import com.amazonaws.auth.CognitoCachingCredentialsProvider
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility
 import com.amazonaws.regions.Region
 import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.Headers
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.DownloadResourcesDataSource
 import com.hanadulset.pro_poseapp.data.mapper.UserConfig
 import com.hanadulset.pro_poseapp.utils.BuildConfig
 import com.hanadulset.pro_poseapp.utils.CheckResponse
-import com.hanadulset.pro_poseapp.utils.DownloadResponse
 import com.hanadulset.pro_poseapp.utils.DownloadState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -34,7 +32,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.coroutines.cancellation.CancellationException
 
 class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
     DownloadResourcesDataSource {
@@ -65,10 +62,10 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
     //다운로드 여부를 체크하기 위한 메소드
     override suspend fun checkForDownload(): CheckResponse = withContext(Dispatchers.IO) {
         if (this@DownloadResourcesDataSourceImpl::s3Client.isInitialized.not()) {
+            //S3와 연결점을 맺음
             s3Client = AmazonS3Client(
                 CognitoCachingCredentialsProvider(
-                    applicationContext,
-                    BuildConfig.CREDENTIAL_POOL_ID, //자격증명 pool ID
+                    applicationContext, BuildConfig.CREDENTIAL_POOL_ID, //자격증명 pool ID
                     LOCAL_REGION
                 ), Region.getRegion(
                     LOCAL_REGION
@@ -87,7 +84,12 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
 
         //검증 시간
         checkedList.forEach { fileName ->
-            val fileMetadata = getMetaDataFromS3(fileName)
+            val fileMetadata =
+                s3Client.getObjectMetadata(BuildConfig.BUCKET_ID, fileName)
+//                            ObjectMetadata().apply {
+//                                setHeader(Headers.S3_VERSION_ID, "null")
+//                            }
+
             //실제 존재하는 지 확인
             if (isExistInData(fileName)) {
                 //서버의 해당 데이터 버전을 조회한다.
@@ -113,8 +115,6 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         downloadList.addAll(needToDownload.toList())
 
 
-
-
         //검증 결과를 응답으로 전달
         return@withContext CheckResponse(
             needToDownload = needToDownload.isNotEmpty(),
@@ -131,15 +131,6 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         return dataDir.freeSpace >= need
     }
 
-    //서버에서 메타데이터 가져옴.
-    private suspend fun getMetaDataFromS3(fileName: String): ObjectMetadata =
-        withContext(Dispatchers.IO) {
-            return@withContext s3Client.getObject(
-                BuildConfig.BUCKET_ID,
-                fileName
-            ).objectMetadata
-        }
-
     //로컬에 저장된 버전 정보를 가져옴.
     private suspend fun checkSameVersionLocal(fileName: String, versionID: String): Boolean =
         withContext(Dispatchers.IO) {
@@ -147,7 +138,7 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                 it[stringPreferencesKey(fileName)]
             }.first()
 
-
+            Log.d("버전 체크요:", "$fileName ,$versionID ,$localID")
             return@withContext localID == versionID
         }
 
@@ -160,67 +151,115 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
     }
 
     //다운로드를 책임지는 메소드
-    override suspend fun startToDownload(): DownloadResponse =
+    override suspend fun startToDownload(): Flow<DownloadState> = callbackFlow {
         withContext(Dispatchers.IO) {
             if (this@DownloadResourcesDataSourceImpl::transferUtility.isInitialized.not()) transferUtility =
                 TransferUtility.builder().context(applicationContext)
                     .defaultBucket(BuildConfig.BUCKET_ID) //버킷 이름
                     .s3Client(s3Client).build()
-
-
-            //처음과 끝만 데이터 받게됨,..
-            val dataFlow = callbackFlow {
-                downloadList.forEachIndexed { index, fileName ->
-                    val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
-                    transferUtility.download(fileName, targetFile, object : TransferListener {
-                        var downloadState = DownloadState(state = DownloadState.STATE_ON_PROGRESS)
-
-                        override fun onStateChanged(id: Int, state: TransferState?) {
-                            if (state == TransferState.COMPLETED) {
-                                trySend(
-                                    downloadState.copy(state = DownloadState.STATE_COMPLETE)
-                                )
-                            }
-                        }
-
-                        override fun onProgressChanged(
-                            id: Int,
-                            bytesCurrent: Long,
-                            bytesTotal: Long
-                        ) {
-                            val downloaded = DownloadState(
-                                state = DownloadState.STATE_ON_PROGRESS,
-                                currentFileName = fileName,
-                                currentFileIndex = index,
-                                totalFileCnt = downloadList.size,
-                                currentBytes = bytesCurrent,
-                                totalBytes = bytesTotal
-                            )
-                            downloadState = downloaded
-                            trySend(downloaded)
-                            Log.d("downloadStatus: ", downloadState.toString())
-                        }
-
-                        override fun onError(id: Int, ex: Exception?) {
-                            cancel(CancellationException(ex))
-                        }
-                    })
-
-                }
-                awaitClose {
-
-                }
-
-
-            }
-
-
-
-            return@withContext DownloadResponse(
-                data = dataFlow,
-                state = DownloadResponse.STATE_GOOD_TO_DOWNLOAD
-            )
         }
+        listOf("test", "hello").forEachIndexed { index, fileName ->
+            val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
+            val bytesTotal = 10000000L
+            var bytesTransferred = 0L
+            while (bytesTransferred <= bytesTotal) {
+                kotlinx.coroutines.delay(10L)
+                val downloaded = DownloadState(
+                    state = DownloadState.STATE_ON_PROGRESS,
+                    currentFileName = fileName,
+                    currentFileIndex = index,
+                    totalFileCnt = 2,
+                    currentBytes = bytesTransferred,
+                    totalBytes = bytesTotal
+                )
+                bytesTransferred += 100000L
+                trySend(downloaded)
+            }
+        }
+        awaitClose { close() }
+
+    }
+
+
+////    val dataFlow = flow {
+////        downloadList.forEachIndexed { index, fileName ->
+////            val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
+////            val bytesTotal = 100000L
+////            var bytesTransferred = 10L
+////
+////
+//////                    val nowState = transferUtility.download(fileName, targetFile)
+//////                    nowState.run {
+////
+////            while (bytesTransferred <= bytesTotal) {
+////                kotlinx.coroutines.delay(100L)
+////                val downloaded = DownloadState(
+////                    state = DownloadState.STATE_ON_PROGRESS,
+////                    currentFileName = fileName,
+////                    currentFileIndex = index,
+////                    totalFileCnt = downloadList.size,
+////                    currentBytes = bytesTransferred,
+////                    totalBytes = bytesTotal
+////                )
+////                Log.d("downloadStatus: ", downloaded.toString())
+////                bytesTransferred += 1000L
+////                emit(downloaded)
+////            }
+//////                    }
+////        }
+//
+//    }
+
+
+//            //처음과 끝만 데이터 받게됨,..
+//            val dataFlow = callbackFlow {
+//                downloadList.forEachIndexed { index, fileName ->
+//                    val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
+//                    transferUtility.download(fileName, targetFile,
+//
+//                        object : TransferListener {
+//                        var downloadState = DownloadState(state = DownloadState.STATE_ON_PROGRESS)
+//
+//                        override fun onStateChanged(id: Int, state: TransferState?) {
+//                            if (state == TransferState.COMPLETED) {
+//                                trySend(
+//                                    downloadState.copy(state = DownloadState.STATE_COMPLETE)
+//                                )
+//                            }
+//                        }
+//
+//                        override fun onProgressChanged(
+//                            id: Int,
+//                            bytesCurrent: Long,
+//                            bytesTotal: Long
+//                        ) {
+//                            val downloaded = DownloadState(
+//                                state = DownloadState.STATE_ON_PROGRESS,
+//                                currentFileName = fileName,
+//                                currentFileIndex = index,
+//                                totalFileCnt = downloadList.size,
+//                                currentBytes = bytesCurrent,
+//                                totalBytes = bytesTotal
+//                            )
+//                            downloadState = downloaded
+//                            trySend(downloaded)
+
+//                        }
+//
+//                        override fun onError(id: Int, ex: Exception?) {
+//                            cancel(CancellationException(ex))
+//                        }
+//                    })
+//
+//                }
+//
+//                awaitClose {
+//                    close()
+//                }
+//
+//
+//
+
 
     private suspend fun modifyVersionIDLocal(fileName: String, versionID: String) =
         withContext(Dispatchers.IO) {

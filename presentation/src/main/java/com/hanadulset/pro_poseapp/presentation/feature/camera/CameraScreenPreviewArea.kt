@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -132,11 +133,11 @@ object CameraScreenPreviewArea {
                             }
                         }
                     }
-                    .pointerInteropFilter { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
+                    .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
                         when (motionEvent.action) {
                             MotionEvent.ACTION_DOWN -> {
-
                                 focusRingState.value = null
+
                                 val untouchableArea =
                                     with(localDensity) { upBarSize.height.toPx() }
                                 if (motionEvent.y > untouchableArea) {
@@ -151,7 +152,7 @@ object CameraScreenPreviewArea {
                                         )
                                     )
                                 }
-                                true
+                                false
                             }
 
                             else -> {
