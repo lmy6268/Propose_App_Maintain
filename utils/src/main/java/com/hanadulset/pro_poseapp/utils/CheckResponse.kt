@@ -9,6 +9,7 @@ data class CheckResponse(
     val hasRemainStorage: Boolean = false, // 잔여 공간의 여부
 ) {
     companion object {
+        const val TYPE_NEED_CONNECTION = 10
         const val TYPE_MUST_DOWNLOAD = 0 //필수 요소가 없어 다운로드가 필요한 경우
         const val TYPE_ADDITIONAL_DOWNLOAD = 1 //업데이트 등과 같은 경우
         const val TYPE_ERROR = -1

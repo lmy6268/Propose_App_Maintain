@@ -3,14 +3,21 @@ package com.hanadulset.pro_poseapp.data.datasource.feature
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
+import android.util.SizeF
+import androidx.core.net.toUri
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.PoseDataSource
+import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.R
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
+import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReader
+import com.opencsv.CSVReaderBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
@@ -18,9 +25,13 @@ import org.opencv.core.Mat
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStreamReader
+import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
@@ -28,8 +39,7 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-class PoseDataSourceImpl(private val context: Context) :
-    PoseDataSource {
+class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
 
 
     //centroid 값
@@ -67,22 +77,89 @@ class PoseDataSourceImpl(private val context: Context) :
             resMutableList
         }
 
-        val keyDrawableArray = context.resources.obtainTypedArray(R.array.keypointImage)
-        rankList.forEachIndexed { index, doubleList ->
-            val tmpPoseList = mutableListOf<PoseData>()
-            doubleList.forEach {
-                val resId = keyDrawableArray.getResourceId(it.toInt(), -1)
-                tmpPoseList.add(
-                    PoseData(
-                        it.toInt(),
-                        resId,
-                        index
-                    )
-                )
+        //저장된 이미지와 데이터를 매핑시킨다.
+        val imageDataList = context.assets.open("image_datas.csv")
+            .use { stream ->
+                val resultList = mutableListOf<PoseData>()
+                val imageRes = loadPoseImages()
+                CSVReaderBuilder(InputStreamReader(stream))
+                    .withCSVParser(
+                        CSVParserBuilder()
+                            .withSeparator(',')
+                            .build()
+                    ).build()
+                    .readAll()
+                    .run {
+                        //첫 줄은 생략하고 시작함.
+                        this.subList(1, this.size).forEach { strings ->
+                            val center =
+                                strings[1].replace("[", "").replace("]", "").split(",").map {
+                                    it.toFloat()
+                                }
+                            val size = strings[2].replace("[", "").replace("]", "").split(",")
+                                .map { it.toFloat() }
+
+                            resultList.add(
+                                PoseData(
+                                    poseId = strings[0].substringBefore('_').toInt(),
+                                    centerRate = SizeF(center[0], center[1]),
+                                    sizeRate = SizeF(size[0], size[1])
+                                )
+                            )
+                        }
+                        resultList.sortBy { it.poseId }
+                        for (i in resultList.indices) {
+                            resultList[i] = resultList[i].copy(imageUri = imageRes[i])
+                        }
+                    }
+                resultList
             }
-            poseDataList.add(tmpPoseList)
+
+        Log.d("imageDataList Size:", imageDataList.size.toString())
+
+        for (idx in rankList.indices) {
+            val tmp = mutableListOf<PoseData>()
+            rankList[idx].forEach { poseId ->
+                tmp.add(imageDataList[poseId.toInt()].copy(poseCat = idx))
+            }
+            poseDataList.add(tmp)
         }
         poseDataList.toList()
+
+//        val res = mutableListOf<List<PoseData>>().apply {
+//            for (idx in rankList.indices) {
+//                val tmp = mutableListOf<PoseData>()
+//                rankList[idx].forEach {
+//                    val imgUri = imageUri[it.toInt()]
+//                    tmp.add(
+//                        PoseData(
+//                            poseId = it.toInt(),
+//                            imageUri = imgUri,
+//                            poseCat = idx,
+//                            poseDrawableId = 0
+//                        )
+//                    )
+//                }
+//                this.add(tmp)
+//            }
+//        }
+
+
+//        val keyDrawableArray = context.resources.obtainTypedArray(R.array.keypointImage)
+//        rankList.forEachIndexed { index, doubleList ->
+//            val tmpPoseList = mutableListOf<PoseData>()
+//            doubleList.forEach {
+//                val resId = keyDrawableArray.getResourceId(it.toInt(), -1)
+//                tmpPoseList.add(
+//                    PoseData(
+//                        it.toInt(), resId, index
+//                    )
+//                )
+//            }
+//            poseDataList.add(tmpPoseList)
+//        }
+//        Log.d("poseDataList: ", poseDataList.toString())
+//        poseDataList.toList()
     }
 
 
@@ -90,13 +167,14 @@ class PoseDataSourceImpl(private val context: Context) :
         suspendCoroutine { cont ->
             //테스트용 비트맵
             CoroutineScope(Dispatchers.IO).launch {
+                loadPoseImages()
                 val angle = getAngleFromHog(getHistogramMap(backgroundBitmap))
                 var res = Pair(-1, java.lang.Double.POSITIVE_INFINITY)
 
                 for (i in 0 until centroid.size - 2) {
                     val calculatedDistance = getDistance(angle, i)
-                    if (res.second > calculatedDistance)
-                        res = res.copy(first = i, second = calculatedDistance)
+                    if (res.second > calculatedDistance) res =
+                        res.copy(first = i, second = calculatedDistance)
                 }
                 val backgroundId = res.first //백그라운드 클러스터 ID
                 val poseDataResult = PoseDataResult(
@@ -347,17 +425,12 @@ class PoseDataSourceImpl(private val context: Context) :
                     resMagnitude.put(row, col, resMagnitude[row, col][0] + magnitude[row, col][0])
                     if (magnitude[row, col][0] != 0.0) {
                         resOrientation.put(
-                            row,
-                            col,
-                            resOrientation[row, col][0] + orientation[row, col][0]
+                            row, col, resOrientation[row, col][0] + orientation[row, col][0]
                         )
                         cnt.put(
-                            row,
-                            col,
-                            cnt[row, col][0] + 1
+                            row, col, cnt[row, col][0] + 1
                         )
                     }
-
                 }
             }
         }
@@ -367,12 +440,10 @@ class PoseDataSourceImpl(private val context: Context) :
                 val currentCnt = cnt[row, col][0]
                 if (currentCnt != 0.0) {
                     resMagnitude.put(
-                        row, col,
-                        resMagnitude[row, col][0] / currentCnt
+                        row, col, resMagnitude[row, col][0] / currentCnt
                     )
                     resOrientation.put(
-                        row, col,
-                        resOrientation[row, col][0] / currentCnt
+                        row, col, resOrientation[row, col][0] / currentCnt
                     )
                 }
             }
@@ -384,7 +455,8 @@ class PoseDataSourceImpl(private val context: Context) :
         for (row in 0 until cnt.rows()) {
             for (col in 0 until cnt.cols()) {
                 resMagnitude.put(
-                    row, col,
+                    row,
+                    col,
                     if (ave * HogConfig.magnitudeThreshold / 10 > resMagnitude[row, col][0]) 0.0
                     else 1.0
                 )
@@ -470,39 +542,61 @@ class PoseDataSourceImpl(private val context: Context) :
 
         for (row in 0 until histogramMap.rows()) {
             for (col in 0 until histogramMap.cols()) {
-                if (histogramMap[row, col].all { it == 0.0 }.not())
-                    for (index in histogramMap[row, col].indices) {
-                        val value = histogramMap[row, col][index]
-                        if (value == 1.0) {
-                            //angleMap에 데이터가 저장됨
-                            angleMap[row * histogramMap.rows() + col] =
-                                index * 180.0 / HogConfig.nBins
-                            break
-                        }
+                if (histogramMap[row, col].all { it == 0.0 }
+                        .not()) for (index in histogramMap[row, col].indices) {
+                    val value = histogramMap[row, col][index]
+                    if (value == 1.0) {
+                        //angleMap에 데이터가 저장됨
+                        angleMap[row * histogramMap.rows() + col] = index * 180.0 / HogConfig.nBins
+                        break
                     }
+                }
             }
         }
 
         return angleMap.toList()
     }
 
-//    private fun loadPoseImages(): List<Uri> {
-//        val file = File(context.dataDir, "/silhouettes")
-//        if (file.exists().not()) {
-//            val tmpFile = File(context.dataDir, SILHOUETTE_IMAGE_ZIP)
-//            context.assets.open(SILHOUETTE_IMAGE_ZIP).use { `is` ->
-//                FileOutputStream(file).use { os ->
-//                    val buffer = ByteArray(4 * 1024)
-//                    var read: Int
-//                    while (`is`.read(buffer).also { read = it } != -1) {
-//                        os.write(buffer, 0, read)
-//                    }
-//                    os.flush()
-//                }
-//            }
-//        }
-//
-//    }
+    private fun loadPoseImages(): List<Uri> {
+        val file = File(context.dataDir, "/silhouettes")
+        if (file.exists().not()) {
+            val tmpFile = File(context.dataDir, SILHOUETTE_IMAGE_ZIP)
+            //데이터를 옮김
+            context.assets.open(SILHOUETTE_IMAGE_ZIP).use { `is` ->
+                FileOutputStream(tmpFile).use { os ->
+                    val buffer = ByteArray(4 * 1024)
+                    var read: Int
+                    while (`is`.read(buffer).also { read = it } != -1) {
+                        os.write(buffer, 0, read)
+                    }
+                    os.flush()
+                }
+            }
+            unzip(tmpFile, file.parentFile!!.absolutePath)
+        }
+
+        return mutableListOf<Uri>().let { uriList ->
+            mutableListOf<Pair<Int, Uri>>().run {
+                file.listFiles()?.forEach { image ->
+                    val name = image.name.replace(".png", "").toInt()
+                    val uri = image.toUri()
+                    add(Pair(name, uri))
+                }
+                sortBy { imageData -> imageData.first }
+                forEach {
+                    uriList.add(it.first, it.second)
+                }
+            }
+            uriList
+        }
+
+    }
+
+    private fun unzip(sourceZip: File, targetDir: String) {
+        val dir = File(targetDir)
+        if (dir.exists().not()) dir.mkdir()
+        ImageUtils.unZip(sourceZip, targetDir)
+    }
 
 
     companion object {

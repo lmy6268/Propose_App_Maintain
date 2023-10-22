@@ -80,7 +80,8 @@ object PrepareServiceScreens {
         prepareServiceViewModel: PrepareServiceViewModel,
         isAfterDownload: Boolean,
         onAfterLoadedEvent: () -> Unit,
-        onMoveToDownload: () -> Unit
+        onMoveToDownload: () -> Unit,
+        networkState: Boolean = false
     ) {
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
         val checkNeedToDownloadState by prepareServiceViewModel.checkDownloadState.collectAsState()
@@ -93,12 +94,13 @@ object PrepareServiceScreens {
         LaunchedEffect(Unit) {
             delay(1000)
             if (isAfterDownload) {
-            prepareServiceViewModel.preLoadModel()
-            cameraInit()
+                prepareServiceViewModel.preLoadModel()
+                cameraInit()
             } else prepareServiceViewModel.requestForCheckDownload()
         }
+
         LaunchedEffect(checkNeedToDownloadState) {
-            if (checkNeedToDownloadState != null) {
+            if (checkNeedToDownloadState != null && isAfterDownload.not()) {
                 //아마존 에러인 경우 처리 -> 보통은 와이파이 오류
                 if (checkNeedToDownloadState!!.downloadType == CheckResponse.TYPE_ERROR) localActivity.finish()
                 else if (checkNeedToDownloadState!!.needToDownload.not()) {
@@ -110,7 +112,6 @@ object PrepareServiceScreens {
 
         if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
             afterLoaded()//카메라 화면으로 이동하는 거임.
-
             isInitiated.value = true
         } else InnerAppLoadingScreen()
 

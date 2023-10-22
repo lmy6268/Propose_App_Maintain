@@ -69,7 +69,7 @@ import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 
 object GalleryScreen {
     //최근 찍힌 이미지들을 목록으로 보여준다.
-    @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     fun GalleryScreen(
         imageList: List<ImageResult>,
@@ -85,7 +85,9 @@ object GalleryScreen {
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
         val galleryOpenLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
-            onResult = {}) //갤러리를 열 때 사용하는 런처
+            onResult = {
+
+            }) //갤러리를 열 때 사용하는 런처
 
         val horizontalPagerState = rememberPagerState(
             initialPage = 0,

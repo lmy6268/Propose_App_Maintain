@@ -7,7 +7,10 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.media.Image
+import net.lingala.zip4j.ZipFile
 import java.io.ByteArrayOutputStream
+import java.io.File
+
 
 object ImageUtils {
     fun imageToBitmap(image: Image, imageRotation: Int): Bitmap {
@@ -56,5 +59,12 @@ object ImageUtils {
             )
         }
         return res!!
+    }
+
+    fun unZip(srcZip: File, dstPath: String) {
+        ZipFile(srcZip).use {
+            it.extractAll(dstPath)
+        }
+
     }
 }

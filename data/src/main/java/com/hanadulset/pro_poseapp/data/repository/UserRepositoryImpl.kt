@@ -1,11 +1,13 @@
 package com.hanadulset.pro_poseapp.data.repository
 
 import android.content.Context
+import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.UserDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.UserRepository
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.eventlog.FeedBackData
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class UserRepositoryImpl @Inject constructor(private val applicationContext: Context) :
@@ -16,6 +18,10 @@ class UserRepositoryImpl @Inject constructor(private val applicationContext: Con
     private val fileHandleDataSourceImpl by lazy {
         FileHandleDataSourceImpl(context = applicationContext)
     }
+    private val downloadSourceImpl by lazy {
+        DownloadResourcesDataSourceImpl(applicationContext)
+    }
+
 
     override suspend fun writeEventLog(eventLog: EventLog) {
         userDataSourceImpl.writeEventLog(eventLog)
@@ -31,4 +37,7 @@ class UserRepositoryImpl @Inject constructor(private val applicationContext: Con
         )
         fileHandleDataSourceImpl.sendFeedBackData(userFeedBackData)
     }
+
+    override suspend fun userDeviceInternetConnection(): Flow<Boolean> =
+        downloadSourceImpl.checkInternetConnection()
 }

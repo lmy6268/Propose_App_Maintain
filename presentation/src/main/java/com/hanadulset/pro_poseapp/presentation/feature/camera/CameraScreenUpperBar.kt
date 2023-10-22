@@ -56,6 +56,7 @@ object CameraScreenUpperBar {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceAround
         ) {
+
             //오버레이 되는 확장 가능한 버튼
             ExpandableButton(
                 itemList = viewRateList.map { it.name },
@@ -68,6 +69,7 @@ object CameraScreenUpperBar {
                 defaultButtonSize = 44.dp,
                 triggerClose = triggerCloseValue
             )
+
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
                 //구도추천 On/OFF

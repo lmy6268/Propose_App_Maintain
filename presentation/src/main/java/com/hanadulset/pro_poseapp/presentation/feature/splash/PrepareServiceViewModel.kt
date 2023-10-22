@@ -2,6 +2,7 @@ package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hanadulset.pro_poseapp.domain.usecase.CheckInternetConnectionUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.PreLoadModelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.CheckForDownloadModelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.DownloadModelUseCase
@@ -18,17 +19,22 @@ class PrepareServiceViewModel @Inject constructor(
     private val checkDownloadModelUseCase: CheckForDownloadModelUseCase,
     private val downloadModelUseCase: DownloadModelUseCase,
     private val preLoadModelUseCase: PreLoadModelUseCase,
+    private val checkInternetConnectionUseCase: CheckInternetConnectionUseCase
 
-    ) : ViewModel() {
+) : ViewModel() {
 
     private val _downloadState = MutableStateFlow<DownloadState?>(null)
     val downloadState = _downloadState.asStateFlow()
 
+    private val _networkState = MutableStateFlow(false)
+    val networkState = _networkState.asStateFlow()
 
     private val _totalLoadedState = MutableStateFlow(false)
     private val _modelLoadedState = MutableStateFlow(false)
     val totalLoadedState = _totalLoadedState.asStateFlow()
     private val _checkDownloadState = MutableStateFlow<CheckResponse?>(null)
+
+
     val checkDownloadState = _checkDownloadState.asStateFlow() //체크의 결과값을 가지고 있는 변수
 
     fun preLoadModel() {
@@ -60,11 +66,24 @@ class PrepareServiceViewModel @Inject constructor(
         }
     }
 
+    fun pauseDownload() {
+
+    }
+
+
     fun clearStates() {
         _downloadState.value = null
         _checkDownloadState.value = null
     }
 
+
+    fun startToTrackNetWorkState() {
+        viewModelScope.launch {
+            checkInternetConnectionUseCase().collect {
+                _networkState.value = it
+            }
+        }
+    }
 
     private fun checkLoadAllPreRunMethod() {
         if (_modelLoadedState.value) _totalLoadedState.value = true

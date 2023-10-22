@@ -12,6 +12,7 @@ import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.center
+import androidx.core.net.toFile
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import okhttp3.internal.notify
+import java.io.File
 import javax.inject.Inject
 
 @ExperimentalGetImage
@@ -112,7 +114,7 @@ class CameraViewModel @Inject constructor(
     private val imageAnalyzer = ImageAnalysis.Analyzer { imageProxy ->
 
         _bitmapState.onSubscription {
-            Log.d("현재 인식됨: ","네")
+            Log.d("현재 인식됨: ", "네")
         }
 
 
@@ -181,7 +183,9 @@ class CameraViewModel @Inject constructor(
                 _bitmapState.value?.let { bitmap ->
                     val recommendedData = recommendPoseUseCase(bitmap)
                     _poseResultState.value =
-                        recommendedData.poseDataList.apply { add(0, PoseData(-1, -1, -1)) }
+                        recommendedData.poseDataList.apply {
+                            add(0, PoseData(poseId = -1, -1))
+                        }
                     _backgroundDataState.value =
                         recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
                     _poseOnRecommend.value = false//포즈 추천이 끝남을 알림
@@ -274,6 +278,10 @@ class CameraViewModel @Inject constructor(
         _fixedScreenState.value = null
         val res = getPoseFromImageUseCase(uri)
         _fixedScreenState.value = res
+        viewModelScope.launch {
+            File(uri.toString()).delete()
+        }
+
     }
 
 

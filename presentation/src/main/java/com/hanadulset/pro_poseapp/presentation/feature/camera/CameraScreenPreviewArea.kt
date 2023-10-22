@@ -42,7 +42,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -50,8 +49,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenPreviewArea.PoseScreen
-import com.hanadulset.pro_poseapp.utils.R
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
 
@@ -273,7 +270,7 @@ object CameraScreenPreviewArea {
 
         Box(modifier = modifier) {
             PoseItem(
-                drawableId = poseList[poseIdx].poseDrawableId,
+                poseData = poseList[poseIdx],
                 boundary = with(localDensity) {
                     parentSize.let {
                         Size(it.width.toPx(), it.height.toPx())
@@ -282,13 +279,11 @@ object CameraScreenPreviewArea {
                 poseSize = 200.dp
             )
         }
-
-
     }
 
     @Composable
     fun PoseItem(
-        drawableId: Int,
+        poseData: PoseData,
         poseSize: Dp,
         boundary: Size,
     ) {
@@ -297,17 +292,19 @@ object CameraScreenPreviewArea {
         }
 
 
-        if (drawableId != -1) {
+        if (poseData.imageUri != null) {
             val offset = rememberSaveable {
                 mutableStateOf(
-                    Pair(boundary.width / 4, boundary.height / 4)
+                    Pair(
+                        boundary.width * poseData.centerRate.width,
+                        boundary.height * poseData.centerRate.height
+                    )
                 )
             }
             val zoom = rememberSaveable {
                 mutableFloatStateOf(1F)
             }
             val locDensity = LocalDensity.current
-
 
             val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
                 if (zoom.floatValue * zoomChange in 0.5f..2f) {
@@ -329,7 +326,7 @@ object CameraScreenPreviewArea {
 
             val painter = rememberAsyncImagePainter(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(drawableId)
+                    .data(poseData.imageUri)
                     .size(with(LocalDensity.current) {
                         poseSize.toPx().toInt()
                     }) //현재 버튼의 크기만큼 리사이징한다.
@@ -360,25 +357,25 @@ object CameraScreenPreviewArea {
 
 }
 
-@Composable
-@Preview
-fun Pre() {
-    PoseScreen(
-        modifier = Modifier.fillMaxSize(),
-        parentSize = DpSize(500.dp, 500.dp),
-        poseIndex = 2,
-        poseList = listOf(
-            PoseData(-1, -1, -1),
-            PoseData(
-                poseCat = 0,
-                poseDrawableId = R.drawable.key_image_0,
-                poseId = 1,
-            ), PoseData(
-                poseCat = 0,
-                poseDrawableId = R.drawable.key_image_1,
-                poseId = 1,
-            )
-        )
-    )
-}
+//@Composable
+//@Preview
+//fun Pre() {
+//    PoseScreen(
+//        modifier = Modifier.fillMaxSize(),
+//        parentSize = DpSize(500.dp, 500.dp),
+//        poseIndex = 2,
+//        poseList = listOf(
+//            PoseData(-1, -1, -1),
+//            PoseData(
+//                poseCat = 0,
+//                poseDrawableId = R.drawable.key_image_0,
+//                poseId = 1,
+//            ), PoseData(
+//                poseCat = 0,
+//                poseDrawableId = R.drawable.key_image_1,
+//                poseId = 1,
+//            )
+//        )
+//    )
+//}
 

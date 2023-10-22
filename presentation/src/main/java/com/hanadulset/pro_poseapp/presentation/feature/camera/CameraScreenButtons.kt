@@ -1,6 +1,5 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
-import android.view.MotionEvent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -55,9 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -75,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
 
@@ -225,6 +223,7 @@ object CameraScreenButtons {
             else with(LocalDensity.current) { (thumbRadius + gapBetweenThumbAndTrackEdge).toPx() },
                 label = ""
             )
+        val localFont = LocalTypography.current
 
         Column(
             modifier = modifier,
@@ -232,9 +231,7 @@ object CameraScreenButtons {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                fontSize = 10.sp,
-                fontFamily = pretendardFamily,
-                fontWeight = FontWeight.Bold,
+                style = localFont.heading03,
                 text = "$innerText ${if (switchON.value) "On" else "Off"}"
             )
             Column {
@@ -354,12 +351,13 @@ object CameraScreenButtons {
         )
 
         Surface(
-            shadowElevation = 4.dp, modifier = modifier.clickable(
-                indication = rememberRipple(
-                    color = Color(0xFF999999), bounded = true, radius = buttonSize / 2
-                ), //Ripple 효과 제거
-                interactionSource = interactionSource, onClick = onClickEvent
-            ), shape = CircleShape
+            modifier = modifier
+                .clickable(
+                    indication = rememberRipple(
+                        color = Color(0xFF999999), bounded = true, radius = buttonSize / 2
+                    ), //Ripple 효과 제거
+                    interactionSource = interactionSource, onClick = onClickEvent
+                ), shape = CircleShape
         ) {
             Icon(
                 modifier = modifier.size(buttonSize),
@@ -392,7 +390,6 @@ object CameraScreenButtons {
     }
 
     //확장가능한 버튼
-    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     fun ExpandableButton(
         itemList: List<String>, // 내부에 들어갈 값

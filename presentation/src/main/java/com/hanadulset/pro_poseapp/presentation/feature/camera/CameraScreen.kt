@@ -16,14 +16,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.runtime.Composable
@@ -37,9 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -47,7 +42,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
@@ -209,7 +203,7 @@ fun Screen(
                         previewAreaSize.value = DpSize(it.width.dp, it.height.dp)
                     }
                 }
-                .align(Alignment.TopCenter),
+                .align(Alignment.Center),
             initCamera = cameraInit,
             padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value?.height
                 ?: 0.dp else 0.dp,
@@ -251,7 +245,7 @@ fun Screen(
                         }
                     }
                 }
-                .padding(top = 30.dp)
+//                .padding(top = 30.dp)
                 .height(screenSize.height / 9)
                 .align(Alignment.TopCenter)
                 .fillMaxWidth(),
@@ -323,7 +317,7 @@ fun Screen(
                         cameraViewModel.reqPoseRecommend()
                     showPoseListUnderBarState.value = true
                 },
-                lowerLayerPaddingBottom = 50.dp,
+                lowerLayerPaddingBottom = 0.dp,
                 galleryImageUri = galleryImageUri
             )
         }

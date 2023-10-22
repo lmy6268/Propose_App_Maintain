@@ -121,16 +121,16 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
             outputTuple[1].toTensor().dataAsFloatArray,
             outputTuple[2].toTensor().dataAsFloatArray
         )
-        val threshold = 0.65
-        val list = listOf("Left", "Right", "Up", "Down")
+        val threshold = 0.8
+//        val list = listOf("Left", "Right", "Up", "Down")
 
         val res = if (suggestion[0] > threshold) { //조정이 필요한 경우
             val idx = adjustment.toList().indexOf(adjustment.max())
             val magOutPut = magnitude[idx]
-            Log.d(
-                "test data: ",
-                "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})"
-            )
+//            Log.d(
+//                "test data: ",
+//                "Move to ${list[idx]}, ${(magOutPut.absoluteValue * 100).roundToInt()}% \n (suggestion:${suggestion.toList()[0]})"
+//            )
             when (idx) {
                 in 0..1 -> {
                     val value = (magOutPut.absoluteValue * 100).roundToInt()

@@ -2,10 +2,13 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +49,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -256,7 +260,7 @@ private fun GalleryImageButton(
     )
 
     Surface(
-        shadowElevation = 1.dp,
+        shadowElevation = 2.dp,
         shape = CircleShape,
         modifier = Modifier.wrapContentSize(),
     ) {
@@ -377,7 +381,7 @@ fun ClickPoseBtnUnderBar(
 }
 
 
-@OptIn(ExperimentalSnapperApi::class)
+@OptIn(ExperimentalSnapperApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun PoseSelectRow(
     modifier: Modifier = Modifier,
@@ -395,27 +399,12 @@ fun PoseSelectRow(
     val rowWidth =
         remember { derivedStateOf { with(localDensity) { scrollState.layoutInfo.viewportSize.width.toDp() } } }
 
+    val padding by rememberUpdatedState(newValue = rowWidth.value / 3F + 10.dp)
 
 
-
-    LaunchedEffect(nowSelected) {
-        if (scrollBySnap.value.not()) {
-            scrollByClick.value = true
-            val itemInfo =
-                scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == nowSelected }
-            if (itemInfo != null) {
-                val paddingValue = (rowWidth.value.div(2F).value)
-                val center = (scrollState.layoutInfo.viewportEndOffset - paddingValue) / 2
-                val childCenter = itemInfo.offset + itemInfo.size
-                scrollState.animateScrollBy(childCenter - center)
-            } else scrollState.scrollToItem(nowSelected)
-        } else scrollBySnap.value = false
-    }
 
     LaunchedEffect(scrollState.isScrollInProgress) {
         if (!scrollState.isScrollInProgress) {
-            // The scroll (fling) has finished, get the current item and
-            // do something with it!
             if (scrollByClick.value.not()) {
                 val snappedItem = layoutInfo.currentItem
                 snappedItem?.let {
@@ -426,37 +415,42 @@ fun PoseSelectRow(
         }
     }
 
-
-
-
-
     LazyRow(
         modifier = modifier, state = scrollState,
         horizontalArrangement = Arrangement.Center,
         contentPadding = PaddingValues(
-            horizontal = 10.dp,
+            horizontal = padding,
             vertical = 10.dp
         ),
-        flingBehavior = rememberSnapperFlingBehavior(layoutInfo),
+        flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(scrollState)),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (poseList != null)
+        if (poseList != null) {
             itemsIndexed(poseList) { idx, posedata ->
                 PoseSelectionItem(
                     modifier = Modifier.padding(horizontal = 10.dp),
                     isSelected = idx == nowSelected,
-                    drawableId = posedata.poseDrawableId,
+                    imageUri = posedata.imageUri,
                     poseIndex = idx,
                     onClickEvent = {
                         onSelectedPoseIndexEvent(idx)
                         /*코루틴을 컴포저블에서 사용하기 위해서는 rememberCoroutineScope()를 사용해야 함.*/
                         rememberCoroutineScope.launch {
-                            scrollState.animateScrollToItem(idx)
+                            scrollByClick.value = true
+                            val itemInfo =
+                                scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
+                            if (itemInfo != null) {
+                                val center = scrollState.layoutInfo.viewportEndOffset / 2
+                                val childCenter = itemInfo.offset + (itemInfo.size / 2)
+                                scrollState.animateScrollBy((childCenter - center).toFloat())
+                            } else {
+                                scrollState.animateScrollToItem(idx)
+                            }
                         }
                     }, poseSize = 70
                 )
             }
-        else { //아직 포즈를 찾고 있는 중 일 때
+        } else { //아직 포즈를 찾고 있는 중 일 때
             item {
                 Column(
                     modifier = Modifier
@@ -482,6 +476,8 @@ fun PoseSelectRow(
         }
 
     }
+
+
 }
 
 //클릭 할 수 있는 포즈 아이템 카드
@@ -489,7 +485,7 @@ fun PoseSelectRow(
 fun PoseSelectionItem(
     modifier: Modifier = Modifier,
     isSelected: Boolean,
-    drawableId: Int,
+    imageUri: Uri?,
     poseIndex: Int,
     poseSize: Int,
     onClickEvent: () -> Unit
@@ -511,9 +507,8 @@ fun PoseSelectionItem(
     val painter = rememberAsyncImagePainter(
         model = ImageRequest.Builder(LocalContext.current)
             .data(
-                drawableId.run {
-                    if (this == -1) R.drawable.impossible_icon
-                    else this
+                imageUri.run {
+                    this ?: R.drawable.impossible_icon
                 }
             )
             .size(with(LocalDensity.current) {
@@ -567,14 +562,14 @@ fun PoseSelectionItem(
                         painter = painter,
                         contentDescription = "이미지",
                         contentScale = ContentScale.Fit,
-                        colorFilter = if (drawableId != -1) ColorFilter.tint(color = Color.Black) else null
+                        colorFilter = if (imageUri == null) ColorFilter.tint(color = Color.Black) else null
                     )
                 }
             }
         }
 
         Text(
-            text = if (drawableId == -1) "없음" else "포즈 #$poseIndex",
+            text = if (imageUri == null) "없음" else "포즈 #$poseIndex",
             textAlign = TextAlign.Center,
             fontFamily = CameraScreenButtons.pretendardFamily,
             fontWeight = FontWeight.Bold,
@@ -618,79 +613,79 @@ fun PreviewUnderBar() {
 }
 
 
-@Composable
-@Preview
-fun PrePoseSelector() {
-    val poseList = listOf(
-        PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_3,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_4,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_5,
-            poseCat = 1
-        )
-
-    )
-
-    PoseSelectRow(modifier = Modifier.fillMaxWidth(),
-        poseList = poseList,
-        currentSelectedIdx = 0,
-        onSelectedPoseIndexEvent = {})
-}
+//@Composable
+//@Preview
+//fun PrePoseSelector() {
+//    val poseList = listOf(
+//        PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_3,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_4,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_5,
+//            poseCat = 1
+//        )
+//
+//    )
+//
+//    PoseSelectRow(modifier = Modifier.fillMaxWidth(),
+//        poseList = poseList,
+//        currentSelectedIdx = 0,
+//        onSelectedPoseIndexEvent = {})
+//}
 
 
 @Composable
 @Preview
 fun PreviewSelector() {
-    val poseList = listOf(
-        PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_3,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_4,
-            poseCat = 1
-        ), PoseData(
-            poseId = 0,
-            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_5,
-            poseCat = 1
-        )
-
-    )
-    ClickPoseBtnUnderBar(
-        Modifier.fillMaxWidth(),
-        poseList = poseList,
-        onSelectedPoseIndexEvent = {},
-        onClickCloseBtn = {},
-        onClickShutterBtn = {},
-        onRefreshPoseData = {},
-        currentSelectedIdx = 0,
-        galleryImageUri = null,
-        onGalleryButtonClickEvent = {
-
-        }
-    )
+//    val poseList = listOf(
+//        PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_3,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_4,
+//            poseCat = 1
+//        ), PoseData(
+//            poseId = 0,
+//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_5,
+//            poseCat = 1
+//        )
+//
+//    )
+//    ClickPoseBtnUnderBar(
+//        Modifier.fillMaxWidth(),
+//        poseList = poseList,
+//        onSelectedPoseIndexEvent = {},
+//        onClickCloseBtn = {},
+//        onClickShutterBtn = {},
+//        onRefreshPoseData = {},
+//        currentSelectedIdx = 0,
+//        galleryImageUri = null,
+//        onGalleryButtonClickEvent = {
+//
+//        }
+//    )
 }

@@ -40,21 +40,23 @@ class NetworkStatusTracker(context: Context) {
         }
     }
 
+    inline fun <Result> Flow<NetworkStatus>.map(
+        crossinline onUnavailable: suspend () -> Result,
+        crossinline onAvailable: suspend () -> Result,
+    ): Flow<Result> = map { status ->
+        when (status) {
+            NetworkStatus.Unavailable -> onUnavailable()
+            NetworkStatus.Available -> onAvailable()
+        }
+    }
+
     sealed class NetworkStatus {
         object Available : NetworkStatus()
         object Unavailable : NetworkStatus()
     }
 
     companion object {
-        inline fun <Result> Flow<NetworkStatus>.map(
-            crossinline onUnavailable: suspend () -> Result,
-            crossinline onAvailable: suspend () -> Result,
-        ): Flow<Result> = map { status ->
-            when (status) {
-                NetworkStatus.Unavailable -> onUnavailable()
-                NetworkStatus.Available -> onAvailable()
-            }
-        }
+
     }
 }
 
