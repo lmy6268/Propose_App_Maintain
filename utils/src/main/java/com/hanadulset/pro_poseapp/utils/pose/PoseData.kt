@@ -2,6 +2,7 @@ package com.hanadulset.pro_poseapp.utils.pose
 
 import android.net.Uri
 import android.util.SizeF
+import kotlinx.coroutines.flow.MutableStateFlow
 
 //포즈 데이터 클래스
 data class PoseData(

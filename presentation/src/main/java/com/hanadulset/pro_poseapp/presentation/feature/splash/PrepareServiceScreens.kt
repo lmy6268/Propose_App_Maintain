@@ -1,19 +1,26 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import android.app.Activity
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.MaterialTheme
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.Button
+import androidx.compose.material.ButtonDefaults
+import androidx.compose.material.Card
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -25,51 +32,80 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.google.ar.core.ArCoreApk
-import com.google.ar.core.Session
+import androidx.compose.ui.zIndex
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
-import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
+import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
+import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.asStateFlow
 
 object PrepareServiceScreens {
     private const val APP_NAME = "Pro_Pose"
+    private const val CATCH_PRAISE = "포즈, 이제 고민하지마."
 
     @Composable
     fun SplashScreen() {
+
+        val appIconSize = 200.dp
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(color = Color.White)
         ) {
-
-            Image(
-                modifier = Modifier
-                    .size(100.dp)
-                    .align(Alignment.Center),
-                painter = painterResource(id = R.drawable.app_icon_rounded),
-                contentDescription = "앱 아이콘",
+            val resource = rememberAsyncImagePainter(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(R.drawable.app_icon_rounded)
+                    .size(with(LocalDensity.current) {
+                        appIconSize.toPx().toInt()
+                    }) //현재 버튼의 크기만큼 리사이징한다.
+                    .placeholder(R.drawable.app_icon_rounded)
+                    .build()
             )
+            val style = LocalTypography.current
+            val color = LocalColors.current
+            val localDensity = LocalDensity.current
 
-            Text(
+
+
+            Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(vertical = 100.dp),
-                text = APP_NAME,
-                style =
-//                MaterialTheme.typography.h1
-                TextStyle(
-                    fontWeight = FontWeight.Bold, fontSize = 15.sp
+                    .align(Alignment.Center)
+                    .zIndex(1F),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(100.dp, Alignment.CenterVertically)
+            ) {
+                Text(text = CATCH_PRAISE, style = style.heading02)
+
+                Image(
+                    modifier = Modifier
+                        .size(appIconSize),
+                    painter = resource,
+                    contentDescription = "앱 아이콘",
                 )
-            )
+
+                Text(
+                    modifier = Modifier,
+                    text = APP_NAME,
+                    style = style.heading02
+                )
+            }
+//            Canvas(modifier = Modifier.fillMaxSize()) {
+//                drawCircle(
+//                    color = color.primary100,
+//                    radius = localDensity.run { 256.dp.toPx() },
+//                    offset =
+//
+//                    )
+//            }
+
         }
     }
 
@@ -126,7 +162,7 @@ object PrepareServiceScreens {
                 .fillMaxSize()
                 .background(color = Color.White)
         ) {
-
+            val fontStyle = LocalTypography.current
             Image(
                 modifier = Modifier
                     .size(100.dp)
@@ -140,16 +176,12 @@ object PrepareServiceScreens {
                     .padding(vertical = 100.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(vertical = 20.dp)
+                UIComponents.CircularWaitingBar(
+                    modifier = Modifier.padding(20.dp)
                 )
-
                 Text(
-                    text = "앱 로딩 중...", style =
-//                MaterialTheme.typography.h1
-                    TextStyle(
-                        fontWeight = FontWeight.Bold, fontSize = 15.sp
-                    )
+                    text = "Pro_Pose 로딩 중...",
+                    style = fontStyle.heading02
                 )
             }
 
@@ -159,18 +191,123 @@ object PrepareServiceScreens {
     }
 
 
-}
+    //약관 동의 화면
+    @Composable
+    fun AppUseAgreementScreen(
+        modifier: Modifier = Modifier,
+        agreementText: String, //약관 글이 전달됨.
+        onSuccess: () -> Unit
+    ) {
+        val localTypography = LocalTypography.current
+        val scrollState = rememberScrollState()
 
 
-@Preview(widthDp = 360, heightDp = 800)
-@Composable
-fun PreViewSplash() {
-    SplashScreen()
+        //전달된 약관 글을 보여주고, 만약 크기를 넘어가게된다면 , 스크롤을 지원한다.
+        Surface(
+            modifier = modifier
+                .fillMaxSize(),
+            color = LocalColors.current.primaryGreen100
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
+            ) {
+
+                Text(
+                    text = APP_AGREEMENT_TITLE,
+                    style = localTypography.heading01
+                )
+
+                Card(
+                    modifier = Modifier.wrapContentSize(),
+                    contentColor = LocalColors.current.secondaryWhite100
+                ) {
+                    Text(
+                        modifier = Modifier
+                            .heightIn(512.dp)
+                            .widthIn(312.dp)
+                            .verticalScroll(scrollState),
+                        text = agreementText,
+                        style = localTypography.sub02
+                    )
+                }
+
+
+                Button(
+                    onClick = onSuccess,
+                    colors = ButtonDefaults.buttonColors(
+                        Color(0xFFFFFFFF)
+                    ), shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = "동의합니다",
+                        Modifier
+                            .padding(vertical = 10.dp, horizontal = 30.dp),
+                        style = localTypography.heading02
+                    )
+                }
+
+            }
+        }
+    }
+
+    //약관에 대한 정보를 기재한다.
+    @Composable
+    fun FullTextAgreementScreen(
+        agreementText: String
+    ) {
+        Box() {
+
+        }
+    }
+
+
+    private const val APP_AGREEMENT_TITLE = "Pro_Pose 서비스 이용 약관"
+
 }
+
 
 @Preview
 @Composable
-fun PreviewInnerAppLoadingScreen() {
-    PrepareServiceScreens.InnerAppLoadingScreen()
+fun TestPrepareServiceScreen() {
+
 }
+
+
+//@Preview(name = "NEXUS_5", device = Devices.NEXUS_5)
+//@Preview(name = "NEXUS_6", device = Devices.NEXUS_6)
+//@Preview(name = "NEXUS_5X", device = Devices.NEXUS_5X)
+//@Preview(name = "NEXUS_6P", device = Devices.NEXUS_6P)
+//@Preview(name = "PIXEL", device = Devices.PIXEL)
+//@Preview(name = "PIXEL_2", device = Devices.PIXEL_2)
+//@Preview(name = "PIXEL_3", device = Devices.PIXEL_3)
+//@Preview(name = "PIXEL_3_XL", device = Devices.PIXEL_3_XL)
+//@Preview(name = "PIXEL_3A", device = Devices.PIXEL_3A)
+//@Preview(name = "PIXEL_3A_XL", device = Devices.PIXEL_3A_XL)
+//@Preview(name = "PIXEL_4", device = Devices.PIXEL_4)
+//@Preview(name = "PIXEL_4_XL", device = Devices.PIXEL_4_XL)
+//@Composable
+//fun PreViewSplash() {
+//    SplashScreen()
+//}
+//
+//
+//@Preview(name = "NEXUS_5", device = Devices.NEXUS_5)
+//@Preview(name = "NEXUS_6", device = Devices.NEXUS_6)
+//@Preview(name = "NEXUS_5X", device = Devices.NEXUS_5X)
+//@Preview(name = "NEXUS_6P", device = Devices.NEXUS_6P)
+//@Preview(name = "PIXEL", device = Devices.PIXEL)
+//@Preview(name = "PIXEL_2", device = Devices.PIXEL_2)
+//@Preview(name = "PIXEL_3", device = Devices.PIXEL_3)
+//@Preview(name = "PIXEL_3_XL", device = Devices.PIXEL_3_XL)
+//@Preview(name = "PIXEL_3A", device = Devices.PIXEL_3A)
+//@Preview(name = "PIXEL_3A_XL", device = Devices.PIXEL_3A_XL)
+//@Preview(name = "PIXEL_4", device = Devices.PIXEL_4)
+//@Preview(name = "PIXEL_4_XL", device = Devices.PIXEL_4_XL)
+//@Preview
+//@Composable
+//fun PreviewInnerAppLoadingScreen() {
+//    PrepareServiceScreens.InnerAppLoadingScreen()
+//}
 

@@ -12,7 +12,6 @@ import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.center
-import androidx.core.net.toFile
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,7 +39,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
-import okhttp3.internal.notify
 import java.io.File
 import javax.inject.Inject
 

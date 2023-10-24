@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.Slider
+import androidx.compose.material.SliderDefaults
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,12 +47,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -62,12 +63,10 @@ import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ParticularZoomButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import dev.chrisbanes.snapper.ExperimentalSnapperApi
-import dev.chrisbanes.snapper.rememberLazyListSnapperLayoutInfo
-import dev.chrisbanes.snapper.rememberSnapperFlingBehavior
 import kotlinx.coroutines.launch
 
 object CameraScreenUnderBar {
@@ -80,15 +79,13 @@ object CameraScreenUnderBar {
         modifier: Modifier = Modifier,
         galleryImageUri: Uri?,
         onPoseRecommendEvent: () -> Unit,
-        onEdgeDetectEvent: (Boolean) -> Unit,
+        onEdgeDetectEvent: (Boolean) -> Boolean,
         onShutterClickEvent: () -> Unit,
         onGalleryButtonClickEvent: () -> Unit,
         onZoomLevelChangeEvent: (Float) -> Unit,
         onFixedButtonClickEvent: (Boolean) -> Unit,
         lowerLayerPaddingBottom: Dp = 0.dp,
     ) {
-        //필요할 때만 리컴포지션을 진행함.
-        //https://kotlinworld.com/256 참고
         val disturbFixedButtonState = remember {
             mutableStateOf(false)
         }
@@ -106,9 +103,13 @@ object CameraScreenUnderBar {
 
         val edgeDetectBtnClickEvent = remember<(Boolean) -> Unit> {
             {
+//                if (onEdgeDetectEvent(it).not()) disturbEdgeDetectorButtonState.value = true
+//                else {
                 onEdgeDetectEvent(it)
-                disturbFixedButtonState.value = true
-                disturbEdgeDetectorButtonState.value = false
+                    disturbFixedButtonState.value = true
+                    disturbEdgeDetectorButtonState.value = false
+//                }
+
             }
         }
 
@@ -318,12 +319,14 @@ fun ClickPoseBtnUnderBar(
     modifier: Modifier = Modifier,
     poseList: List<PoseData>?,
     galleryImageUri: Uri?,
+    initScale: Float = 1F,
     currentSelectedIdx: Int,
     onRefreshPoseData: () -> Unit,
     onClickShutterBtn: () -> Unit,
     onGalleryButtonClickEvent: () -> Unit,
     onClickCloseBtn: () -> Unit,
     onSelectedPoseIndexEvent: (Int) -> Unit,
+    onChangeScale: (Float) -> Unit
 ) {
 
     val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
@@ -331,19 +334,49 @@ fun ClickPoseBtnUnderBar(
     BackHandler(onBack = onClickCloseBtn) //뒤로가기 버튼을 누르면 이전 화면으로 돌아감.
 
     Column(
-        modifier = modifier.padding(bottom = 10.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
 
-        //포즈 선택 할 수 있는 Row
+        if (poseList != null && currentSelectedIdx > 0) {
+            val trackingValue = remember {
+                mutableFloatStateOf(initScale)
+            }
+            LaunchedEffect(initScale) {
+                trackingValue.floatValue = initScale
+            }
+
+            Slider(
+                colors = SliderDefaults.colors(
+                    thumbColor = LocalColors.current.primaryGreen100,
+                    activeTrackColor = LocalColors.current.primaryGreen100,
+                    inactiveTrackColor = LocalColors.current.secondaryWhite80,
+                    activeTickColor = LocalColors.current.primaryGreen100,
+                    inactiveTickColor = Color.Transparent
+                ),
+                modifier = Modifier
+                    .width(width = (LocalConfiguration.current.screenWidthDp/1.5).dp)
+                    .padding(bottom = 10.dp),
+                value = trackingValue.floatValue,
+                steps = 10,
+                valueRange = 0.5F.rangeTo(2F),
+                onValueChange = {
+                    trackingValue.floatValue = it
+                    onChangeScale(it)
+                })
+        }
+
+
+        //포즈 선택 할 수 있는 Row -> 선택된 포즈를 가지고 스케일 변경 진행
         PoseSelectRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White),
             currentSelectedIdx = currentSelectedIdx,
             poseList = poseList,
-            onSelectedPoseIndexEvent = onSelectedPoseIndexEvent
+            onSelectedPoseIndexEvent = {
+                onSelectedPoseIndexEvent(it)
+            }
         )
 
         Row(
@@ -357,7 +390,6 @@ fun ClickPoseBtnUnderBar(
                 buttonSize = 60.dp,
                 onClickEvent = onGalleryButtonClickEvent
             )
-
 
             //셔터 버튼
             CameraScreenButtons.ShutterButton(
@@ -377,11 +409,10 @@ fun ClickPoseBtnUnderBar(
         }
     }
 
-
 }
 
 
-@OptIn(ExperimentalSnapperApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PoseSelectRow(
     modifier: Modifier = Modifier,
@@ -392,7 +423,6 @@ fun PoseSelectRow(
     val scrollState = rememberLazyListState()
     val nowSelected by rememberUpdatedState(newValue = currentSelectedIdx)
     val rememberCoroutineScope = rememberCoroutineScope()
-    val layoutInfo = rememberLazyListSnapperLayoutInfo(scrollState)
     val scrollBySnap = remember { mutableStateOf(false) }
     val scrollByClick = remember { mutableStateOf(false) }
     val localDensity = LocalDensity.current
@@ -402,21 +432,33 @@ fun PoseSelectRow(
     val padding by rememberUpdatedState(newValue = rowWidth.value / 3F + 10.dp)
 
 
+    fun onClickedItem(idx: Int) {
+        /*코루틴을 컴포저블에서 사용하기 위해서는 rememberCoroutineScope()를 사용해야 함.*/
+        rememberCoroutineScope.launch {
 
-    LaunchedEffect(scrollState.isScrollInProgress) {
-        if (!scrollState.isScrollInProgress) {
-            if (scrollByClick.value.not()) {
-                val snappedItem = layoutInfo.currentItem
-                snappedItem?.let {
-                    scrollBySnap.value = true
-                    onSelectedPoseIndexEvent(it.index)
+            if (scrollBySnap.value.not()) {
+                scrollByClick.value = true //클릭으로 스크롤 했다고 알림.
+                val itemInfo =
+                    scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
+                if (itemInfo != null) {
+                    val center = scrollState.layoutInfo.viewportEndOffset / 2
+                    val childCenter = itemInfo.offset + (itemInfo.size / 2)
+                    scrollState.animateScrollBy((childCenter - center).toFloat())
+                } else {
+                    scrollState.animateScrollToItem(idx)
                 }
-            } else scrollByClick.value = false
+                onSelectedPoseIndexEvent(idx)
+            } else scrollBySnap.value = false
+
         }
     }
 
+
+
+
+
     LazyRow(
-        modifier = modifier, state = scrollState,
+        modifier = modifier.background(LocalColors.current.secondaryWhite80), state = scrollState,
         horizontalArrangement = Arrangement.Center,
         contentPadding = PaddingValues(
             horizontal = padding,
@@ -433,20 +475,7 @@ fun PoseSelectRow(
                     imageUri = posedata.imageUri,
                     poseIndex = idx,
                     onClickEvent = {
-                        onSelectedPoseIndexEvent(idx)
-                        /*코루틴을 컴포저블에서 사용하기 위해서는 rememberCoroutineScope()를 사용해야 함.*/
-                        rememberCoroutineScope.launch {
-                            scrollByClick.value = true
-                            val itemInfo =
-                                scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
-                            if (itemInfo != null) {
-                                val center = scrollState.layoutInfo.viewportEndOffset / 2
-                                val childCenter = itemInfo.offset + (itemInfo.size / 2)
-                                scrollState.animateScrollBy((childCenter - center).toFloat())
-                            } else {
-                                scrollState.animateScrollToItem(idx)
-                            }
-                        }
+                        onClickedItem(idx)
                     }, poseSize = 70
                 )
             }
@@ -490,8 +519,10 @@ fun PoseSelectionItem(
     poseSize: Int,
     onClickEvent: () -> Unit
 ) {
-    val unSelectedColor = Color(0x50999999)
-    val selectedColor = Color(0xFF95FFA7)
+    val colorTheme = LocalColors.current
+
+    val unSelectedColor = colorTheme.secondaryWhite100
+    val selectedColor = colorTheme.primaryGreen100
     val stateColor = if (isSelected) selectedColor else unSelectedColor
     val defaultModifier = Modifier
         .wrapContentSize()
@@ -499,7 +530,7 @@ fun PoseSelectionItem(
             interactionSource = MutableInteractionSource(),
             indication = rememberRipple(
                 color = if (isSelected) selectedColor
-                else Color(0xFF999999),
+                else unSelectedColor,
                 bounded = true,
                 radius = poseSize.dp / 2
             )
@@ -604,7 +635,7 @@ fun PreviewUnderBar() {
     CameraScreenUnderBar.UnderBar(
         galleryImageUri = null,
         onPoseRecommendEvent = {},
-        onEdgeDetectEvent = { /*TODO*/ },
+        onEdgeDetectEvent = { false },
         onShutterClickEvent = { /*TODO*/ },
         onGalleryButtonClickEvent = { /*TODO*/ },
         onZoomLevelChangeEvent = {},
@@ -613,79 +644,64 @@ fun PreviewUnderBar() {
 }
 
 
-//@Composable
-//@Preview
-//fun PrePoseSelector() {
-//    val poseList = listOf(
-//        PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_3,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_4,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_5,
-//            poseCat = 1
-//        )
-//
-//    )
-//
-//    PoseSelectRow(modifier = Modifier.fillMaxWidth(),
-//        poseList = poseList,
-//        currentSelectedIdx = 0,
-//        onSelectedPoseIndexEvent = {})
-//}
-
-
 @Composable
 @Preview
 fun PreviewSelector() {
-//    val poseList = listOf(
-//        PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_1,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_2,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_3,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_4,
-//            poseCat = 1
-//        ), PoseData(
-//            poseId = 0,
-//            poseDrawableId = com.hanadulset.pro_poseapp.utils.R.drawable.key_image_5,
-//            poseCat = 1
-//        )
-//
-//    )
-//    ClickPoseBtnUnderBar(
-//        Modifier.fillMaxWidth(),
-//        poseList = poseList,
-//        onSelectedPoseIndexEvent = {},
-//        onClickCloseBtn = {},
-//        onClickShutterBtn = {},
-//        onRefreshPoseData = {},
-//        currentSelectedIdx = 0,
-//        galleryImageUri = null,
-//        onGalleryButtonClickEvent = {
-//
-//        }
-//    )
+    val poseList = listOf(
+        PoseData(
+            poseId = 0,
+            imageUri = null,
+            poseCat = 1
+        ), PoseData(
+            poseId = 0,
+            poseCat = 1
+        ), PoseData(
+            poseId = 0,
+            poseCat = 1
+        ), PoseData(
+            poseId = 0,
+            poseCat = 1
+        ), PoseData(
+            poseId = 0,
+            poseCat = 1
+        ),
+        PoseData(
+            poseId = 0,
+            poseCat = 1
+        ),
+        PoseData(
+            poseId = 0,
+            poseCat = 1
+        ),
+        PoseData(
+            poseId = 0,
+            poseCat = 1
+        ),
+        PoseData(
+            poseId = 0,
+            poseCat = 1
+        ),
+        PoseData(
+            poseId = 0,
+            poseCat = 1
+        )
+
+
+    )
+    ClickPoseBtnUnderBar(
+        modifier = Modifier.fillMaxWidth(),
+        poseList = poseList,
+        onSelectedPoseIndexEvent = {},
+        onClickCloseBtn = {},
+        onClickShutterBtn = {},
+        onRefreshPoseData = {},
+        currentSelectedIdx = 0,
+        galleryImageUri = null,
+        onGalleryButtonClickEvent = {
+
+        },
+        onChangeScale = {
+
+        }
+    )
 }

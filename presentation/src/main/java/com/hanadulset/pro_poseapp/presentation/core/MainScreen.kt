@@ -6,11 +6,14 @@ import android.os.Build
 import android.util.Log
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideOut
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -177,8 +180,18 @@ object MainScreen {
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
-                navHostController, Page.Perm.name
+                moveToNext = {
+                    //약관 동의 여부 확인 하고, 그 다음에 권한 받기 -> 만약 동의가 없는 경우, 동의 받고 권한을 체크함.
+                    navHostController.navigate(route = Page.Perm.name) {
+                        //백스택에서 스플래시 화면을 제거한다.
+                        popUpTo(Page.Splash.name) { inclusive = true }
+                    }
+
+                }
             )
+            //약관 동의화면 추가
+
+
             composable(route = Page.Perm.name) {
                 //여기서부터는 Composable 영역
                 PermScreen.PermScreen(
@@ -283,13 +296,26 @@ object MainScreen {
                 }
 
                 downloadState.run {
-                    if (this != null) ModelDownloadScreen.ModelDownloadProgressScreen(
-                        isDownload = isDownload,
-                        downloadedInfo = this,
-                        onDismissEvent = { context ->
-                            if (isDownload != null && isDownload.not()) onDoneDownload()
-                            else (context as Activity).finish()
-                        })
+                    AnimatedVisibility(
+                        visible = this != null,
+                        enter = fadeIn(),
+                        exit = fadeOut(
+                            animationSpec = tween(300, easing = LinearEasing)
+                        ) + slideOutHorizontally(
+                            animationSpec = tween(300, easing = EaseOut),
+                            targetOffsetX = { init -> -init }
+                        )
+                    ) {
+                        ModelDownloadScreen.ModelDownloadProgressScreen(
+                            isDownload = isDownload,
+                            downloadedInfo = this@run!!,
+                            onDismissEvent = { context ->
+                                if (isDownload != null && isDownload.not()) onDoneDownload()
+                                else (context as Activity).finish()
+                            })
+                    }
+
+
                 }
             }
 
@@ -306,8 +332,12 @@ object MainScreen {
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
-                navHostController, Page.AppLoading.name
-            )
+                moveToNext = {
+                    navHostController.navigate(route = Page.AppLoading.name) {
+                        //백스택에서 스플래시 화면을 제거한다.
+                        popUpTo(Page.Splash.name) { inclusive = true }
+                    }
+                })
             runAppLoadingScreen(navHostController = navHostController,
                 prepareServiceViewModel = prepareServiceViewModel,
                 previewState = previewState,
@@ -322,7 +352,7 @@ object MainScreen {
                 navHostController = navHostController,
                 onDoneDownload = {
                     navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
-//                        popUpTo(Page.AppLoading.name) {}
+
                     }
                 })
         }
@@ -417,7 +447,7 @@ object MainScreen {
     }
 
     private fun NavGraphBuilder.runSplashScreen(
-        navHostController: NavHostController, nextPage: String
+        moveToNext: () -> Unit
     ) {
         val splashPage = Page.Splash.name
         composable(route = splashPage, enterTransition = {
@@ -438,10 +468,7 @@ object MainScreen {
             LaunchedEffect(Unit) {
                 //1초 뒤에 앱 로딩 화면으로 넘어감.
                 delay(500)
-                navHostController.navigate(route = nextPage) {
-                    //백스택에서 스플래시 화면을 제거한다.
-                    popUpTo(splashPage) { inclusive = true }
-                }
+                moveToNext()
             }
         }
     }
@@ -494,8 +521,7 @@ object MainScreen {
                     onMoveToDownload(appLoadingPage)
                 },
                 isAfterDownload = afterDownload!!,
-
-                )
+            )
 
         }
     }

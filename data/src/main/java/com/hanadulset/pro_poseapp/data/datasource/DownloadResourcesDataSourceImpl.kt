@@ -155,14 +155,18 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         downloadList.forEachIndexed { index, pair ->
             val fileName = pair.first
             val versionID = pair.second
-            val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
+            val targetFile = File(applicationContext.cacheDir.absolutePath, fileName)
 
 
             transferUtility.download(fileName, targetFile, object : TransferListener {
                 override fun onStateChanged(id: Int, state: TransferState?) {
                     if (state == TransferState.COMPLETED) {
                         CoroutineScope(Dispatchers.IO).launch {
-                            modifyVersionIDLocal(fileName, versionID)
+                            val savedPath = File(applicationContext.dataDir.absolutePath, "/$fileName")
+                            targetFile.copyTo(savedPath).run {
+                                targetFile.delete()
+                                modifyVersionIDLocal(fileName, versionID)
+                            }
                         }
                     }
                 }
@@ -186,86 +190,6 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         awaitClose { close() }
 
     }
-
-
-////    val dataFlow = flow {
-////        downloadList.forEachIndexed { index, fileName ->
-////            val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
-////            val bytesTotal = 100000L
-////            var bytesTransferred = 10L
-////
-////
-//////                    val nowState = transferUtility.download(fileName, targetFile)
-//////                    nowState.run {
-////
-////            while (bytesTransferred <= bytesTotal) {
-////                kotlinx.coroutines.delay(100L)
-////                val downloaded = DownloadState(
-////                    state = DownloadState.STATE_ON_PROGRESS,
-////                    currentFileName = fileName,
-////                    currentFileIndex = index,
-////                    totalFileCnt = downloadList.size,
-////                    currentBytes = bytesTransferred,
-////                    totalBytes = bytesTotal
-////                )
-////                Log.d("downloadStatus: ", downloaded.toString())
-////                bytesTransferred += 1000L
-////                emit(downloaded)
-////            }
-//////                    }
-////        }
-//
-//    }
-
-
-//            //처음과 끝만 데이터 받게됨,..
-//            val dataFlow = callbackFlow {
-//                downloadList.forEachIndexed { index, fileName ->
-//                    val targetFile = File(applicationContext.dataDir.absolutePath, fileName)
-//                    transferUtility.download(fileName, targetFile,
-//
-//                        object : TransferListener {
-//                        var downloadState = DownloadState(state = DownloadState.STATE_ON_PROGRESS)
-//
-//                        override fun onStateChanged(id: Int, state: TransferState?) {
-//                            if (state == TransferState.COMPLETED) {
-//                                trySend(
-//                                    downloadState.copy(state = DownloadState.STATE_COMPLETE)
-//                                )
-//                            }
-//                        }
-//
-//                        override fun onProgressChanged(
-//                            id: Int,
-//                            bytesCurrent: Long,
-//                            bytesTotal: Long
-//                        ) {
-//                            val downloaded = DownloadState(
-//                                state = DownloadState.STATE_ON_PROGRESS,
-//                                currentFileName = fileName,
-//                                currentFileIndex = index,
-//                                totalFileCnt = downloadList.size,
-//                                currentBytes = bytesCurrent,
-//                                totalBytes = bytesTotal
-//                            )
-//                            downloadState = downloaded
-//                            trySend(downloaded)
-
-//                        }
-//
-//                        override fun onError(id: Int, ex: Exception?) {
-//                            cancel(CancellationException(ex))
-//                        }
-//                    })
-//
-//                }
-//
-//                awaitClose {
-//                    close()
-//                }
-//
-//
-//
 
 
     suspend fun checkInternetConnection(): Flow<Boolean> =
