@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
+import android.util.Log
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
@@ -291,16 +292,18 @@ object CameraScreenPreviewArea {
             mutableStateOf(poseSize)
         }
 
+        val nowPoseData by rememberUpdatedState(newValue = poseData)
+//        val nowPoseSize by rememberUpdatedState(newValue = poseSize)
 
-        if (poseData.imageUri != null) {
-            val offset = rememberSaveable {
-                mutableStateOf(
-                    Pair(
-                        boundary.width * poseData.centerRate.width,
-                        boundary.height * poseData.centerRate.height
-                    )
+        if (nowPoseData.imageUri != null) {
+            var offset =
+                Pair(
+                    boundary.width * nowPoseData.centerRate.width,
+                    boundary.height * nowPoseData.centerRate.height
                 )
-            }
+
+
+            Log.d("location : ", "$offset / $nowPoseData / $boundary")
             val zoom = rememberSaveable {
                 mutableFloatStateOf(1F)
             }
@@ -310,7 +313,7 @@ object CameraScreenPreviewArea {
                 if (zoom.floatValue * zoomChange in 0.5f..2f) {
                     zoom.floatValue *= zoomChange
                 }
-                val tmp = offset.value.let { Offset(it.first, it.second) } + offsetChange
+                val tmp = offset.let { Offset(it.first, it.second) } + offsetChange
                 if (tmp.x in 0F..(boundary.width - with(locDensity) {
                         resizablePoseSize.value.toPx() * zoom.floatValue
                     })
@@ -318,9 +321,9 @@ object CameraScreenPreviewArea {
                         resizablePoseSize.value.toPx() * zoom.floatValue
                     })
                 )
-                    offset.value.let { offsetValue ->
+                    offset.let { offsetValue ->
                         val changed = Offset(offsetValue.first, offsetValue.second) + offsetChange
-                        offset.value = changed.let { Pair(it.x, it.y) }
+                        offset = changed.let { Pair(it.x, it.y) }
                     }
             }
 
@@ -339,8 +342,8 @@ object CameraScreenPreviewArea {
                     .graphicsLayer(
                         scaleX = zoom.floatValue,
                         scaleY = zoom.floatValue,
-                        translationX = offset.value.first,
-                        translationY = offset.value.second
+                        translationX = offset.first,
+                        translationY = offset.second
                     )
                     .transformable(state = transformState)
                     .size(poseSize),

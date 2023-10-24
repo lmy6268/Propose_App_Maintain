@@ -203,7 +203,7 @@ fun Screen(
                         previewAreaSize.value = DpSize(it.width.dp, it.height.dp)
                     }
                 }
-                .align(Alignment.Center),
+                .align(Alignment.TopCenter),
             initCamera = cameraInit,
             padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value?.height
                 ?: 0.dp else 0.dp,
@@ -267,6 +267,7 @@ fun Screen(
         AnimatedVisibility(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(bottom = 50.dp)
                 .align(Alignment.BottomCenter)
                 .onGloballyPositioned { coordinates ->
                     with(localDensity) {

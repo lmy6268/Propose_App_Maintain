@@ -331,9 +331,8 @@ fun ClickPoseBtnUnderBar(
     BackHandler(onBack = onClickCloseBtn) //뒤로가기 버튼을 누르면 이전 화면으로 돌아감.
 
     Column(
-        modifier = modifier.padding(bottom = 10.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
 
         //포즈 선택 할 수 있는 Row
@@ -357,7 +356,6 @@ fun ClickPoseBtnUnderBar(
                 buttonSize = 60.dp,
                 onClickEvent = onGalleryButtonClickEvent
             )
-
 
             //셔터 버튼
             CameraScreenButtons.ShutterButton(

@@ -4,16 +4,16 @@ import androidx.compose.ui.graphics.Color
 
 
 class ProPoseColors(
-    private val primary100: Color = ppMainGreen,
-    private val primary80: Color = ppMainGreen.copy(alpha = 0.8f),
-    private val primary50: Color = ppMainGreen.copy(alpha = 0.5f),
-    private val secondary100: Color = ppMainWhite,
-    private val secondary80: Color = ppMainWhite.copy(alpha = 0.8f),
-    private val background100: Color = ppMainWhite,
-    private val subPrimary100: Color = ppMainBlack,
-    private val subPrimary80: Color = ppMainBlack.copy(alpha = 0.8f),
-    private val subSecondary100: Color = ppMainGray,
-    private val subSecondary80: Color = ppMainGray.copy(alpha = 0.8f),
+    val primary100: Color = ppMainGreen,
+    val primary80: Color = ppMainGreen.copy(alpha = 0.8f),
+    val primary50: Color = ppMainGreen.copy(alpha = 0.5f),
+    val secondary100: Color = ppMainWhite,
+    val secondary80: Color = ppMainWhite.copy(alpha = 0.8f),
+    val background100: Color = ppMainWhite,
+    val subPrimary100: Color = ppMainBlack,
+    val subPrimary80: Color = ppMainBlack.copy(alpha = 0.8f),
+    val subSecondary100: Color = ppMainGray,
+    val subSecondary80: Color = ppMainGray.copy(alpha = 0.8f),
     val isLight: Boolean
 ) {
     fun copy(

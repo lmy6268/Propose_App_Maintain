@@ -78,18 +78,12 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         }
 
         //저장된 이미지와 데이터를 매핑시킨다.
-        val imageDataList = context.assets.open("image_datas.csv")
-            .use { stream ->
+        val imageDataList = context.assets.open("image_datas.csv").use { stream ->
                 val resultList = mutableListOf<PoseData>()
                 val imageRes = loadPoseImages()
-                CSVReaderBuilder(InputStreamReader(stream))
-                    .withCSVParser(
-                        CSVParserBuilder()
-                            .withSeparator(',')
-                            .build()
-                    ).build()
-                    .readAll()
-                    .run {
+                CSVReaderBuilder(InputStreamReader(stream)).withCSVParser(
+                        CSVParserBuilder().withSeparator(',').build()
+                    ).build().readAll().run {
                         //첫 줄은 생략하고 시작함.
                         this.subList(1, this.size).forEach { strings ->
                             val center =
@@ -577,11 +571,11 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
 
         return mutableListOf<Uri>().let { uriList ->
             mutableListOf<Pair<Int, Uri>>().run {
-                file.listFiles()?.forEach { image ->
-                    val name = image.name.replace(".png", "").toInt()
-                    val uri = image.toUri()
-                    add(Pair(name, uri))
-                }
+                File(file, "/silhouettes").listFiles()?.forEach { image ->
+                        val name = image.name.replace(".png", "").toInt()
+                        val uri = image.toUri()
+                        add(Pair(name, uri))
+                    }
                 sortBy { imageData -> imageData.first }
                 forEach {
                     uriList.add(it.first, it.second)
