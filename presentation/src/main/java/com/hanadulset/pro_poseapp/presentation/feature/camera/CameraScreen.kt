@@ -1,10 +1,8 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
-import android.net.Uri
 import android.util.Range
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,7 +16,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,19 +25,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -52,8 +46,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
-import com.canhub.cropper.CropImageView
-import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,61 +54,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 
-
-//따오기 버튼을 적용시에만 클릭되게 하려하는데 아직 문제가 있다.
-class GetContentActivityResult(
-    private val launcher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
-    val uri: Uri?
-) {
-    fun launch() {
-        launcher.launch(
-            PickVisualMediaRequest(
-                mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
-            )
-        )
-    }
-}
-
-@Composable
-fun rememberGetContentActivityResult(
-    aspectRatio: ViewRate,
-    onGetPoseFromImage: (Uri?) -> Unit,
-): GetContentActivityResult {
-    var uri by rememberSaveable {
-        mutableStateOf<Uri?>(null)
-    }
-
-
-    val cropImageLauncher =
-        rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
-            if (result.isSuccessful) {
-                val uriContent = result.uriContent
-                uri = uriContent //버튼이 눌려야 하는 조건
-                onGetPoseFromImage(uriContent)
-            } else {
-                uri = null
-                val exception = result.error
-            }
-        }
-
-    val launcher =
-        rememberLauncherForActivityResult(contract = ActivityResultContracts.PickVisualMedia()) {
-            if (uri != null) {
-                val cropOptions = CropImageContractOptions(
-                    uri, CropImageOptions(
-                        aspectRatioX = aspectRatio.aspectRatioSize.width,
-                        aspectRatioY = aspectRatio.aspectRatioSize.height,
-                        fixAspectRatio = true,
-                    )
-                )
-                cropImageLauncher.launch(cropOptions)
-            } else uri = it
-        }
-
-    return remember(launcher, uri) {
-        GetContentActivityResult(launcher = launcher, uri = uri)
-    }
-}
+//리컴포지션시 데이터가 손실되는 문제를 해결하기 위한, 전역변수
 
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -139,20 +77,37 @@ fun Screen(
     val openGalleryEvent by rememberUpdatedState(newValue = onClickGalleryBtn)
     val localDensity = LocalDensity.current
     val aspectRatio by cameraViewModel.aspectRatioState.collectAsStateWithLifecycle()
-
-    //여기서 결과 값을 전달 받은경우에만 따오기  버튼을 활성화 하도록 해보자
-    val getImageForEdgeLauncher = rememberGetContentActivityResult(
-        onGetPoseFromImage = { uri -> cameraViewModel.getPoseFromImage(uri) },
-        aspectRatio = aspectRatio
-    )
-
-
+    val cropImageLauncher =
+        rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
+            if (result.isSuccessful) {
+                // Use the returned uri.
+                val uriContent = result.uriContent
+                cameraViewModel.getPoseFromImage(uriContent)
+            } else {
+                // An error occurred.
+                val exception = result.error
+            }
+        }
     val stopTrackingPoint = remember { { cameraViewModel.stopToTrack() } }
 
 
     //포즈 추천 결과
     val backgroundAnalysisResult by cameraViewModel.backgroundDataState.collectAsStateWithLifecycle()
 
+    val launcher =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri != null) {
+                val cropOptions = CropImageContractOptions(
+                    uri, CropImageOptions(
+                        aspectRatioX = aspectRatio.aspectRatioSize.width,
+                        aspectRatioY = aspectRatio.aspectRatioSize.height,
+                        fixAspectRatio = true,
+                    )
+                )
+                cropImageLauncher.launch(cropOptions)
+            }
+
+        }
     val needToCloseViewRate = remember { mutableStateOf(false) }
     val upperBarSize = remember { mutableStateOf<DpSize?>(null) }
     val scope = rememberCoroutineScope()
@@ -209,10 +164,16 @@ fun Screen(
         val selectedPoseIndex = rememberSaveable {
             mutableIntStateOf(1)
         }
-        val captureBtnClickState = remember { mutableStateOf(false) }
-        val poseScale = remember {
-            mutableFloatStateOf(1F)
+        val getEdgeFromUserImage = remember {
+            {
+                launcher.launch(
+                    PickVisualMediaRequest(
+                        mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly
+                    )
+                )
+            }
         }
+        val captureBtnClickState = remember { mutableStateOf(false) }
 
         //셔터 버튼을 눌렀을 때 발생되는 이벤트
         val shutterEvent = remember {
@@ -236,24 +197,19 @@ fun Screen(
         //중간 ( 미리보기, 포즈 추천, 구도 추천 보기 화면 ) 모듈
         CameraScreenPreviewArea.PreviewArea(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxSize()
                 .aspectRatio(aspectRatio.aspectRatioSize.let { (it.width.toFloat() / it.height.toFloat()) })
                 .onGloballyPositioned { coordinates ->
                     coordinates.size.let {
                         previewAreaSize.value = DpSize(it.width.dp, it.height.dp)
                     }
                 }
-//                .padding(
-//                    top = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value?.height
-//                        ?: 0.dp else 0.dp
-//                )
-            ,
+                .align(Alignment.TopCenter),
             initCamera = cameraInit,
-
-            poseData = currentPoseDataList?.get(selectedPoseIndex.intValue),
-            poseScale = poseScale.floatValue,
+            padding = if (aspectRatio.aspectRatioType == AspectRatio.RATIO_4_3) upperBarSize.value?.height
+                ?: 0.dp else 0.dp,
+            poseList = currentPoseDataList,
             preview = previewView,
+            selectedPoseIndex = selectedPoseIndex.intValue,
             upperBarSize = upperBarSize.value ?: DpSize(0.dp, 0.dp),
             isRecommendCompEnabled = compState.value,
             loadLastImage = { cameraViewModel.getLastImage() },
@@ -289,9 +245,8 @@ fun Screen(
                         }
                     }
                 }
-
-                .padding(top = 40.dp)
-                .height(screenSize.height / 8)
+//                .padding(top = 30.dp)
+                .height(screenSize.height / 9)
                 .align(Alignment.TopCenter)
                 .fillMaxWidth(),
             viewRateList = cameraViewModel.getViewRateList(),
@@ -338,23 +293,14 @@ fun Screen(
             CameraScreenUnderBar.UnderBar(
                 //따오기 관련 처리
                 onEdgeDetectEvent = {
-                    return@UnderBar when (it) {
-                        true -> {
-                            getImageForEdgeLauncher.launch()
-                            getImageForEdgeLauncher.uri != null
-                        }
-
-                        else -> {
-                            cameraViewModel.controlFixedScreen(false)
-                            false
-                        }
+                    when (it) {
+                        true -> getEdgeFromUserImage()
+                        else -> cameraViewModel.controlFixedScreen(false)
                     }
-
                 },
                 //줌레벨 변경 시
                 onZoomLevelChangeEvent = { zoomLevel ->
                     cameraViewModel.setZoomLevel(zoomLevel)
-                    stopTrackingPoint() // 구도 추천을 다시 시작함.
                 },
                 onGalleryButtonClickEvent = openGalleryEvent,
                 //촬영 시에 EventLog를 인자로 넘겨줘야한다.
@@ -378,6 +324,7 @@ fun Screen(
         }
         AnimatedVisibility(
             modifier = Modifier
+                .animateContentSize { _, _ -> }
                 .sizeIn(lowerBarSize.value.width, lowerBarSize.value.height)
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
@@ -403,10 +350,8 @@ fun Screen(
                         }
                     }
                 },
-                initScale = poseScale.floatValue,
                 onClickShutterBtn = shutterEvent,
                 onSelectedPoseIndexEvent = {
-                    poseScale.floatValue = 1F
                     selectedPoseIndex.intValue = it
                 },
                 currentSelectedIdx = selectedPoseIndex.intValue,
@@ -414,10 +359,7 @@ fun Screen(
                     showPoseListUnderBarState.value = showPoseListUnderBarState.value.not()
                 },
                 onGalleryButtonClickEvent = openGalleryEvent,
-                galleryImageUri = galleryImageUri,
-                onChangeScale = {
-                    poseScale.floatValue = it
-                }
+                galleryImageUri = galleryImageUri
             )
         }
     }
