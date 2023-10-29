@@ -148,44 +148,54 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
 
     //다운로드를 책임지는 메소드
     override suspend fun startToDownload(): Flow<DownloadState> = callbackFlow {
-        transferUtility =
-            TransferUtility.builder().context(applicationContext)
-                .defaultBucket(BuildConfig.BUCKET_ID) //버킷 이름
-                .s3Client(s3Client).build()
-        downloadList.forEachIndexed { index, pair ->
-            val fileName = pair.first
-            val versionID = pair.second
-            val targetFile = File(applicationContext.cacheDir.absolutePath, fileName)
+        withContext(Dispatchers.IO) {
+            transferUtility =
+                TransferUtility.builder().context(applicationContext)
+                    .defaultBucket(BuildConfig.BUCKET_ID) //버킷 이름
+                    .s3Client(s3Client).build()
 
 
-            transferUtility.download(fileName, targetFile, object : TransferListener {
-                override fun onStateChanged(id: Int, state: TransferState?) {
-                    if (state == TransferState.COMPLETED) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val savedPath = File(applicationContext.dataDir.absolutePath, "/$fileName")
-                            targetFile.copyTo(savedPath).run {
-                                targetFile.delete()
-                                modifyVersionIDLocal(fileName, versionID)
+            downloadList.forEachIndexed { index, pair ->
+                val fileName = pair.first
+                val versionID = pair.second
+                val targetFile = File(applicationContext.cacheDir.absolutePath, fileName)
+
+
+                transferUtility.download(fileName, targetFile, object : TransferListener {
+                    override fun onStateChanged(id: Int, state: TransferState?) {
+                        if (state == TransferState.COMPLETED) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                val savedPath =
+                                    File(applicationContext.dataDir.absolutePath, "/$fileName")
+                                targetFile.copyTo(savedPath).run {
+                                    targetFile.delete()
+                                    modifyVersionIDLocal(fileName, versionID)
+                                }
                             }
                         }
+                        // If upload error, failed or network disconnect
+                        if (state == TransferState.FAILED || state == TransferState.WAITING_FOR_NETWORK) {
+                            // HERE end service and notice user !!!
+                            Log.e("TransferUtility Error:", state.name)
+                        }
                     }
-                }
 
-                override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {
-                    val downloaded = DownloadState(
-                        currentFileName = fileName,
-                        currentFileIndex = index,
-                        totalFileCnt = downloadList.size,
-                        currentBytes = bytesCurrent,
-                        totalBytes = bytesTotal
-                    )
-                    trySend(downloaded)
-                }
+                    override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {
+                        val downloaded = DownloadState(
+                            currentFileName = fileName,
+                            currentFileIndex = index,
+                            totalFileCnt = downloadList.size,
+                            currentBytes = bytesCurrent,
+                            totalBytes = bytesTotal
+                        )
+                        trySend(downloaded)
+                    }
 
-                override fun onError(id: Int, ex: Exception?) {
+                    override fun onError(id: Int, ex: Exception?) {
 
-                }
-            })
+                    }
+                })
+            }
         }
         awaitClose { close() }
 

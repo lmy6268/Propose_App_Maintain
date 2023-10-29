@@ -64,6 +64,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
+import com.hanadulset.pro_poseapp.presentation.component.UIComponents.CircularWaitingBar
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ParticularZoomButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
@@ -79,39 +80,15 @@ object CameraScreenUnderBar {
         modifier: Modifier = Modifier,
         galleryImageUri: Uri?,
         onPoseRecommendEvent: () -> Unit,
-        onEdgeDetectEvent: (Boolean) -> Boolean,
         onShutterClickEvent: () -> Unit,
         onGalleryButtonClickEvent: () -> Unit,
         onZoomLevelChangeEvent: (Float) -> Unit,
-        onFixedButtonClickEvent: (Boolean) -> Unit,
         lowerLayerPaddingBottom: Dp = 0.dp,
+        userEdgeDetectionValue: Boolean,
+        systemEdgeDetectionValue: Boolean,
+        onSystemEdgeDetectionClicked: () -> Unit,
+        onUserEdgeDetectionClicked: () -> Unit
     ) {
-        val disturbFixedButtonState = remember {
-            mutableStateOf(false)
-        }
-        val disturbEdgeDetectorButtonState = remember {
-            mutableStateOf(false)
-        }
-
-        val fixedBtnClickEvent = remember<(Boolean) -> Unit> {
-            {
-                onFixedButtonClickEvent(it)
-                disturbEdgeDetectorButtonState.value = true
-                disturbFixedButtonState.value = false
-            }
-        }
-
-        val edgeDetectBtnClickEvent = remember<(Boolean) -> Unit> {
-            {
-//                if (onEdgeDetectEvent(it).not()) disturbEdgeDetectorButtonState.value = true
-//                else {
-                onEdgeDetectEvent(it)
-                    disturbFixedButtonState.value = true
-                    disturbEdgeDetectorButtonState.value = false
-//                }
-
-            }
-        }
 
         val galleryThumbUri by rememberUpdatedState(newValue = galleryImageUri)
 
@@ -122,10 +99,10 @@ object CameraScreenUnderBar {
         ) {
             UpperLayer(
                 modifier = Modifier.fillMaxWidth(),
-                onEdgeDetectEvent = edgeDetectBtnClickEvent,
+                onUserEdgeDetectionClicked = onUserEdgeDetectionClicked,
                 onZoomLevelChangeEvent = onZoomLevelChangeEvent,
-                disturbFromFixedButton = disturbEdgeDetectorButtonState.value,
-                onRecommendPoseEvent = onPoseRecommendEvent
+                onRecommendPoseEvent = onPoseRecommendEvent,
+                userEdgeDetectionValue = userEdgeDetectionValue
             )
             LowerLayer(
                 modifier = Modifier
@@ -133,9 +110,9 @@ object CameraScreenUnderBar {
                     .padding(bottom = lowerLayerPaddingBottom),
                 onShutterClickEvent = onShutterClickEvent,
                 onGalleryButtonClickEvent = onGalleryButtonClickEvent,
-                onFixedButtonClickEvent = fixedBtnClickEvent,
+                onFixedButtonClickEvent = onSystemEdgeDetectionClicked,
                 galleryImageUri = galleryThumbUri,
-                disturbFromEdgeDetector = disturbFixedButtonState.value,
+                systemEdgeDetectionValue = systemEdgeDetectionValue
             )
         }
 
@@ -153,18 +130,12 @@ object CameraScreenUnderBar {
 fun UpperLayer(
     modifier: Modifier = Modifier,
     buttonSize: Dp = 44.dp,
-    onEdgeDetectEvent: (Boolean) -> Unit,
+    onUserEdgeDetectionClicked: () -> Unit,
+    userEdgeDetectionValue: Boolean,
     onZoomLevelChangeEvent: (Float) -> Unit,
     onRecommendPoseEvent: () -> Unit,
-    disturbFromFixedButton: Boolean,
 ) {
-    val initEdgeValue = false
-    val edgeDetectorState = remember { mutableStateOf(initEdgeValue) }
-    val edgeDetectEvent by rememberUpdatedState<(Boolean) -> Unit>(newValue = { selected ->
-        edgeDetectorState.value = selected
-        onEdgeDetectEvent(selected) //선택된 경우에만 호출
-    })
-    val isDisturbed by rememberUpdatedState(newValue = disturbFromFixedButton)
+    val edgeDetectorState by rememberUpdatedState(newValue = userEdgeDetectionValue)
 
 
     Row(
@@ -192,9 +163,8 @@ fun UpperLayer(
         ToggledButton(
             buttonSize = buttonSize,
             buttonText = "따오기",
-            initState = initEdgeValue,
-            onClickEvent = edgeDetectEvent,
-            customEventValue = isDisturbed,
+            onClickEvent = onUserEdgeDetectionClicked,
+            buttonStatus = edgeDetectorState
         )
     }
 
@@ -206,15 +176,15 @@ fun UpperLayer(
 fun LowerLayer(
     modifier: Modifier = Modifier,
     galleryImageUri: Uri?,
-    disturbFromEdgeDetector: Boolean,
+    systemEdgeDetectionValue: Boolean,
     onShutterClickEvent: () -> Unit = {},
     onGalleryButtonClickEvent: () -> Unit = {},
-    onFixedButtonClickEvent: (Boolean) -> Unit = {}
+    onFixedButtonClickEvent: () -> Unit = {}
 ) {
 
     //개별 상태변수를 가지고 있으므로써, 의도치 않은 리컴포지션을 방지
     val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
-    val isFixedDisturbed by rememberUpdatedState(newValue = disturbFromEdgeDetector)
+    val fixedBtnValue by rememberUpdatedState(newValue = systemEdgeDetectionValue)
 
     Row(
         modifier = modifier,
@@ -237,9 +207,8 @@ fun LowerLayer(
         CameraScreenButtons.FixedButton(
             modifier = Modifier,
             buttonSize = 60.dp,
-            disturbFromEdgeDetector = isFixedDisturbed,
-            fixedButtonPressedEvent = onFixedButtonClickEvent
-
+            onFixedButtonPressedEvent = onFixedButtonClickEvent,
+            fixedBtnStatus = fixedBtnValue
         )
     }
 }
@@ -355,7 +324,7 @@ fun ClickPoseBtnUnderBar(
                     inactiveTickColor = Color.Transparent
                 ),
                 modifier = Modifier
-                    .width(width = (LocalConfiguration.current.screenWidthDp/1.5).dp)
+                    .width(width = (LocalConfiguration.current.screenWidthDp / 1.5).dp)
                     .padding(bottom = 10.dp),
                 value = trackingValue.floatValue,
                 steps = 10,
@@ -488,9 +457,7 @@ fun PoseSelectRow(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF95FA99)
-                    )
+                    CircularWaitingBar()
                     Text(
                         text = "포즈 추천 중..",
                         textAlign = TextAlign.Center,
@@ -617,31 +584,31 @@ fun PoseSelectionItem(
 }
 
 
-@Composable
-@Preview
-fun PreviewLowerLayer() {
-    LowerLayer(modifier = Modifier.fillMaxWidth(), onShutterClickEvent = {
-
-    }, onGalleryButtonClickEvent = {
-
-    }, galleryImageUri = null, disturbFromEdgeDetector = false
-    )
-}
-
-
-@Composable
-@Preview
-fun PreviewUnderBar() {
-    CameraScreenUnderBar.UnderBar(
-        galleryImageUri = null,
-        onPoseRecommendEvent = {},
-        onEdgeDetectEvent = { false },
-        onShutterClickEvent = { /*TODO*/ },
-        onGalleryButtonClickEvent = { /*TODO*/ },
-        onZoomLevelChangeEvent = {},
-        onFixedButtonClickEvent = {}
-    )
-}
+//@Composable
+//@Preview
+//fun PreviewLowerLayer() {
+//    LowerLayer(modifier = Modifier.fillMaxWidth(), onShutterClickEvent = {
+//
+//    }, onGalleryButtonClickEvent = {
+//
+//    }, galleryImageUri = null, disturbFromEdgeDetector = false
+//    )
+//}
+//
+//
+//@Composable
+//@Preview
+//fun PreviewUnderBar() {
+//    CameraScreenUnderBar.UnderBar(
+//        galleryImageUri = null,
+//        onPoseRecommendEvent = {},
+//        onEdgeDetectEvent = { false },
+//        onShutterClickEvent = { /*TODO*/ },
+//        onGalleryButtonClickEvent = { /*TODO*/ },
+//        onZoomLevelChangeEvent = {},
+//        onFixedButtonClickEvent = {}
+//    )
+//}
 
 
 @Composable

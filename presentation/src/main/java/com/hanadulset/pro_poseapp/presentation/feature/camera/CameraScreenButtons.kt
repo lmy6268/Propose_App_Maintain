@@ -108,50 +108,38 @@ object CameraScreenButtons {
     fun ToggledButton(
         modifier: Modifier = Modifier,
         buttonSize: Dp = 30.dp,
-        initState: Boolean,
+        buttonStatus: Boolean,
         activatedColor: Color = Color(0xFF95FA99),
         inActivatedColor: Color = Color(0x80999999),
         buttonDescription: String = "버튼",
         buttonText: String = "",
         buttonTextColor: Color = Color.White,
         iconDrawableId: Int = R.drawable.based_circle,
-        customEventValue: Boolean = false,
-        onClickEvent: (Boolean) -> Unit
+        onClickEvent: () -> Unit
     ) {
-        val buttonState = remember {
-            mutableStateOf(initState)
-        }
-        val onClicked by rememberUpdatedState(newValue = {
-            buttonState.value = buttonState.value.not()
-            onClickEvent(buttonState.value)
-        })
-        val trigger by rememberUpdatedState(newValue = customEventValue)
-
-        LaunchedEffect(key1 = trigger) {
-            if (trigger && buttonState.value) buttonState.value = false
-        }
+        val buttonState by rememberUpdatedState(newValue = buttonStatus)
 
         CompositionLocalProvider(LocalRippleTheme provides RedRippleTheme.apply {
             setRippleEffect(
-                alphaColor = if (buttonState.value) activatedColor else inActivatedColor,
+                alphaColor = if (buttonState) activatedColor else inActivatedColor,
                 defaultColor = Color.Black
             )
         }) {
             IconButton(
-                modifier = modifier.size(buttonSize), onClick = onClicked
+                modifier = modifier.size(buttonSize), onClick = onClickEvent
             ) {
                 Icon(
                     modifier = modifier.size(buttonSize),
                     painter = painterResource(id = iconDrawableId),
                     contentDescription = buttonDescription,
-                    tint = if (buttonState.value) activatedColor else inActivatedColor
+                    tint = if (buttonState) activatedColor else inActivatedColor
                 )
                 if (buttonText != "") Text(
                     text = buttonText,
                     fontSize = 10.sp,
-                    color = if (buttonState.value.not()) buttonTextColor else Color.Black,
+                    color = if (buttonState.not()) buttonTextColor else Color.Black,
                     fontFamily = pretendardFamily,
-                    fontWeight = if (buttonState.value) FontWeight.Bold else FontWeight.Light
+                    fontWeight = if (buttonState) FontWeight.Bold else FontWeight.Light
                 )
 
             }
@@ -274,19 +262,12 @@ object CameraScreenButtons {
     fun FixedButton(
         modifier: Modifier = Modifier,
         buttonSize: Dp = 80.dp,
-        fixedButtonPressedEvent: (Boolean) -> Unit,
-        disturbFromEdgeDetector: Boolean
+        onFixedButtonPressedEvent: () -> Unit,
+        fixedBtnStatus: Boolean,
     ) {
-        val isFixedBtnPressed = rememberSaveable {
-            mutableStateOf(false)
-        }
-        val onClicked by rememberUpdatedState(newValue = {
-            isFixedBtnPressed.value = !isFixedBtnPressed.value
-            fixedButtonPressedEvent(isFixedBtnPressed.value)
-        })
-        val isDisturbed by rememberUpdatedState(newValue = disturbFromEdgeDetector)
+        val isFixedBtnPressed by rememberUpdatedState(newValue = fixedBtnStatus)
 
-        val fixedBtnImage = if (isFixedBtnPressed.value) R.drawable.fixbutton_fixed
+        val fixedBtnImage = if (isFixedBtnPressed) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
 
         val activatedColor = Color(0xFF95FA99)
@@ -294,12 +275,9 @@ object CameraScreenButtons {
 
 
 
-        LaunchedEffect(key1 = isDisturbed) {
-            if (isDisturbed && isFixedBtnPressed.value) isFixedBtnPressed.value = false
-        }
         CompositionLocalProvider(LocalRippleTheme provides RedRippleTheme.apply {
             setRippleEffect(
-                defaultColor = if (isFixedBtnPressed.value) activatedColor
+                defaultColor = if (isFixedBtnPressed) activatedColor
                 else inActivatedColor, alphaColor = Color.Black
             )
         }) {
@@ -309,13 +287,14 @@ object CameraScreenButtons {
                     .wrapContentSize()
                     .clickable(
                         indication = rememberRipple(
-                            color = if (isFixedBtnPressed.value) activatedColor.compositeOver(
+                            color = if (isFixedBtnPressed) activatedColor.compositeOver(
                                 Color.Black
                             ) else inActivatedColor.compositeOver(Color.Black),
                             bounded = true,
                             radius = buttonSize / 2
                         ), //Ripple 효과 제거
-                        interactionSource = MutableInteractionSource(), onClick = onClicked
+                        interactionSource = MutableInteractionSource(),
+                        onClick = onFixedButtonPressedEvent
                     ), shape = CircleShape
             ) {
                 Icon(
@@ -569,15 +548,15 @@ fun TestSwitch() {
         })
 }
 
-@Composable
-@Preview
-fun TestToggleBtn() {
-    ToggledButton(modifier = Modifier.sizeIn(10.dp, 10.dp),
-        initState = true,
-        activatedColor = Color(0xFF95FA99),
-        inActivatedColor = Color(0x80999999),
-        buttonText = "테스트용",
-        onClickEvent = {
-
-        })
-}
+//@Composable
+//@Preview
+//fun TestToggleBtn() {
+//    ToggledButton(modifier = Modifier.sizeIn(10.dp, 10.dp),
+//        initState = true,
+//        activatedColor = Color(0xFF95FA99),
+//        inActivatedColor = Color(0x80999999),
+//        buttonText = "테스트용",
+//        onClickEvent = {
+//
+//        })
+//}

@@ -467,7 +467,7 @@ object MainScreen {
             PrepareServiceScreens.SplashScreen()
             LaunchedEffect(Unit) {
                 //1초 뒤에 앱 로딩 화면으로 넘어감.
-                delay(500)
+                delay(1000)
                 moveToNext()
             }
         }
