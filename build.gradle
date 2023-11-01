@@ -9,6 +9,7 @@ buildscript {
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
         classpath("com.spotify.ruler:ruler-gradle-plugin:1.4.0")
+        classpath("com.google.android.gms:oss-licenses-plugin:0.10.6") //라이선스 표시
     }
 }// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
@@ -35,6 +36,8 @@ subprojects {
                 defaultConfig {
                     minSdk 26
                     targetSdk 34
+                    versionName '0.0.5'
+                    versionCode 5
                     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
                     consumerProguardFiles "consumer-rules.pro"
                     if (project.getName() != "opencv") {

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 
 object PermScreen {
     @OptIn(ExperimentalPermissionsApi::class)
@@ -61,6 +62,8 @@ object PermScreen {
     fun Screen(
         onClickToReqPermissionEvent: () -> Unit
     ) {
+        val localTypography = LocalTypography.current
+
         Surface(
             modifier = Modifier
                 .fillMaxSize(),
@@ -74,14 +77,9 @@ object PermScreen {
                 verticalArrangement = Arrangement.spacedBy(60.dp, Alignment.CenterVertically)
             ) {
                 Text(
-                    text = "권한 요청",
-                    style = TextStyle(
-                        fontSize = 40.sp,
-                        fontFamily = FontFamily(Font(R.font.pretendard_bold)),
-                        fontWeight = FontWeight(700),
-                        color = Color(0xFF212121),
-                        textAlign = TextAlign.Center,
-                    )
+                    text = "Pro_Pose 서비스를 이용하기 위해\n" +
+                            "접근 권한의 허용이 필요합니다.",
+                    style = localTypography.heading02,
                 )
                 Column(
                     modifier = Modifier
@@ -167,7 +165,8 @@ object PermScreen {
 
 
                 Button(
-                    onClick = onClickToReqPermissionEvent, colors = ButtonDefaults.buttonColors(
+                    onClick = onClickToReqPermissionEvent,
+                    colors = ButtonDefaults.buttonColors(
                         Color(0xFFFFFFFF)
                     ), shape = RoundedCornerShape(10.dp)
                 ) {
@@ -175,13 +174,7 @@ object PermScreen {
                         text = "권한 설정하기",
                         Modifier
                             .padding(vertical = 10.dp, horizontal = 30.dp),
-                        style = TextStyle(
-                            fontSize = 15.sp,
-                            lineHeight = 20.sp,
-                            fontFamily = FontFamily(Font(R.font.pretendard_bold)),
-                            fontWeight = FontWeight(400),
-                            color = Color(0xFF000000),
-                        )
+                        style = localTypography.heading02
                     )
                 }
             }

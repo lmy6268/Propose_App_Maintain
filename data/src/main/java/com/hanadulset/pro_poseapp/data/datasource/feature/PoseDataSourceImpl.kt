@@ -8,7 +8,6 @@ import android.util.SizeF
 import androidx.core.net.toUri
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.PoseDataSource
 import com.hanadulset.pro_poseapp.utils.ImageUtils
-import com.hanadulset.pro_poseapp.utils.R
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
 import com.opencsv.CSVParserBuilder
@@ -17,7 +16,6 @@ import com.opencsv.CSVReaderBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
@@ -25,13 +23,9 @@ import org.opencv.core.Mat
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
-import java.io.BufferedOutputStream
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStreamReader
-import java.util.zip.ZipFile
-import java.util.zip.ZipInputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
@@ -78,42 +72,36 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         }
 
         //저장된 이미지와 데이터를 매핑시킨다.
-        val imageDataList = context.assets.open("image_datas.csv")
-            .use { stream ->
-                val resultList = mutableListOf<PoseData>()
-                val imageRes = loadPoseImages()
-                CSVReaderBuilder(InputStreamReader(stream))
-                    .withCSVParser(
-                        CSVParserBuilder()
-                            .withSeparator(',')
-                            .build()
-                    ).build()
-                    .readAll()
-                    .run {
-                        //첫 줄은 생략하고 시작함.
-                        this.subList(1, this.size).forEach { strings ->
-                            val center =
-                                strings[1].replace("[", "").replace("]", "").split(",").map {
-                                    it.toFloat()
-                                }
-                            val size = strings[2].replace("[", "").replace("]", "").split(",")
-                                .map { it.toFloat() }
+        val imageDataList = context.assets.open("image_datas.csv").use { stream ->
+            val resultList = mutableListOf<PoseData>()
+            val imageRes = loadPoseImages()
+            CSVReaderBuilder(InputStreamReader(stream)).withCSVParser(
+                CSVParserBuilder().withSeparator(',').build()
+            ).build().readAll().run {
+                //첫 줄은 생략하고 시작함.
+                this.subList(1, this.size).forEach { strings ->
+                    val center =
+                        strings[1].replace("[", "").replace("]", "").split(",").map {
+                            it.toFloat()
+                        }
+                    val size = strings[2].replace("[", "").replace("]", "").split(",")
+                        .map { it.toFloat() }
 
-                            resultList.add(
-                                PoseData(
-                                    poseId = strings[0].substringBefore('_').toInt(),
-                                    centerRate = SizeF(center[0], center[1]),
-                                    sizeRate = SizeF(size[0], size[1])
-                                )
-                            )
-                        }
-                        resultList.sortBy { it.poseId }
-                        for (i in resultList.indices) {
-                            resultList[i] = resultList[i].copy(imageUri = imageRes[i])
-                        }
-                    }
-                resultList
+                    resultList.add(
+                        PoseData(
+                            poseId = strings[0].substringBefore('_').toInt(),
+                            centerRate = SizeF(center[0], center[1]),
+                            sizeRate = SizeF(size[0], size[1])
+                        )
+                    )
+                }
+                resultList.sortBy { it.poseId }
+                for (i in resultList.indices) {
+                    resultList[i] = resultList[i].copy(imageUri = imageRes[i])
+                }
             }
+            resultList
+        }
 
         Log.d("imageDataList Size:", imageDataList.size.toString())
 

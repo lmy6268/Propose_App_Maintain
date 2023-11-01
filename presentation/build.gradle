@@ -20,6 +20,8 @@ android {
 }
 
 dependencies {
+    //For show OSS Usage List
+    implementation 'com.google.android.gms:play-services-oss-licenses:17.0.1'
     var compose_version = '1.4.3'
     var nav_version = "2.7.4"
     var version = "0.31.6-rc"
@@ -29,14 +31,11 @@ dependencies {
     implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
 
     //Ar
-    implementation 'com.google.ar:core:1.39.0'
+//    implementation 'com.google.ar:core:1.39.0'
     implementation 'io.github.sceneview:arsceneview:0.10.2'
     //ViewModelScope
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.6.2'
 
-
-    //Glide
-//    implementation 'com.github.bumptech.glide:glide:4.15.1'
 
 
     //hilt
@@ -47,13 +46,11 @@ dependencies {
     //base
     implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
     implementation "io.coil-kt:coil-compose:2.4.0"
-    implementation "dev.chrisbanes.snapper:snapper:0.3.0"
     // Import the Compose BOM
     implementation platform('androidx.compose:compose-bom:2023.01.00')
     implementation "androidx.navigation:navigation-compose"
@@ -62,6 +59,10 @@ dependencies {
     implementation "androidx.compose.material:material"
     implementation "androidx.compose.ui:ui-tooling"
     implementation "androidx.compose.ui:ui-tooling-preview"
+
+
+
+
 
     implementation "com.google.accompanist:accompanist-permissions:${version}"
     implementation "com.google.accompanist:accompanist-systemuicontroller:${version}"
