@@ -36,10 +36,10 @@ class GalleryViewModel @Inject constructor(
     }
 
     //이미지 삭제
-    fun deleteImage(index: Int) {
+    fun deleteImage(index: Int, isOnDialog: Boolean) {
         _deleteCompleteState.value = false
         viewModelScope.launch {
-            if (deleteImageFromPicturesUseCase(uri = _capturedImageState.value!![index].dataUri!!)) {
+            if (isOnDialog || deleteImageFromPicturesUseCase(uri = _capturedImageState.value!![index].dataUri!!)) {
                 _capturedImageState.update {
                     it!!.toMutableList().apply {
                         removeAt(index)

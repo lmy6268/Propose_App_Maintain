@@ -43,6 +43,7 @@ import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
+import com.hanadulset.pro_poseapp.presentation.core.CustomDialog.InternetConnectionDialog
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
@@ -117,7 +118,6 @@ object PrepareServiceScreens {
         isAfterDownload: Boolean,
         onAfterLoadedEvent: () -> Unit,
         onMoveToDownload: () -> Unit,
-        networkState: Boolean = false
     ) {
         val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
         val checkNeedToDownloadState by prepareServiceViewModel.checkDownloadState.collectAsState()
@@ -137,9 +137,7 @@ object PrepareServiceScreens {
 
         LaunchedEffect(checkNeedToDownloadState) {
             if (checkNeedToDownloadState != null && isAfterDownload.not()) {
-                //아마존 에러인 경우 처리 -> 보통은 와이파이 오류
-                if (checkNeedToDownloadState!!.downloadType == CheckResponse.TYPE_ERROR) localActivity.finish()
-                else if (checkNeedToDownloadState!!.needToDownload.not()) {
+                if (checkNeedToDownloadState!!.needToDownload.not()) {
                     prepareServiceViewModel.preLoadModel()
                     cameraInit()
                 } else onMoveToDownload()

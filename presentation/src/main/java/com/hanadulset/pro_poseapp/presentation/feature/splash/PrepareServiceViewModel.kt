@@ -9,6 +9,8 @@ import com.hanadulset.pro_poseapp.domain.usecase.ai.DownloadModelUseCase
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.DownloadState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -36,6 +38,8 @@ class PrepareServiceViewModel @Inject constructor(
 
 
     val checkDownloadState = _checkDownloadState.asStateFlow() //체크의 결과값을 가지고 있는 변수
+    private val checkNetworkStatusJob = MutableStateFlow<Job?>(null)
+    private val checkDownloadStateJob = MutableStateFlow<Job?>(null)
 
     fun preLoadModel() {
         _modelLoadedState.value = false
@@ -58,7 +62,7 @@ class PrepareServiceViewModel @Inject constructor(
 
     //다운로드를 요청하는 함수
     fun requestForDownload() {
-        viewModelScope.launch {
+        checkDownloadStateJob.value = viewModelScope.launch {
             //다운로드를 요청하고,정상적으로 다운로드가 진행되는 경우,
             downloadModelUseCase().collect {
                 _downloadState.value = it
@@ -78,11 +82,15 @@ class PrepareServiceViewModel @Inject constructor(
 
 
     fun startToTrackNetWorkState() {
-        viewModelScope.launch {
+        checkNetworkStatusJob.value = viewModelScope.launch {
             checkInternetConnectionUseCase().collect {
                 _networkState.value = it
             }
         }
+    }
+
+    fun stopToTrackNetWorkState() {
+        checkNetworkStatusJob.value?.cancel()
     }
 
     private fun checkLoadAllPreRunMethod() {

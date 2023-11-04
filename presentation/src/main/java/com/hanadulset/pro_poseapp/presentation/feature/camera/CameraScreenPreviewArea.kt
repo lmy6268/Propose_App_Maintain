@@ -197,7 +197,6 @@ object CameraScreenPreviewArea {
                     modifier = modifier.size(previewViewSize.value),
                     parentSize = previewViewSize.value,
                     poseData = poseData,
-                    poseScale = poseScale,
                 )
             }
             //포커스 위치
@@ -266,8 +265,8 @@ object CameraScreenPreviewArea {
         modifier: Modifier = Modifier,
         parentSize: DpSize,
         poseData: PoseData,
-        poseScale: Float
     ) {
+
         val currentItem by rememberUpdatedState(newValue = poseData)
         val itemSizeRate by rememberUpdatedState(newValue = currentItem.sizeRate)
         val stdSize = DpSize(200.dp, 200.dp)
@@ -288,28 +287,28 @@ object CameraScreenPreviewArea {
                 )
             })
 
-        val scale by rememberUpdatedState(newValue = poseScale)
+        val scale by rememberUpdatedState(newValue = currentItem.imageScale)
 
         val itemCenterRate by rememberUpdatedState(newValue = currentItem.centerRate)
         val poseOffset = rememberSaveable {
-            mutableStateOf(
-                parentSize.center.run {
-                    with(localDensity) {
-                        SizeF(
-                            x.toPx() * itemCenterRate.width,
-                            y.toPx() * itemCenterRate.height
-                        )
-                    }
-                })
+            mutableStateOf(SizeF(0F, 0F))
+//                parentSize.run {
+//                    with(localDensity) {
+//                        SizeF(
+//                            width.toPx() * itemCenterRate.width,
+//                            height.toPx() * itemCenterRate.height
+//                        )
+//                    }
+//                })
         }
 
 
         LaunchedEffect(currentItem) {
-            poseOffset.value = parentSize.center.run {
+            poseOffset.value = parentSize.run {
                 with(localDensity) {
                     SizeF(
-                        x.toPx() * itemCenterRate.width,
-                        y.toPx() * itemCenterRate.height
+                        width.toPx() * itemCenterRate.width - stdSize.width.toPx() / 2,
+                        height.toPx() * itemCenterRate.height - stdSize.height.toPx() / 2
                     )
                 }
             }
@@ -330,7 +329,6 @@ object CameraScreenPreviewArea {
                         IntOffset(
                             poseOffset.value.width.roundToInt(),
                             poseOffset.value.height.roundToInt()
-
                         )
                     }
                     .pointerInput(currentItem) {
@@ -343,11 +341,11 @@ object CameraScreenPreviewArea {
                                 Offset(
                                     x = it.x.coerceIn(
                                         0F,
-                                        parentSize.width.toPx()-poseImageSize.width.toPx()
+                                        parentSize.width.toPx() - poseImageSize.width.toPx()
                                     ),
                                     y = it.y.coerceIn(
                                         0F,
-                                        parentSize.height.toPx()-poseImageSize.height.toPx()
+                                        parentSize.height.toPx() - poseImageSize.height.toPx()
 
                                     )
                                 )

@@ -2,8 +2,18 @@ package com.hanadulset.pro_poseapp.presentation.core
 
 import android.Manifest
 import android.app.Activity
+import android.content.ContentResolver
+import android.content.Intent
+import android.net.Uri
+import android.os.Binder
 import android.os.Build
+import android.provider.MediaStore
 import android.util.Log
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
@@ -12,7 +22,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideOut
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
@@ -74,12 +83,13 @@ object MainScreen {
 
 
     //요청 받을 권한들
-    private val PERMISSIONS_REQUIRED = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) arrayOf(
+    private val PERMISSIONS_REQUIRED = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) arrayOf(
         Manifest.permission.CAMERA,
         Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.WRITE_EXTERNAL_STORAGE
     ) else arrayOf(
-        Manifest.permission.CAMERA
+        Manifest.permission.CAMERA,
+        Manifest.permission.READ_MEDIA_IMAGES
     )
 
 
@@ -245,8 +255,8 @@ object MainScreen {
                     )
                 )
             }) {
-                val checkState by prepareServiceViewModel.checkDownloadState.collectAsStateWithLifecycle()
                 prepareServiceViewModel.startToTrackNetWorkState()
+                val checkState by prepareServiceViewModel.checkDownloadState.collectAsStateWithLifecycle()
                 ModelDownloadScreen.ModelDownloadRequestScreen(
                     isCheck = checkState,
                     moveToLoading = onDoneDownload,
@@ -257,13 +267,16 @@ object MainScreen {
                         ) {
                             popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
                         }
-                    })
+                    },
+                    requestDownload = {
+                        prepareServiceViewModel.requestForCheckDownload()
+                    }
+                )
                 DisposableEffect(Unit) {
                     onDispose {
                         prepareServiceViewModel.clearStates()
                     }
                 }
-
             }
             //다운로드 진행 페이지
             composable(route = "${Page.ModelDownloadProgress.name}?isDownload={isDownload}",
@@ -285,7 +298,7 @@ object MainScreen {
                 val isDownload = it.arguments?.getBoolean("isDownload")
                 val downloadState by prepareServiceViewModel.downloadState.collectAsStateWithLifecycle()
                 val networkState by prepareServiceViewModel.networkState.collectAsStateWithLifecycle()
-                LaunchedEffect(key1 = Unit) {
+                LaunchedEffect(key1 = networkState) {
                     if (networkState) prepareServiceViewModel.requestForDownload()
                     else Log.e("네트워크 없음 알림.", "없습니다.")
                 }
@@ -295,9 +308,9 @@ object MainScreen {
                     }
                 }
 
-                downloadState.run {
+                downloadState?.run {
                     AnimatedVisibility(
-                        visible = this != null,
+                        visible = true,
                         enter = fadeIn(),
                         exit = fadeOut(
                             animationSpec = tween(300, easing = LinearEasing)
@@ -308,7 +321,7 @@ object MainScreen {
                     ) {
                         ModelDownloadScreen.ModelDownloadProgressScreen(
                             isDownload = isDownload,
-                            downloadedInfo = this@run!!,
+                            downloadedInfo = this@run,
                             onDismissEvent = { context ->
                                 if (isDownload != null && isDownload.not()) onDoneDownload()
                                 else (context as Activity).finish()
@@ -405,18 +418,39 @@ object MainScreen {
                 )
             }) {
                 val imageList = galleryViewModel.capturedImageState.collectAsState()
+                val context = LocalContext.current
+                val deleteTargetIndex = remember {
+                    mutableStateOf<Int?>(null)
+                }
                 LaunchedEffect(Unit) {
                     galleryViewModel.loadImages()
                 }
                 val coroutineScope = rememberCoroutineScope()
+                //R 버전 이상 부터는 이미지 삭제시, 파일에 대한 권한이 필요.
+                val deleteLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartIntentSenderForResult(),
+                    onResult = {
+                        if (it.resultCode == Activity.RESULT_OK) {
+                            galleryViewModel.deleteImage(deleteTargetIndex.value!!, true)
+                            deleteTargetIndex.value = null
+                        }
+                    })
+
                 if (imageList.value != null) {
                     GalleryScreen.GalleryScreen(imageList = imageList.value!!,
                         onLoadImages = { galleryViewModel.loadImages() },
                         onDeleteImage = { index, func ->
                             coroutineScope.launch {
-                                galleryViewModel.deleteImage(index)
+                                deleteTargetIndex.value = index
+                                deleteImage(
+                                    context.contentResolver,
+                                    deleteLauncher,
+                                    galleryViewModel,
+                                    index = index,
+                                    uri = imageList.value!![index].dataUri!!,
+                                )
                                 galleryViewModel.deleteCompleteState.collectLatest {
-                                    if (it!!) func()
+                                    it?.run { func() }
                                 }
                             }
                         },
@@ -527,4 +561,24 @@ object MainScreen {
     }
 
 
+    private fun deleteImage(
+        contentResolver: ContentResolver,
+        launcher: ManagedActivityResultLauncher<IntentSenderRequest, ActivityResult>,
+        galleryViewModel: GalleryViewModel,
+        index: Int,
+        uri: Uri,
+    ): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            MediaStore.createDeleteRequest(
+                contentResolver,
+                arrayListOf(uri)
+            ).intentSender.run {
+                launcher.launch(IntentSenderRequest.Builder(this).build())
+            }
+            false
+        } else {
+            galleryViewModel.deleteImage(index, false)
+            true
+        }
+    }
 }

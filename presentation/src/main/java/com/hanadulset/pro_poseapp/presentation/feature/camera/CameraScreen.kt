@@ -407,7 +407,7 @@ fun Screen(
                 onGalleryButtonClickEvent = openGalleryEvent,
                 galleryImageUri = galleryImageUri,
                 onChangeScale = {
-                    poseScale.floatValue = it
+                    currentPoseDataList?.get(selectedPoseIndex.intValue)!!.imageScale = it
                 }
             )
         }

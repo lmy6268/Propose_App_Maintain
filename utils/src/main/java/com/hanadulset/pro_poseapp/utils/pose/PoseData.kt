@@ -12,4 +12,6 @@ data class PoseData(
     val centerRate: SizeF = SizeF(0F, 0F), //중심점 비율
     val sizeRate: SizeF = SizeF(0F, 0F),
     val imageUri: Uri? = null,
+    var imageScale: Float = 1F,
+    var imageOffSet: SizeF? = null
 )

@@ -24,6 +24,7 @@ plugins {
 Properties properties = new Properties()
 properties.load(project.rootProject.file('local.properties').newDataInputStream())
 
+
 subprojects {
     afterEvaluate { project ->
         if (project.hasProperty("android")) {
@@ -36,8 +37,8 @@ subprojects {
                 defaultConfig {
                     minSdk 26
                     targetSdk 34
-                    versionName '0.0.5'
-                    versionCode 5
+                    versionName '0.0.9'
+                    versionCode 9
                     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
                     consumerProguardFiles "consumer-rules.pro"
                     if (project.getName() != "opencv") {
