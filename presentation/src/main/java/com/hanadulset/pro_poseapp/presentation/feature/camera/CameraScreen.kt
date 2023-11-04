@@ -154,10 +154,6 @@ fun Screen(
     val scope = rememberCoroutineScope()
 
 
-
-
-
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -213,7 +209,9 @@ fun Screen(
         }
         val captureBtnClickState = remember { mutableStateOf(false) }
         val poseScale = remember {
-            mutableFloatStateOf(1f)
+            mutableFloatStateOf(
+                currentPoseDataList?.get(selectedPoseIndex.intValue)?.imageScale ?: 1F
+            )
         }
 
         //셔터 버튼을 눌렀을 때 발생되는 이벤트
@@ -269,7 +267,11 @@ fun Screen(
             onStopCaptureAnimation = {
                 captureBtnClickState.value = false
             },
-            poseScale = poseScale.floatValue
+            poseScale = poseScale.floatValue,
+            poseOffset = currentPoseDataList?.get(selectedPoseIndex.intValue)?.imageOffSet,
+            onPoseChangeOffset = {
+                currentPoseDataList?.get(selectedPoseIndex.intValue)?.imageOffSet = it
+            }
         )
 
         //상단 버튼
@@ -284,7 +286,6 @@ fun Screen(
                         }
                     }
                 }
-//                .padding(top = 30.dp)
                 .height(screenSize.height / 9)
                 .align(Alignment.TopCenter)
                 .fillMaxWidth(),
@@ -321,9 +322,6 @@ fun Screen(
         ) {
             //하단바 관련 모듈
             CameraScreenUnderBar.UnderBar(
-                //따오기 관련 처리
-
-
                 //줌레벨 변경 시
                 onZoomLevelChangeEvent = { zoomLevel ->
                     cameraViewModel.setZoomLevel(zoomLevel)
@@ -362,8 +360,6 @@ fun Screen(
                 galleryImageUri = galleryImageUri,
                 userEdgeDetectionValue = userEdgeDetectionSwitch.value,
                 systemEdgeDetectionValue = systemEdgeDetectionSwitch.value
-
-
             )
         }
 
@@ -389,6 +385,7 @@ fun Screen(
                 onRefreshPoseData = {
                     CoroutineScope(Dispatchers.Main).launch {
                         cameraViewModel.reqPoseRecommend()
+                        //
                         cameraViewModel.poseResultState.collectLatest {
                             if (it == null) selectedPoseIndex.intValue = 1
                         }
@@ -408,6 +405,8 @@ fun Screen(
                 galleryImageUri = galleryImageUri,
                 onChangeScale = {
                     poseScale.floatValue = it
+                    currentPoseDataList?.get(selectedPoseIndex.intValue)?.imageScale =
+                        it //변경된 값을 지정
                 }
             )
         }

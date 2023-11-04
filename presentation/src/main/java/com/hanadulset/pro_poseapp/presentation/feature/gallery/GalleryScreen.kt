@@ -47,6 +47,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
@@ -248,12 +249,8 @@ object GalleryScreen {
     ) {
         val imagePainter = rememberAsyncImagePainter(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(
-                    imgUri.run { this ?: R.drawable.impossible_icon }
-                )
-                .size(with(LocalDensity.current) {
-                    imgSize.toPx().toInt()
-                }) //뷰 사이즈의 크기 만큼 이미지 리사이징
+                .data(imgUri.run { this ?: R.drawable.impossible_icon })
+                .size(with(LocalDensity.current) { imgSize.toPx().toInt() }) //뷰 사이즈의 크기 만큼 이미지 리사이징
                 .build()
         )
         Image(
@@ -267,7 +264,7 @@ object GalleryScreen {
             painter = imagePainter,
             contentScale = ContentScale.Fit,
             contentDescription = "저장된 이미지",
-            alignment = Alignment.Center
+            alignment = Alignment.Center,
         )
     }
 

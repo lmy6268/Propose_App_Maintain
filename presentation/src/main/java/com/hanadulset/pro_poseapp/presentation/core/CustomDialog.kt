@@ -169,9 +169,9 @@ object CustomDialog {
     ) {
         CustomAlertDialog(
             modifier = modifier,
-            dialogTitle = "인터넷 연결이 끊겼습니다.",
-            subTitle = "현재 작업을 완료하기 위해서는 인터넷 연결이 필요합니다.",
-            dismissText = "설정하러가기",
+            dialogTitle = "인터넷에 연결되어있지 않습니다.",
+            subTitle = "추가 작업을 진행하기 위해서는 인터넷 연결이 필요합니다.",
+            dismissText = "설정하러 가기",
             confirmText = "다시 시도하기",
             onDismissRequest = onDismissRequest,
             onConfirmRequest = onConfirmRequest

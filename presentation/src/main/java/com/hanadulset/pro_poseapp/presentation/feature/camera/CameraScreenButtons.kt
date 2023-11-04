@@ -115,6 +115,7 @@ object CameraScreenButtons {
         buttonText: String = "",
         buttonTextColor: Color = Color.White,
         iconDrawableId: Int = R.drawable.based_circle,
+        innerIconDrawableId: Int? = null,
         onClickEvent: () -> Unit
     ) {
         val buttonState by rememberUpdatedState(newValue = buttonStatus)
@@ -140,6 +141,12 @@ object CameraScreenButtons {
                     color = if (buttonState.not()) buttonTextColor else Color.Black,
                     fontFamily = pretendardFamily,
                     fontWeight = if (buttonState) FontWeight.Bold else FontWeight.Light
+                )
+                else if (innerIconDrawableId != null) Icon(
+                    painter = painterResource(id = innerIconDrawableId),
+                    tint = if (buttonState.not()) buttonTextColor else Color.Black,
+                    modifier = Modifier.size(buttonSize / 2),
+                    contentDescription = "내부 아이콘"
                 )
 
             }

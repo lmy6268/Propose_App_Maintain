@@ -15,7 +15,6 @@ interface FileHandleDataSource {
 
 
     suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ImageResult>
-    fun deleteCapturedImage(uri: Uri): Boolean
 
     /**모델을 다운로드하고 파일로 저장한다.
      * 1. 현재 저장되어있는 각 파일의 버전 정보를 확인한다.

@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,7 +40,7 @@ object CameraScreenUpperBar {
     ) {
         //변수 선언
         //구도 추천 여부
-        val recommendCompState = remember { mutableStateOf(compStateInit) }
+        val recommendCompState = rememberSaveable { mutableStateOf(compStateInit) }
         val isExpandedState = remember {
             mutableStateOf(false)
         }
