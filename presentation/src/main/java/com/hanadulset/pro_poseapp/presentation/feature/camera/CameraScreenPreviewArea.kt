@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateColorAsState
@@ -17,10 +18,15 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -118,9 +124,8 @@ object CameraScreenPreviewArea {
             }
         }
 
-        Box(
-            modifier = modifier
-        ) {
+
+        Box(modifier.offset(y = 114.dp)) {
             //미리보기
             AndroidView(
                 modifier = modifier
@@ -305,6 +310,8 @@ object CameraScreenPreviewArea {
                     )
                 }
             }
+            onChangeOffset(poseOffset.value)
+
         }
 
         // 각 아이템별 이동 정보를 부모가 알 수 있을까? -> 이 화면에서 이동 처리를 하게 되면 어떻게 되지?
@@ -331,9 +338,11 @@ object CameraScreenPreviewArea {
                         val modifiedCenterOffset = (offset + dragAmount).let {
                             Offset(
                                 x = it.x.coerceIn(
-                                    0F, currentScreenSize.value.width.toPx() - poseImageSize.width.toPx()
+                                    0F,
+                                    currentScreenSize.value.width.toPx() - poseImageSize.width.toPx()
                                 ), y = it.y.coerceIn(
-                                    0F, currentScreenSize.value.height.toPx() - poseImageSize.height.toPx()
+                                    0F,
+                                    currentScreenSize.value.height.toPx() - poseImageSize.height.toPx()
                                 )
                             )
                         }

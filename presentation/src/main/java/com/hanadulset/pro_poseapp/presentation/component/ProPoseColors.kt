@@ -40,9 +40,9 @@ class ProPoseColors(
     )
 
     companion object {
-        val ppMainGreen = Color(0xFF95FFA7)
-        val ppMainBlack = Color(0xFF212121)
-        val ppMainGray = Color(0xFF999999)
-        val ppMainWhite = Color(0xFFFAFAFA)
+        private val ppMainGreen = Color(0xFF98C0FF)
+        private val ppMainBlack = Color(0xFF212121)
+        private val ppMainGray = Color(0xFF999999)
+        private val ppMainWhite = Color(0xFFFAFAFA)
     }
 }

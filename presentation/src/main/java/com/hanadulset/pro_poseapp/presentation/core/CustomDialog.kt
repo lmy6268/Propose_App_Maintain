@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import kotlin.math.roundToInt
 
 object CustomDialog {
@@ -89,7 +90,7 @@ object CustomDialog {
                     DialogButton(
                         buttonText = dismissText,
                         buttonSize = buttonSize,
-                        backgroundColor = Color(0xFFFAFAFA),
+                        backgroundColor = LocalColors.current.secondaryWhite100,
                         fontFamily = pretendardFamily,
                         fontWeight = FontWeight.Light,
                         onClick = onDismissRequest
@@ -97,7 +98,7 @@ object CustomDialog {
                     DialogButton(
                         buttonText = confirmText,
                         buttonSize = buttonSize,
-                        backgroundColor = Color(0xFF95FFA7),
+                        backgroundColor = LocalColors.current.primaryGreen100,
                         fontFamily = pretendardFamily,
                         fontWeight = FontWeight.Bold,
                         onClick = onConfirmRequest

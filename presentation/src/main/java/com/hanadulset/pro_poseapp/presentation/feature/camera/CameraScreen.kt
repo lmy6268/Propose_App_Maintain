@@ -10,21 +10,12 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.AspectRatio
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -34,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -50,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents.AnimatedSlideToLeft
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
@@ -150,8 +141,19 @@ fun Screen(
     val backgroundAnalysisResult by cameraViewModel.backgroundDataState.collectAsStateWithLifecycle()
 
     val needToCloseViewRate = remember { mutableStateOf(false) }
+
+    val upBarSize = remember {
+        DpSize(screenSize.width, 72.dp + 42.dp)
+    }
+
     val upperBarSize = remember { mutableStateOf<DpSize?>(null) }
     val scope = rememberCoroutineScope()
+
+    val cameraZoomLevelState = rememberSaveable {
+        mutableFloatStateOf(1F)
+    }
+
+
 
 
     Box(
@@ -200,7 +202,7 @@ fun Screen(
             mutableStateOf(DpSize(0.dp, 0.dp))
         }
 
-        val compStateInit = false
+        val compStateInit = true
         val compState = rememberSaveable { mutableStateOf(compStateInit) }
         //햔재 전달된 포즈 데이터
         val currentPoseDataList by cameraViewModel.poseResultState.collectAsStateWithLifecycle()
@@ -242,7 +244,7 @@ fun Screen(
                         previewAreaSize.value = DpSize(it.width.dp, it.height.dp)
                     }
                 }
-                .align(Alignment.Center),
+                .align(Alignment.TopCenter),
             initCamera = cameraInit,
             preview = previewView,
             upperBarSize = upperBarSize.value ?: DpSize(0.dp, 0.dp),
@@ -286,7 +288,7 @@ fun Screen(
                         }
                     }
                 }
-                .height(screenSize.height / 9)
+                .height(upBarSize.height)
                 .align(Alignment.TopCenter)
                 .fillMaxWidth(),
             viewRateList = cameraViewModel.getViewRateList(),
@@ -304,6 +306,8 @@ fun Screen(
             needToCloseViewRateList = needToCloseViewRate.value
         )
 
+
+        //하단바
         AnimatedSlideToLeft(
             modifier = Modifier
                 .fillMaxWidth()
@@ -325,6 +329,7 @@ fun Screen(
                 //줌레벨 변경 시
                 onZoomLevelChangeEvent = { zoomLevel ->
                     cameraViewModel.setZoomLevel(zoomLevel)
+                    cameraZoomLevelState.floatValue = zoomLevel
                 },
                 onGalleryButtonClickEvent = openGalleryEvent,
                 //촬영 시에 EventLog를 인자로 넘겨줘야한다.
@@ -359,13 +364,19 @@ fun Screen(
                 lowerLayerPaddingBottom = 0.dp,
                 galleryImageUri = galleryImageUri,
                 userEdgeDetectionValue = userEdgeDetectionSwitch.value,
-                systemEdgeDetectionValue = systemEdgeDetectionSwitch.value
+                systemEdgeDetectionValue = systemEdgeDetectionSwitch.value,
+                zoomLevelState = cameraZoomLevelState.floatValue
             )
         }
 
         AnimatedSlideToLeft(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(
+                    if (aspectRatio.aspectRatioType == AspectRatio.RATIO_16_9) LocalColors.current.subPrimaryBlack100.copy(
+                        alpha = 0.5f
+                    ) else LocalColors.current.secondaryWhite100
+                )
                 .align(Alignment.BottomCenter)
                 .onGloballyPositioned { coordinates ->
                     with(localDensity) {
@@ -387,17 +398,20 @@ fun Screen(
                         cameraViewModel.reqPoseRecommend()
                         //
                         cameraViewModel.poseResultState.collectLatest {
-                            if (it == null) selectedPoseIndex.intValue = 1
+                            if (it == null) {
+                                selectedPoseIndex.intValue = 1
+                                poseScale.floatValue = 1F
+                            }
                         }
                     }
                 },
-                initScale = poseScale.floatValue,
+                initPoseItemScale = poseScale.floatValue,
                 onClickShutterBtn = shutterEvent,
                 onSelectedPoseIndexEvent = {
                     selectedPoseIndex.intValue = it
                     poseScale.floatValue = 1F //여기서 현재 포즈에 대한 스케일 값을 조정해주면 된다.
                 },
-                currentSelectedIdx = selectedPoseIndex.intValue,
+                currentSelectedPoseItemIdx = selectedPoseIndex.intValue,
                 onClickCloseBtn = {
                     showPoseListUnderBarState.value = showPoseListUnderBarState.value.not()
                 },
@@ -407,12 +421,15 @@ fun Screen(
                     poseScale.floatValue = it
                     currentPoseDataList?.get(selectedPoseIndex.intValue)?.imageScale =
                         it //변경된 값을 지정
-                }
+                },
+                is16By9AspectRatio = aspectRatio.aspectRatioType == AspectRatio.RATIO_16_9
             )
         }
     }
 
+
 }
+
 
 
 

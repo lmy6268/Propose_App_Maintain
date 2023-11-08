@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 
 object PermScreen {
@@ -67,7 +68,7 @@ object PermScreen {
         Surface(
             modifier = Modifier
                 .fillMaxSize(),
-            color = Color(0xFF95FFA7)
+            color = LocalColors.current.primaryGreen100
         ) {
             Column(
                 modifier = Modifier

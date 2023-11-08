@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -149,6 +150,7 @@ object CameraScreenCompScreen {
         val isMatched = remember {
             mutableStateOf(false)
         }
+        val localColor = LocalColors.current
 
 
         val point by rememberUpdatedState {
@@ -193,7 +195,7 @@ object CameraScreenCompScreen {
                     drawCircle(
                         center = point(),
                         radius = pointRadius,
-                        color = Color(0x8095FFA7),
+                        color = localColor.primaryGreen100.copy(alpha = 0.8f),
                     )
                 }
             }

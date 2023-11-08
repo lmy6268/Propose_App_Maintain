@@ -83,7 +83,7 @@ object MainScreen {
 
 
     //요청 받을 권한들
-    private val PERMISSIONS_REQUIRED = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) arrayOf(
+    private val PERMISSIONS_REQUIRED = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) arrayOf(
         Manifest.permission.CAMERA,
         Manifest.permission.READ_EXTERNAL_STORAGE,
         Manifest.permission.WRITE_EXTERNAL_STORAGE

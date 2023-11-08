@@ -37,8 +37,8 @@ subprojects {
                 defaultConfig {
                     minSdk 26
                     targetSdk 34
-                    versionName '0.0.9'
-                    versionCode 9
+                    versionName '0.1.1'
+                    versionCode 10
                     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
                     consumerProguardFiles "consumer-rules.pro"
                     if (project.getName() != "opencv") {

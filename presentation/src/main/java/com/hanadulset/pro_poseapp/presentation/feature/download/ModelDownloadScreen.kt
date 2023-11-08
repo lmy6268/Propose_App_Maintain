@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.core.CustomDialog
 import com.hanadulset.pro_poseapp.utils.CheckResponse
@@ -104,7 +105,7 @@ object ModelDownloadScreen {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF95FFA7))
+                    .background(LocalColors.current.primaryGreen100)
                     .navigationBarsPadding(),
             ) {
                 if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
@@ -168,7 +169,7 @@ object ModelDownloadScreen {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF95FFA7))
+                .background(LocalColors.current.primaryGreen100)
         ) {
             Surface(
                 modifier = Modifier
@@ -258,7 +259,7 @@ object ModelDownloadScreen {
         modifier: Modifier = Modifier,
         progress: Float,
         backgroundColor: Color = Color(0xFFF0F0F0),
-        color: Color = Color(0xFF95FFA7),
+        color: Color = LocalColors.current.primaryGreen100,
     ) {
         val strokeWidth = LocalDensity.current.run { 15.dp.toPx() }
 

@@ -92,7 +92,8 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                                             applicationContext.dataDir.absolutePath,
                                             "/$fileName"
                                         )
-                                    targetFile.copyTo(savedPath).run {
+                                    targetFile.copyTo(savedPath,
+                                        overwrite = true).run {
                                         targetFile.delete()
                                         modifyVersionIDLocal(fileName, versionID)
                                     }
