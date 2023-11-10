@@ -53,15 +53,14 @@ object CameraScreenUpperBar {
             onChangeCompSetEvent(recommendCompState.value)
         })
         val triggerCloseValue by rememberUpdatedState(newValue = needToCloseViewRateList)
-
+        val buttonSize = 38.dp
 
         //컴포저블 세팅
         Row(
-            modifier = modifier,
+            modifier = modifier.padding(horizontal = buttonSize),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-
             //오버레이 되는 확장 가능한 버튼
             ExpandableButton(
                 itemList = viewRateList.map { it.name },
@@ -71,22 +70,22 @@ object CameraScreenUpperBar {
                 isExpanded = {
                     isExpandedState.value = it
                 },
-                defaultButtonSize = 44.dp,
+                defaultButtonSize = buttonSize,
                 triggerClose = triggerCloseValue
             )
 
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
                 //구도추천 On/OFF
-                CameraScreenButtons.SwitchableButton(
-                    innerText = "구도 추천",
-                    init = recommendCompState.value,
-                    positiveColor = LocalColors.current.primaryGreen100,
-                    negativeColor = Color.Black,
-                    onChangeState = {
-                        changeCompState()
-                    }
-                )
+//                CameraScreenButtons.SwitchableButton(
+//                    innerText = "구도 추천",
+//                    init = recommendCompState.value,
+//                    positiveColor = LocalColors.current.primaryGreen100,
+//                    negativeColor = Color.Black,
+//                    onChangeState = {
+//                        changeCompState()
+//                    }
+//                )
 
 
                 //정보화면 이동
@@ -98,13 +97,13 @@ object CameraScreenUpperBar {
                         ),
                         shape = CircleShape
                     ),
-                    innerIconDrawableId = R.drawable.settings,
                     buttonName = "정보",
                     onClick = moveToInfo,
                     colorTint = LocalColors.current.secondaryWhite100,
-                    buttonSize = 44.dp,
-                    innerIconColorTint = LocalColors.current.subPrimaryBlack100,
-                    innerIconDrawableSize = 24.dp
+                    buttonSize = buttonSize,
+                    buttonText = "i",
+                    buttonTextColor = LocalColors.current.subPrimaryBlack100,
+                    buttonTextSize = (buttonSize.value.toInt() / 2)
                 )
 
             }

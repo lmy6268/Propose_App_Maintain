@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -199,12 +200,11 @@ object CameraScreenButtons {
     @Composable
     fun SwitchableButton(
         modifier: Modifier = Modifier,
-        innerText: String,
         init: Boolean,
         buttonSize: DpSize = DpSize(23.dp, 15.dp),
         positiveColor: Color,
         negativeColor: Color,
-        onChangeState: () -> Unit,
+        onChangeState: (Boolean) -> Unit,
         scale: Float = 2f,
         strokeWidth: Dp = (buttonSize.height / 10),
         gapBetweenThumbAndTrackEdge: Dp = (buttonSize.width / 9),
@@ -218,47 +218,38 @@ object CameraScreenButtons {
             else with(LocalDensity.current) { (thumbRadius + gapBetweenThumbAndTrackEdge).toPx() },
                 label = ""
             )
-        val localFont = LocalTypography.current
+        Column(modifier) {
+            Canvas(
+                modifier = Modifier
+                    .size(buttonSize)
+                    .scale(scale = scale)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            // This is called when the user taps on the canvas
+                            switchON.value = !switchON.value
+                            onChangeState(switchON.value)
+                        })
+                    }) {
+                // Track
+                drawRoundRect(
+                    color = if (switchON.value) positiveColor else negativeColor,
+                    cornerRadius = CornerRadius(
+                        x = buttonSize.height.toPx(),
+                        y = buttonSize.height.toPx()
+                    ),
+                    style = Stroke(width = strokeWidth.toPx())
+                )
 
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(15.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                style = localFont.heading03,
-                text = "$innerText ${if (switchON.value) "On" else "Off"}"
-            )
-            Column {
-                Canvas(
-                    modifier = Modifier
-                        .size(buttonSize)
-                        .scale(scale = scale)
-                        .pointerInput(Unit) {
-                            detectTapGestures(onTap = {
-                                // This is called when the user taps on the canvas
-                                switchON.value = !switchON.value
-                                onChangeState()
-                            })
-                        }) {
-                    // Track
-                    drawRoundRect(
-                        color = if (switchON.value) positiveColor else negativeColor,
-                        cornerRadius = CornerRadius(x = 10.dp.toPx(), y = 10.dp.toPx()),
-                        style = Stroke(width = strokeWidth.toPx())
+                // Thumb
+                drawCircle(
+                    color = if (switchON.value) positiveColor else negativeColor,
+                    radius = thumbRadius.toPx(),
+                    center = Offset(
+                        x = animatePosition.value, y = size.height / 2
                     )
-
-                    // Thumb
-                    drawCircle(
-                        color = if (switchON.value) positiveColor else negativeColor,
-                        radius = thumbRadius.toPx(),
-                        center = Offset(
-                            x = animatePosition.value, y = size.height / 2
-                        )
-                    )
-                }
-
+                )
             }
+
         }
 
 
@@ -428,7 +419,8 @@ object CameraScreenButtons {
         ) {
             if (isExpandedState.value) Box(
                 modifier
-                    .wrapContentSize()
+                    .height(defaultButtonSize)
+                    .fillMaxWidth()
                     .background(
                         color = defaultButtonColor.copy(alpha = 0.8f),
                         shape = RoundedCornerShape(30.dp)
@@ -461,7 +453,7 @@ object CameraScreenButtons {
                     Modifier
                         .wrapContentHeight()
                         .align(Alignment.Center)
-                        .fillMaxWidth(0.9F),
+                        .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     for (idx in itemList.indices) {
@@ -557,7 +549,6 @@ fun TestSwitch() {
     SwitchableButton(init = false,
         positiveColor = Color(0x99999999),
         negativeColor = Color(0xFFFFFF00),
-        innerText = "구도",
         modifier = Modifier,
         onChangeState = {
 

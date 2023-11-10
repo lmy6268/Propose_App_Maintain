@@ -27,7 +27,7 @@ fun ProPoseTheme(
 
     CompositionLocalProvider(
         LocalColors provides rememberedColors,
-        LocalTypography provides typography
+        LocalTypography provides typography,
     ) {
 //        //Typography의 TextStyle은 조금 다르게 선언된다.
         ProvideTextStyle(typography.heading01, content = content)
@@ -48,6 +48,7 @@ object ProPoseTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalTypography.current
+
 
 //    val spaces: CustomSpaces
 //        @Composable

@@ -2,6 +2,7 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.camera.core.AspectRatio
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +29,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Icon
 import androidx.compose.material.Slider
 import androidx.compose.material.SliderDefaults
 import androidx.compose.material.ripple.rememberRipple
@@ -52,6 +55,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -145,11 +149,10 @@ fun UpperLayer(
 ) {
     val edgeDetectorState by rememberUpdatedState(newValue = userEdgeDetectionValue)
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(
-            defaultButtonSize - 15.dp,
-            Alignment.CenterHorizontally
-        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 50.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
 
@@ -199,11 +202,10 @@ fun LowerLayer(
 
 
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(
-            defaultButtonSize,
-            Alignment.CenterHorizontally
-        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 50.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         //갤러리 이미지 버튼
@@ -330,7 +332,8 @@ fun ClickPoseBtnUnderBar(
     onClickCloseBtn: () -> Unit,
     onSelectedPoseIndexEvent: (Int) -> Unit,
     onChangeScale: (Float) -> Unit,
-    is16By9AspectRatio: Boolean
+    is16By9AspectRatio: Boolean,
+    maxScale: Float,
 ) {
     val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
     BackHandler(onBack = onClickCloseBtn) //뒤로가기 버튼을 누르면 이전 화면으로 돌아감.
@@ -339,6 +342,7 @@ fun ClickPoseBtnUnderBar(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
 
         if (poseList != null && currentSelectedPoseItemIdx > 0) {
@@ -349,32 +353,88 @@ fun ClickPoseBtnUnderBar(
                 trackedPoseScaleValue.floatValue = initPoseItemScale
             }
 
-            Slider(colors = SliderDefaults.colors(
-                thumbColor = LocalColors.current.primaryGreen100,
-                activeTrackColor = LocalColors.current.primaryGreen100,
-                inactiveTrackColor = LocalColors.current.secondaryWhite80,
-                activeTickColor = LocalColors.current.primaryGreen100,
-                inactiveTickColor = Color.Transparent
-            ),
+            val nowScaleLimit by rememberUpdatedState(newValue = maxScale)
+            Row(
                 modifier = Modifier
-                    .width(width = (LocalConfiguration.current.screenWidthDp / 1.5).dp)
-                    .padding(bottom = 10.dp)
-                    .height(50.dp),
-                value = trackedPoseScaleValue.floatValue,
-                steps = 10,
-                valueRange = 0.5F.rangeTo(2F),
-                onValueChange = {
-                    trackedPoseScaleValue.floatValue = it
-                    onChangeScale(it)
-                })
+                    .fillMaxWidth()
+                    .then(
+                        if (is16By9AspectRatio) Modifier.background(
+                            LocalColors.current.subPrimaryBlack100.copy(
+                                alpha = 0.5f
+                            )
+                        )
+                        else Modifier
+                    ),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .padding(start = 10.dp),
+                    painter = painterResource(id = R.drawable.icon_zoom_out),
+                    contentDescription = "",
+                    tint = if (is16By9AspectRatio) LocalColors.current.secondaryWhite100 else Color.Unspecified
+                )
+                Slider(colors = SliderDefaults.colors(
+                    thumbColor = LocalColors.current.primaryGreen100,
+                    activeTrackColor = LocalColors.current.primaryGreen100,
+                    inactiveTrackColor = LocalColors.current.secondaryWhite80,
+                    activeTickColor = LocalColors.current.primaryGreen100,
+                    inactiveTickColor = Color.Transparent
+                ),
+                    modifier = Modifier
+                        .width(width = (LocalConfiguration.current.screenWidthDp / 1.5).dp)
+                        .height(50.dp),
+                    value = trackedPoseScaleValue.floatValue,
+                    steps = 10,
+                    valueRange = 0.5F.rangeTo(2F),
+                    onValueChange = {
+                        it.coerceIn(
+                            maximumValue = nowScaleLimit,
+                            minimumValue = 0.5F
+                        ).run {
+                            trackedPoseScaleValue.floatValue = this
+                            onChangeScale(this)
+                        }
+                    })
+                Icon(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .padding(end = 10.dp),
+                    painter = painterResource(id = R.drawable.icon_zoom_in),
+                    contentDescription = "",
+                    tint = if (is16By9AspectRatio) LocalColors.current.secondaryWhite100 else Color.Unspecified
+
+                )
+            }
+
         } else {
-            Spacer(modifier = Modifier.height(50.dp))
+            Spacer(
+                modifier = Modifier
+                    .height(50.dp)
+                    .then(
+                        if (is16By9AspectRatio) Modifier.background(
+                            LocalColors.current.subPrimaryBlack100.copy(
+                                alpha = 0.5f
+                            )
+                        )
+                        else Modifier
+                    )
+            )
         }
 
 
         //포즈 선택 할 수 있는 Row -> 선택된 포즈를 가지고 스케일 변경 진행
         PoseSelectRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    if (is16By9AspectRatio) LocalColors.current.subPrimaryBlack100.copy(
+                        alpha = 0.5f
+                    ) else LocalColors.current.secondaryWhite100
+                )
+                .padding(top = 10.dp),
             currentSelectedIdx = currentSelectedPoseItemIdx,
             inputPosedDataList = poseList,
             onSelectedPoseIndexEvent = {
@@ -385,8 +445,16 @@ fun ClickPoseBtnUnderBar(
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .background(
+                    if (is16By9AspectRatio) LocalColors.current.subPrimaryBlack100.copy(
+                        alpha = 0.5f
+                    ) else LocalColors.current.secondaryWhite100
+                )
+                .padding(horizontal = 50.dp)
+                .padding(vertical = 10.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             //창 닫는 버튼
@@ -403,12 +471,14 @@ fun ClickPoseBtnUnderBar(
 
             //포즈 새로고침 버튼
             CameraScreenButtons.NormalButton(
+                modifier = Modifier.shadow(elevation = 2.dp, shape = CircleShape),
                 buttonName = "포즈 새로고침",
                 innerIconDrawableSize = defaultButtonSize / 3,
-                colorTint = Color.Black,
+                colorTint = LocalColors.current.secondaryWhite100,
                 innerIconDrawableId = R.drawable.refresh,
                 onClick = onRefreshPoseData,
-                buttonSize = defaultButtonSize
+                buttonSize = defaultButtonSize,
+                innerIconColorTint = LocalColors.current.subPrimaryBlack100
             )
         }
     }
@@ -442,19 +512,19 @@ fun PoseSelectRow(
         scrollState.animateScrollToItem(nowSelected)
     }
 
-    val poseList = inputPosedDataList?.subList(0, 6)
+
     LazyRow(
         modifier = modifier,
         state = scrollState,
         horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
         contentPadding = PaddingValues(
-            horizontal = padding, vertical = 10.dp
+            horizontal = padding
         ),
         flingBehavior = flingBehavior,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (poseList != null) {
-            itemsIndexed(poseList) { idx, posedata ->
+        if (inputPosedDataList != null) {
+            itemsIndexed(inputPosedDataList) { idx, posedata ->
                 PoseSelectionItem(
                     modifier = Modifier.size(poseItemSize),
                     isSelected = idx == nowSelected,
@@ -561,7 +631,7 @@ fun PoseSelectionItem(
                                 .size(poseSize / 2),
                             painter = checkedPainter,
                             contentDescription = "",
-                            colorFilter = ColorFilter.tint(color = Color.White)
+                            colorFilter = ColorFilter.tint(color = LocalColors.current.secondaryWhite100)
                         )
                     }
                 }
@@ -575,8 +645,7 @@ fun PoseSelectionItem(
                         painter = painter,
                         contentDescription = "이미지",
                         contentScale = ContentScale.Fit,
-                        colorFilter = if (imageUri == null) ColorFilter.tint(color = Color.Black)
-                        else null
+                        colorFilter = ColorFilter.tint(color = LocalColors.current.subPrimaryBlack100)
                     )
                 }
             }
@@ -671,7 +740,8 @@ fun PreviewSelector() {
         onChangeScale = {
 
         },
-        is16By9AspectRatio = true
+        is16By9AspectRatio = true,
+        maxScale = 2F
     )
 }
 

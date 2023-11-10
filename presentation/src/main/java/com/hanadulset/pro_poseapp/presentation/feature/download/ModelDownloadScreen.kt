@@ -55,6 +55,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
@@ -89,7 +92,7 @@ object ModelDownloadScreen {
         isCheck: CheckResponse?,
         moveToLoading: () -> Unit,
         moveToDownloadProgress: (Int) -> Unit,
-        requestDownload: () -> Unit = {}
+        requestCheckDownload: () -> Unit = {}
     ) {
         val context = LocalContext.current
         val checkState by rememberUpdatedState(newValue = isCheck)
@@ -99,50 +102,45 @@ object ModelDownloadScreen {
 
             }
         )
-
-
-        if (checkState != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(LocalColors.current.primaryGreen100)
-                    .navigationBarsPadding(),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LocalColors.current.primaryGreen100)
+                .navigationBarsPadding(),
+        ) {
+            if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
+                || checkState!!.downloadType == CheckResponse.TYPE_ADDITIONAL_DOWNLOAD
             ) {
-                if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
-                    || checkState!!.downloadType == CheckResponse.TYPE_ADDITIONAL_DOWNLOAD
-                ) {
-                    CustomDialog.DownloadAlertDialog(
-                        isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD,
-                        modifier = Modifier
-                            .wrapContentSize()
-                            .align(Alignment.BottomCenter),
-                        totalSize = checkState!!.totalSize,
-                        onDismissRequest = {
-                            if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
-                            ) (context as Activity).finish()
-                            else moveToLoading()
-                        },
-                        onConfirmRequest = {
-                            moveToDownloadProgress(checkState!!.downloadType)
+                CustomDialog.DownloadAlertDialog(
+                    isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD,
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .align(Alignment.BottomCenter),
+                    totalSize = checkState!!.totalSize,
+                    onDismissRequest = {
+                        if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
+                        ) (context as Activity).finish()
+                        else moveToLoading()
+                    },
+                    onConfirmRequest = {
+                        moveToDownloadProgress(checkState!!.downloadType)
+                    }
+                )
+            } else if (checkState!!.needToDownload.not()) moveToLoading()
+            else {
+                CustomDialog.InternetConnectionDialog(
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .align(Alignment.BottomCenter),
+                    //설정화면으로 연결
+                    onConfirmRequest = requestCheckDownload,
+                    onDismissRequest = {
+                        Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                            launcher.launch(this)
                         }
-                    )
-                } else if (checkState!!.needToDownload.not()) moveToLoading()
-                else {
-                    CustomDialog.InternetConnectionDialog(
-                        modifier = Modifier
-                            .wrapContentSize()
-                            .align(Alignment.BottomCenter),
-                        //설정화면으로 연결
-                        onConfirmRequest = requestDownload,
-                        onDismissRequest = {
-                            Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
-                                launcher.launch(this)
-                            }
-                        }
-                    )
-                }
+                    }
+                )
             }
-
         }
 
 

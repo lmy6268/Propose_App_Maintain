@@ -78,7 +78,7 @@ object PermScreen {
                 verticalArrangement = Arrangement.spacedBy(60.dp, Alignment.CenterVertically)
             ) {
                 Text(
-                    text = "Pro_Pose 서비스를 이용하기 위해\n" +
+                    text = "프로_포즈(Pro_Pose) 서비스를 이용하기 위해\n" +
                             "접근 권한의 허용이 필요합니다.",
                     style = localTypography.heading02,
                 )

@@ -3,7 +3,9 @@ package com.hanadulset.pro_poseapp.presentation.feature.splash
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.CheckInternetConnectionUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.CheckUserSuccessToUseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.PreLoadModelUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.SaveUserSuccessToUseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.CheckForDownloadModelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.DownloadModelUseCase
 import com.hanadulset.pro_poseapp.utils.CheckResponse
@@ -21,8 +23,9 @@ class PrepareServiceViewModel @Inject constructor(
     private val checkDownloadModelUseCase: CheckForDownloadModelUseCase,
     private val downloadModelUseCase: DownloadModelUseCase,
     private val preLoadModelUseCase: PreLoadModelUseCase,
+    private val saveUserSuccessToUseUseCase: SaveUserSuccessToUseUseCase,
+    private val checkUserSuccessToUseUseCase: CheckUserSuccessToUseUseCase,
     private val checkInternetConnectionUseCase: CheckInternetConnectionUseCase
-
 ) : ViewModel() {
 
     private val _downloadState = MutableStateFlow<DownloadState?>(null)
@@ -40,6 +43,9 @@ class PrepareServiceViewModel @Inject constructor(
     val checkDownloadState = _checkDownloadState.asStateFlow() //체크의 결과값을 가지고 있는 변수
     private val checkNetworkStatusJob = MutableStateFlow<Job?>(null)
     private val checkDownloadStateJob = MutableStateFlow<Job?>(null)
+    private val _checkUserSuccess = MutableStateFlow<Boolean?>(null)
+    val checkUserSuccess = _checkUserSuccess.asStateFlow()
+
 
     fun preLoadModel() {
         _modelLoadedState.value = false
@@ -70,8 +76,16 @@ class PrepareServiceViewModel @Inject constructor(
         }
     }
 
-    fun pauseDownload() {
+    fun successToUse() {
+        viewModelScope.launch {
+            saveUserSuccessToUseUseCase()
+        }
+    }
 
+    fun checkToUse() {
+        viewModelScope.launch {
+            _checkUserSuccess.value = checkUserSuccessToUseUseCase()
+        }
     }
 
 

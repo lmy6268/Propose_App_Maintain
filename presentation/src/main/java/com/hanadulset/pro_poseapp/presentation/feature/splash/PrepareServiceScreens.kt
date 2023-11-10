@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import android.app.Activity
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,10 +31,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -44,12 +53,13 @@ import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.presentation.core.CustomDialog.InternetConnectionDialog
+import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 
 object PrepareServiceScreens {
-    private const val APP_NAME = "Pro_Pose"
+    private const val APP_NAME = "프로_포즈"
     private const val CATCH_PRAISE = "포즈, 이제 고민하지마."
 
     @Composable
@@ -63,16 +73,19 @@ object PrepareServiceScreens {
         ) {
             val resource = rememberAsyncImagePainter(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(R.drawable.app_icon_rounded)
+                    .data(R.drawable.app_icon_rounded_without_background)
                     .size(with(LocalDensity.current) {
                         appIconSize.toPx().toInt()
                     }) //현재 버튼의 크기만큼 리사이징한다.
-                    .placeholder(R.drawable.app_icon_rounded)
+                    .placeholder(R.drawable.app_icon_rounded_without_background)
                     .build()
             )
             val style = LocalTypography.current
             val color = LocalColors.current
             val localDensity = LocalDensity.current
+            val positionOfTitle = remember {
+                mutableStateOf(Offset.Zero)
+            }
 
 
 
@@ -81,9 +94,9 @@ object PrepareServiceScreens {
                     .align(Alignment.Center)
                     .zIndex(1F),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(100.dp, Alignment.CenterVertically)
+                verticalArrangement = Arrangement.spacedBy(150.dp, Alignment.CenterVertically)
             ) {
-                Text(text = CATCH_PRAISE, style = style.heading02)
+                Text(text = CATCH_PRAISE, style = style.heading01)
 
                 Image(
                     modifier = Modifier
@@ -93,19 +106,24 @@ object PrepareServiceScreens {
                 )
 
                 Text(
-                    modifier = Modifier,
+                    modifier = Modifier.onGloballyPositioned { layoutCoordinates ->
+                        positionOfTitle.value = layoutCoordinates.positionInRoot()
+                    },
                     text = APP_NAME,
-                    style = style.heading02
+                    style = style.heading01
                 )
             }
-//            Canvas(modifier = Modifier.fillMaxSize()) {
-//                drawCircle(
-//                    color = color.primary100,
-//                    radius = localDensity.run { 256.dp.toPx() },
-//                    offset =
-//
-//                    )
-//            }
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = color.primaryGreen100,
+                    radius = localDensity.run { 320.dp.toPx() },
+                    center = localDensity.run {
+                        positionOfTitle.value.let {
+                            Offset(it.x + 50.dp.toPx(), it.y + 50.dp.toPx())
+                        }
+                    }
+                )
+            }
 
         }
     }
@@ -155,31 +173,73 @@ object PrepareServiceScreens {
     //로딩 중일 때 보여주는 화면
     @Composable
     fun InnerAppLoadingScreen() {
+        val appIconSize = 200.dp
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(color = Color.White)
         ) {
-            val fontStyle = LocalTypography.current
-            Image(
-                modifier = Modifier
-                    .size(100.dp)
-                    .align(Alignment.Center),
-                painter = painterResource(id = R.drawable.app_icon_rounded),
-                contentDescription = "앱 아이콘",
+            val resource = rememberAsyncImagePainter(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(R.drawable.app_icon_rounded_without_background)
+                    .size(with(LocalDensity.current) {
+                        appIconSize.toPx().toInt()
+                    }) //현재 버튼의 크기만큼 리사이징한다.
+                    .placeholder(R.drawable.app_icon_rounded_without_background)
+                    .build()
             )
+            val style = LocalTypography.current
+            val color = LocalColors.current
+            val localDensity = LocalDensity.current
+            val positionOfTitle = remember {
+                mutableStateOf(Offset.Zero)
+            }
+
             Column(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(vertical = 100.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .zIndex(1F)
+                    .padding(top = 70.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(150.dp, Alignment.CenterVertically)
             ) {
-                UIComponents.CircularWaitingBar(
-                    modifier = Modifier.padding(20.dp)
+                Text(text = CATCH_PRAISE, style = style.heading01)
+
+                Image(
+                    modifier = Modifier
+                        .size(appIconSize),
+                    painter = resource,
+                    contentDescription = "앱 아이콘",
                 )
-                Text(
-                    text = "Pro_Pose 로딩 중...",
-                    style = fontStyle.heading02
+
+                Column(
+                    modifier = Modifier.onGloballyPositioned { layoutCoordinates ->
+                        positionOfTitle.value = layoutCoordinates.positionInRoot()
+                    },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(
+                        20.dp,
+                        Alignment.CenterVertically
+                    )
+                ) {
+                    UIComponents.CircularWaitingBar(
+                        barColor = LocalColors.current.secondaryWhite100,
+                        backgroundColor = LocalColors.current.subSecondaryGray100
+                    )
+                    Text(text = "$APP_NAME 로딩중...", style = style.heading02)
+
+                }
+            }
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = color.primaryGreen100,
+                    radius = localDensity.run { 320.dp.toPx() },
+                    center = localDensity.run {
+                        positionOfTitle.value.let {
+                            Offset(it.x + 60.dp.toPx(), it.y + 50.dp.toPx())
+                        }
+                    }
+
                 )
             }
 
@@ -289,7 +349,7 @@ fun TestPrepareServiceScreen() {
 //fun PreViewSplash() {
 //    SplashScreen()
 //}
-//
+
 //
 //@Preview(name = "NEXUS_5", device = Devices.NEXUS_5)
 //@Preview(name = "NEXUS_6", device = Devices.NEXUS_6)
@@ -303,9 +363,8 @@ fun TestPrepareServiceScreen() {
 //@Preview(name = "PIXEL_3A_XL", device = Devices.PIXEL_3A_XL)
 //@Preview(name = "PIXEL_4", device = Devices.PIXEL_4)
 //@Preview(name = "PIXEL_4_XL", device = Devices.PIXEL_4_XL)
-//@Preview
-//@Composable
-//fun PreviewInnerAppLoadingScreen() {
-//    PrepareServiceScreens.InnerAppLoadingScreen()
-//}
+@Composable
+fun PreviewInnerAppLoadingScreen() {
+    PrepareServiceScreens.InnerAppLoadingScreen()
+}
 

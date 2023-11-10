@@ -89,7 +89,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
 
                     resultList.add(
                         PoseData(
-                            poseId = strings[0].substringBefore('_').toInt(),
+                            poseId = strings[0].toInt(),
                             centerRate = SizeF(center[0], center[1]),
                             sizeRate = SizeF(size[0], size[1])
                         )

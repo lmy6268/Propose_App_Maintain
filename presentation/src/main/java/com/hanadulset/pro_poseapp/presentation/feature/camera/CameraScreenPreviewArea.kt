@@ -4,70 +4,69 @@ import android.graphics.Bitmap
 import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
-import androidx.camera.core.AspectRatio
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Dimension
+import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
 
 object CameraScreenPreviewArea {
 
@@ -91,7 +90,9 @@ object CameraScreenPreviewArea {
         triggerNewPoint: (DpSize) -> Unit,
         onStopCaptureAnimation: () -> Unit,
         onStopTrackPoint: () -> Unit,
-        onPoseChangeOffset: (SizeF) -> Unit
+        onPoseChangeOffset: (SizeF) -> Unit,
+        onPointMatched: () -> Unit,
+        onLimitMaxScale: (Float) -> Unit
     ) {
         val localDensity = LocalDensity.current
 
@@ -101,7 +102,7 @@ object CameraScreenPreviewArea {
         //외부로 부터 받은 값이 더이상 변하지 않는 경우
         val upBarSize by remember { mutableStateOf(upperBarSize) }
 
-        val previewViewSize = remember { mutableStateOf(DpSize(0.dp, 0.dp)) }
+        val previewViewSize = rememberSaveable { mutableStateOf(SizeF(0F, 0F)) }
         val pointOffset by rememberUpdatedState(newValue = pointerOffset)
 
         //카메라 촬영 시, 촬영 Effect
@@ -125,14 +126,14 @@ object CameraScreenPreviewArea {
         }
 
 
-        Box(modifier.offset(y = 114.dp)) {
+        Box(modifier) {
             //미리보기
             AndroidView(
                 modifier = modifier
                     .animateContentSize { _, _ -> }
                     .onSizeChanged {
                         previewViewSize.value = localDensity.run {
-                            DpSize(it.width.toDp(), it.height.toDp())
+                            SizeF(it.width.toDp().value, it.height.toDp().value)
                         }
                     }
                     .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
@@ -170,33 +171,49 @@ object CameraScreenPreviewArea {
             //플래시 화면
             Box(
                 modifier = modifier
-                    .size(previewViewSize.value)
+                    .size(DpSize(previewViewSize.value.width.dp, previewViewSize.value.height.dp))
                     .background(color = flashColor)
             )
 
             //엣지 화면
             ShowEdgeImage(
-                modifier = modifier.size(previewViewSize.value),
+                modifier = modifier.size(
+                    DpSize(
+                        previewViewSize.value.width.dp,
+                        previewViewSize.value.height.dp
+                    )
+                ),
                 capturedEdgesBitmap = edgeImageBitmap
             )
             //구도 추천
             if (compSwitchValue) CameraScreenCompScreen.CompScreen(
-                modifier = modifier.size(previewViewSize.value),
+                modifier = modifier.size(
+                    DpSize(
+                        previewViewSize.value.width.dp,
+                        previewViewSize.value.height.dp
+                    )
+                ),
                 pointOffSet = pointOffset,
                 triggerPoint = triggerNewPoint,
-                stopToTracking = onStopTrackPoint
+                stopToTracking = onStopTrackPoint,
+                onPointMatched = onPointMatched
             )
 
 
             //포즈 화면 구성 -> 포즈 값만 있어도 됨.
             if (poseData != null) {
                 PoseScreen(
-                    modifier = modifier.size(previewViewSize.value),
-                    parentSize = previewViewSize.value,
+                    modifier = modifier.requiredSize(
+                        DpSize(
+                            previewViewSize.value.width.dp,
+                            previewViewSize.value.height.dp
+                        )
+                    ),
                     poseData = poseData,
                     poseScale = poseScale,
                     onChangeOffset = onPoseChangeOffset,
-                    inputPoseOffset = poseOffset
+                    inputPoseOffset = poseOffset,
+                    onLimitMaxScale = onLimitMaxScale
                 )
             }
 
@@ -261,113 +278,169 @@ object CameraScreenPreviewArea {
     @Composable
     fun PoseScreen(
         modifier: Modifier = Modifier,
-        parentSize: DpSize,
         poseData: PoseData,
         poseScale: Float,
         inputPoseOffset: SizeF?,
+        onLimitMaxScale: (Float) -> Unit,
         onChangeOffset: (SizeF) -> Unit //오프셋을 이동시키면, 이 메소드가 실행됨
     ) {
-
-        val currentItem by rememberUpdatedState(newValue = poseData)
-        val itemSizeRate by rememberUpdatedState(newValue = currentItem.sizeRate)
-        val stdSize = DpSize(200.dp, 200.dp)
-        val currentScreenSize = rememberUpdatedState(newValue = parentSize)
-
         val localDensity = LocalDensity.current
-        val painter by rememberUpdatedState(newValue = currentItem.imageUri?.run {
-            rememberAsyncImagePainter(
-                model = ImageRequest.Builder(LocalContext.current).data(this)
-                    .size(with(LocalDensity.current) {
-                        coil.size.Size(
-                            Dimension(stdSize.width.toPx().toInt()),
-                            Dimension(stdSize.height.toPx().toInt())
-                        )
-                    }) //현재 버튼의 크기만큼 리사이징한다.
-                    .build()
-            )
-        })
-
-        val scale by rememberUpdatedState(newValue = poseScale) //변경된 사이즈를 가지고 있는 변수
-
-        val itemCenterRate by rememberUpdatedState(newValue = currentItem.centerRate)
-        val poseOffset = rememberSaveable {
-            mutableStateOf(currentScreenSize.value.run {
-                with(localDensity) {
-                    SizeF(
-                        width.toPx() * itemCenterRate.width - stdSize.width.toPx() / 2,
-                        height.toPx() * itemCenterRate.height - stdSize.height.toPx() / 2
-                    )
-                }
-            })
+        //현재 포즈 아이템
+        val currentItem by rememberUpdatedState(newValue = poseData)
+        //미리보기 사이즈
+        val boxSize = rememberSaveable {
+            mutableStateOf(SizeF(0F, 0F))
         }
-
-        LaunchedEffect(currentItem) {
-            poseOffset.value = inputPoseOffset ?: currentScreenSize.value.run {
-                with(localDensity) {
-                    SizeF(
-                        width.toPx() * itemCenterRate.width - stdSize.width.toPx() / 2,
-                        height.toPx() * itemCenterRate.height - stdSize.height.toPx() / 2
-                    )
-                }
+        //미리보기를 채우는 박스
+        Box(
+            modifier =
+            modifier.onSizeChanged {
+                boxSize.value = SizeF(it.width.toFloat(), it.height.toFloat())
             }
-            onChangeOffset(poseOffset.value)
-
-        }
-
-        // 각 아이템별 이동 정보를 부모가 알 수 있을까? -> 이 화면에서 이동 처리를 하게 되면 어떻게 되지?
-        var boxSize by remember {
-            mutableStateOf(IntSize.Zero)
-        }
-
-        Box(modifier = modifier.onSizeChanged {
-            boxSize = it
-        }) {
-            PoseItem(modifier = Modifier
-                .offset {
-                    IntOffset(
-                        poseOffset.value.width.roundToInt(),
-                        poseOffset.value.height.roundToInt()
-                    )
-                }
-                .pointerInput(currentItem) {
-                    detectDragGestures { change, dragAmount ->
-                        //이 값은 현재 포즈의 중심점 기준,  가로 세로 사이즈를 포함한 offset이 바운더리를 넘어서면 안된다.
-                        val poseImageSize = stdSize * scale
-                        val offset = poseOffset.value.let { Offset(it.width, it.height) }
-
-                        val modifiedCenterOffset = (offset + dragAmount).let {
-                            Offset(
-                                x = it.x.coerceIn(
-                                    0F,
-                                    currentScreenSize.value.width.toPx() - poseImageSize.width.toPx()
-                                ), y = it.y.coerceIn(
-                                    0F,
-                                    currentScreenSize.value.height.toPx() - poseImageSize.height.toPx()
+        ) {
+            AnimatedVisibility(
+                visible = boxSize.value.width > 0,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                //여기 내부에서 포즈아이템이 돌아다니게 됨.
+                AnimatedContent(
+                    targetState = currentItem,
+                    transitionSpec = {
+                        ContentTransform(
+                            initialContentExit = fadeOut(),
+                            targetContentEnter = fadeIn()
+                        )
+                    },
+                    label = "",
+                ) { poseItem ->
+                    //이미지 기본크기
+                    val poseItemSize = remember {
+                        localDensity.run {
+                            mutableStateOf(
+                                Size(
+                                    (boxSize.value.width * poseItem.sizeRate.width),
+                                    (boxSize.value.height * poseItem.sizeRate.height)
                                 )
                             )
                         }
-                        onChangeOffset(modifiedCenterOffset.let {
-                            SizeF(
-                                it.x,
-                                it.y
-                            )
-                        }) //업데이트 된 값을 저장)
-                        poseOffset.value =
-                            modifiedCenterOffset.let { SizeF(it.x, it.y) } //업데이트 된 값을 저장
                     }
+                    val poseTopLeftOffset = remember {
+                        localDensity.run {
+                            mutableStateOf(
+                                if (inputPoseOffset != null) Offset(
+                                    inputPoseOffset.width,
+                                    inputPoseOffset.height
+                                )
+                                else Offset(
+                                    boxSize.value.width * poseItem.centerRate.width - poseItemSize.value.width / 2,
+                                    boxSize.value.height * poseItem.centerRate.height - poseItemSize.value.height / 2
+                                )
+                            )
+                        }
+                    }
+
+                    LaunchedEffect(key1 = Unit) {
+                        poseTopLeftOffset.value = poseTopLeftOffset.value.run {
+                            Offset(
+                                x.coerceIn(0f, boxSize.value.width),
+                                y.coerceIn(0f, boxSize.value.height)
+                            )
+                        }
+                    }
+
+                    //포즈 이미지 페인터
+                    val painter by rememberUpdatedState(newValue = poseItem.imageUri?.run {
+                        rememberAsyncImagePainter(
+                            model = ImageRequest.Builder(LocalContext.current).data(this).size(
+                                coil.size.Size(
+                                    Dimension(
+                                        poseItemSize.value.width.toInt()
+                                    ), Dimension(
+                                        poseItemSize.value.height.toInt()
+                                    )
+                                )
+                            ).build()
+                        )
+                    })
+                    val scaleOfPose by rememberUpdatedState(newValue = poseScale)
+
+                    val calculateMaxScale: () -> Float = {
+                        val nowPoseTopLeftOffset = poseTopLeftOffset.value
+                        val originPoseSize = poseItemSize.value
+                        val maxSize = SizeF(
+                            boxSize.value.width - nowPoseTopLeftOffset.x,
+                            boxSize.value.height - nowPoseTopLeftOffset.y
+                        )
+                        val resultValue = floatArrayOf(
+                            maxSize.width / originPoseSize.width,
+                            maxSize.height / originPoseSize.height
+                        ).min()
+                        resultValue
+                    }
+
+                    //포즈 아이템에 대한 설정을 진행한다.
+                    // 필요한 설정 : 기본 이미지 사이즈, offset 이동 처리,
+                    PoseItem(modifier = Modifier
+                        .size(localDensity.run {
+                            DpSize(
+                                poseItemSize.value.width.toDp(),
+                                poseItemSize.value.height.toDp()
+                            )
+                        })
+                        .offset {
+                            onLimitMaxScale(calculateMaxScale())
+                            poseTopLeftOffset.value.run { IntOffset(x.toInt(), y.toInt()) }
+                        }
+                        .graphicsLayer {
+                            transformOrigin = TransformOrigin(0f, 0f)
+                            localDensity.run {
+//                                Top_left 기준 픽셀 오프셋 -> 이걸 가지고 중심점 값과 잘 대비 및 분류해두자.
+                                //스케일 관련
+                                transformOrigin =
+                                    TransformOrigin(0f, 0f) //top-left 기준으로 사이즈를 늘려나가자.
+                                scaleX = scaleOfPose
+                                scaleY = scaleOfPose
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            //드래그를 인식하고 반영한다. -> dragAmount 만큼 이동
+                            detectDragGestures { change, dragAmount ->
+                                val checkOffset = dragAmount + poseTopLeftOffset.value
+                                poseTopLeftOffset.value = checkOffset.run {
+                                    Offset(
+                                        x.coerceIn(
+                                            0f,
+                                            boxSize.value.width - (poseItemSize.value.width * scaleOfPose)
+                                        ), y.coerceIn(
+                                            0f,
+                                            boxSize.value.height - (poseItemSize.value.height * scaleOfPose)
+                                        )
+                                    )
+                                }
+                                onChangeOffset(poseTopLeftOffset.value.run { SizeF(x, y) })
+                            }
+                        },
+                        painter = painter
+                    )
+
+//                    Canvas(Modifier.fillMaxSize()) {
+//                        drawCircle(
+//                            center = poseTopLeftOffset.value,
+//                            color = Color.Black,
+//                            radius = 5F
+//                        )
+//                    }
                 }
-                .scale(scale)
-                .size(stdSize), painter = painter)
-
-
+            }
         }
+
+
     }
 
     @Composable
     fun PoseItem(
-        modifier: Modifier = Modifier,
-//        poseData: PoseData,
-        painter: Painter? = null
+        modifier: Modifier = Modifier, painter: Painter? = null
     ) {
         painter.run {
             if (this == null) Box(modifier = modifier)

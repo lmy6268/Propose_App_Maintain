@@ -1,49 +1,77 @@
 package com.hanadulset.pro_poseapp.presentation.feature.setting
 
+
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Devices
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
-import com.hanadulset.pro_poseapp.presentation.BuildConfig
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
+import com.hanadulset.pro_poseapp.presentation.component.UIComponents
+import com.hanadulset.pro_poseapp.presentation.component.UIComponents.SettingBoxItem
+import com.hanadulset.pro_poseapp.utils.UserSet
+
 
 object SettingScreen {
     @Composable
     fun Screen(
         modifier: Modifier = Modifier,
+        userSet: UserSet,
+        onSaveUserSet: (UserSet) -> Unit,
+        onBackPressed: () -> Unit
     ) {
-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val setState = remember {
+            mutableStateOf(userSet)
+        }
+        BackHandler(
+            enabled = true
+        ) {
+            val data = setState.value
+            onSaveUserSet(
+                UserSet(
+                    data.isCompOn
+                )
+            )
+            onBackPressed()
+        }
         val ossLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
             onResult = {
@@ -51,61 +79,78 @@ object SettingScreen {
         val privacyLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
             onResult = {
-
             })
         val context = LocalContext.current
         val iconPainter = rememberAsyncImagePainter(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(R.drawable.app_icon_rounded)
+                .data(R.drawable.app_icon_rounded_without_background)
+                .placeholder(R.drawable.app_icon_rounded_without_background)
                 .build()
         )
 
+        val VERSION_NAME = (context.packageManager.getPackageInfo(
+            context.packageName,
+            0
+        )?.versionName)
 
 
         Surface(
             color = LocalColors.current.primaryGreen100,
             modifier = modifier.fillMaxSize()
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
+                        .weight(1F)
                         .fillMaxWidth()
-                        .height(screenHeight * 0.3F)
                 ) {
                     Row(
                         Modifier
                             .align(Alignment.Center)
                             .width(240.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            painter = iconPainter,
-                            modifier = Modifier.size(80.dp),
-                            contentDescription = "앱 아이콘 "
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(
+                                    shape = CircleShape,
+                                    color = Color.White
+                                )
+                        ) {
+                            Image(
+                                painter = iconPainter,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .align(Alignment.Center),
+                                contentDescription = "앱 아이콘 "
+                            )
+                        }
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.Start
                         ) {
-                            Text(text = "Pro_Pose")
+                            Text(text = "프로_포즈", style = LocalTypography.current.heading01)
                             Text(
-                                text = "v${
-                                    context.packageManager.getPackageInfo(
-                                        context.packageName,
-                                        0
-                                    ).versionName
-                                }"
+                                text = "V $VERSION_NAME",
+                                style = LocalTypography.current.sub01
                             )
                         }
                     }
 
-
+                    Text(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(top = 150.dp),
+                        text = "Copyright 2023. 하나, 둘, 셋  All rights reserved.",
+                        style = LocalTypography.current.sub02
+                    )
                 }
 
                 Card(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .height(screenHeight * 0.7F)
+                        .weight(2F)
                         .fillMaxWidth(),
                     shape = RoundedCornerShape(topStart = 25.dp, topEnd = 25.dp),
                     elevation = 10.dp
@@ -114,19 +159,30 @@ object SettingScreen {
                         modifier = Modifier.padding(32.dp),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.spacedBy(
-                            54.dp,
+                            30.dp,
                             Alignment.Top
                         )
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(text = "앱 설정", style = LocalTypography.current.heading01)
+                            Divider()
+                        }
+                        UIComponents.SettingBoxItemWithToggle(
+                            modifier = Modifier.fillMaxWidth(),
+                            innerText = "구도 추천",
+                            isToggled = setState.value.isCompOn,
+                            onToggleEvent = {
+                                setState.value = setState.value.copy(isCompOn = it)
+                            }
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(text = "앱 정보", style = LocalTypography.current.heading01)
                             Divider()
                         }
-                        Button(
-                            colors = ButtonDefaults.buttonColors(
-                                backgroundColor = LocalColors.current.subPrimaryBlack80,
-                                contentColor = LocalColors.current.secondaryWhite80
-                            ),
+                        SettingBoxItem(
+                            modifier = Modifier.fillMaxWidth(),
+                            innerText = "오픈 소스 라이센스",
                             onClick = {
                                 ossLauncher.launch(
                                     Intent(
@@ -134,14 +190,11 @@ object SettingScreen {
                                         OssLicensesMenuActivity::class.java
                                     )
                                 )
-                            }) {
-                            Text(text = "오픈 라이선스 확인", style = LocalTypography.current.sub01)
-                        }
-                        Button(
-                            colors = ButtonDefaults.buttonColors(
-                                backgroundColor = LocalColors.current.subPrimaryBlack80,
-                                contentColor = LocalColors.current.secondaryWhite80
-                            ),
+                            }
+                        )
+                        SettingBoxItem(
+                            modifier = Modifier.fillMaxWidth(),
+                            innerText = "개인정보 처리 방침",
                             onClick = {
                                 privacyLauncher.launch(
                                     Intent(
@@ -149,9 +202,19 @@ object SettingScreen {
                                         Uri.parse("https://sites.google.com/view/privacyhanadulset/%ED%99%88/privacy")
                                     )
                                 )
-                            }) {
-                            Text(text = "개인정보 처리 방침", style = LocalTypography.current.sub01)
-                        }
+                            }
+                        )
+                        SettingBoxItem(
+                            modifier = Modifier.fillMaxWidth(),
+                            innerText = "문의",
+                            onClick = {
+                                sendEmailToAdmin(
+                                    context.packageManager,
+                                    privacyLauncher, VERSION_NAME
+                                )
+                            }
+                        )
+
                     }
                 }
             }
@@ -160,21 +223,28 @@ object SettingScreen {
         }
     }
 
-    //개인정보 처리 방침 안내 페이지
-    @Composable
-    fun PrivacyPageScreen(
-        modifier: Modifier = Modifier,
-
-        ) {
-
+    @SuppressLint("QueryPermissionsNeeded")
+    private fun sendEmailToAdmin(
+        packageManager: PackageManager,
+        launcher: ManagedActivityResultLauncher<Intent, ActivityResult>,
+        versionName: String?
+    ) {
+        val emailTitle = "프로_포즈 사용 관련 문의"
+        val emailReceiver = "lmy6268@gmail.com"
+        val emailContent =
+            "App Version : $versionName \n" +
+                    "Device : ${Build.MANUFACTURER} ${Build.PRODUCT} \n " +
+                    "Android(SDK) : ${Build.VERSION.RELEASE}"
+        val emailType = "message/rfc822"
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            setDataAndType(Uri.parse("mailto:"), emailType)
+            putExtra(Intent.EXTRA_SUBJECT, emailTitle)
+            putExtra(Intent.EXTRA_EMAIL, emailReceiver)
+            putExtra(Intent.EXTRA_TEXT, emailContent)
+        }
+        if (emailIntent.resolveActivity(packageManager) != null) launcher.launch(emailIntent)
     }
 
-
-    //약관 안내 페이지
-    @Composable
-    fun AgreementPageScreen() {
-
-    }
 }
 
 
@@ -189,9 +259,16 @@ object SettingScreen {
 //@Preview(name = "PIXEL_3A", device = Devices.PIXEL_3A)
 //@Preview(name = "PIXEL_3A_XL", device = Devices.PIXEL_3A_XL)
 //@Preview(name = "PIXEL_4", device = Devices.PIXEL_4)
-//@Preview(name = "PIXEL_4_XL", device = Devices.PIXEL_4_XL)
+@Preview(name = "PIXEL_4_XL", device = Devices.PIXEL_4_XL)
 @Composable
 fun TestSettingScreen() {
-    SettingScreen.Screen()
+    SettingScreen.Screen(
+        userSet = UserSet(true),
+        onSaveUserSet = {
 
+        },
+        onBackPressed = {
+
+        }
+    )
 }

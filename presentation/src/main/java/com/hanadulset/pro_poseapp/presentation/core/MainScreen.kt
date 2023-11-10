@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.core
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContentResolver
 import android.content.Intent
@@ -8,6 +9,7 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +19,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -36,7 +40,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -47,6 +56,11 @@ import androidx.navigation.navigation
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
+import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
+import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.presentation.core.permission.PermScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.camera.Screen
@@ -67,6 +81,7 @@ object MainScreen {
         ModelDownloadProgress,//모델 다운로드 화면
         ModelDownloadRequest, //모델 다운로드 요청 화면
         Perm, //권한 화면
+        TermOfUse,//약관 동의 화면
         Cam, //카메라 화면
         Setting,//설정화면
         Splash, //스플래시 화면
@@ -83,14 +98,15 @@ object MainScreen {
 
 
     //요청 받을 권한들
-    private val PERMISSIONS_REQUIRED = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) arrayOf(
-        Manifest.permission.CAMERA,
-        Manifest.permission.READ_EXTERNAL_STORAGE,
-        Manifest.permission.WRITE_EXTERNAL_STORAGE
-    ) else arrayOf(
-        Manifest.permission.CAMERA,
-        Manifest.permission.READ_MEDIA_IMAGES
-    )
+    private val PERMISSIONS_REQUIRED =
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ) else arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_MEDIA_IMAGES
+        )
 
 
     @Composable
@@ -115,6 +131,7 @@ object MainScreen {
 
     //https://sonseungha.tistory.com/662
     //프레그먼트가 이동되는 뷰
+    @SuppressLint("HardwareIds")
     @OptIn(ExperimentalPermissionsApi::class)
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     @Composable
@@ -127,7 +144,6 @@ object MainScreen {
 
         val multiplePermissionsState =
             rememberMultiplePermissionsState(permissions = PERMISSIONS_REQUIRED.toList()) {}
-
         val lifecycleOwner = LocalLifecycleOwner.current
         val isPermissionAllowed = multiplePermissionsState.allPermissionsGranted
         val context = LocalContext.current
@@ -143,6 +159,22 @@ object MainScreen {
                 surfaceProvider = previewView.surfaceProvider,
                 previewRotation = previewView.rotation.toInt()
             )
+        }
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            destination.route?.let { dest ->
+                Firebase.analytics.logEvent("EVENT_USER_DESTINATION") {
+                    param("timeStamp", System.currentTimeMillis())
+                    param("destination", dest)
+                    param(
+                        "deviceID",
+                        Settings.Secure.getString(
+                            context.contentResolver,
+                            Settings.Secure.ANDROID_ID
+                        )
+                    )
+                }
+            }
+
         }
 
 
@@ -162,7 +194,6 @@ object MainScreen {
             )
             permissionAllowedGraph(
                 routeName = Graph.PermissionAllowed.name,
-                prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navController,
                 cameraInit = cameraInit,
                 previewState = previewState,
@@ -170,10 +201,10 @@ object MainScreen {
             usingCameraGraph(
                 routeName = Graph.UsingCamera.name,
                 navHostController = navController,
-                cameraViewModel = cameraViewModel,
                 galleryViewModel = galleryViewModel,
                 previewView = previewView,
                 cameraInit = cameraInit,
+                cameraViewModel = cameraViewModel
             )
         }
     }
@@ -190,16 +221,32 @@ object MainScreen {
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
+                navHostController = navHostController,
                 moveToNext = {
+                    if (it.not()) {
+                        navHostController.navigate(route = Page.TermOfUse.name) {
+                            popUpTo(Page.Splash.name) { inclusive = true }
+                        }
+                    } else
                     //약관 동의 여부 확인 하고, 그 다음에 권한 받기 -> 만약 동의가 없는 경우, 동의 받고 권한을 체크함.
-                    navHostController.navigate(route = Page.Perm.name) {
-                        //백스택에서 스플래시 화면을 제거한다.
-                        popUpTo(Page.Splash.name) { inclusive = true }
-                    }
+                        navHostController.navigate(route = Page.Perm.name) {
+                            //백스택에서 스플래시 화면을 제거한다.
+                            popUpTo(Page.Splash.name) { inclusive = true }
+                        }
 
                 }
             )
+
             //약관 동의화면 추가
+            composable(route = Page.TermOfUse.name) {
+                TermOfUseScreen.TermOfUseScreen {
+                    prepareServiceViewModel.successToUse()
+                    //권한 설정으로 넘어감.
+                    navHostController.navigate(route = Page.Perm.name) {
+                        popUpTo(Page.Splash.name) { inclusive = true }
+                    }
+                }
+            }
 
 
             composable(route = Page.Perm.name) {
@@ -211,7 +258,6 @@ object MainScreen {
                     })
             }
             runAppLoadingScreen(navHostController = navHostController,
-                prepareServiceViewModel = prepareServiceViewModel,
                 cameraInit = cameraInit,
                 previewState = previewState,
                 onMoveToDownload = {
@@ -220,7 +266,6 @@ object MainScreen {
                     }
                 })
             relatedWithDownload(routeName = Graph.DownloadProcess.name,
-                prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navHostController,
                 onDoneDownload = {
                     navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
@@ -233,45 +278,56 @@ object MainScreen {
 
     private fun NavGraphBuilder.relatedWithDownload(
         routeName: String,
-        prepareServiceViewModel: PrepareServiceViewModel,
         navHostController: NavHostController,
         onDoneDownload: () -> Unit
     ) {
         navigation(startDestination = Page.ModelDownloadRequest.name, route = routeName) {
             //다운로드 요청 페이지
-            composable(route = Page.ModelDownloadRequest.name, enterTransition = {
-                fadeIn(
-                    animationSpec = tween(
-                        300, easing = LinearEasing
-                    )
-                ) + slideIntoContainer(
-                    animationSpec = tween(300, easing = EaseOut),
-                    towards = AnimatedContentTransitionScope.SlideDirection.Start
-                )
-            }, exitTransition = {
-                fadeOut(
-                    animationSpec = tween(
-                        300, easing = LinearEasing
-                    )
-                )
-            }) {
-                prepareServiceViewModel.startToTrackNetWorkState()
+            composable(
+                route = Page.ModelDownloadRequest.name,
+//                enterTransition = {
+//                fadeIn(
+//                    animationSpec = tween(
+//                        300, easing = LinearEasing
+//                    )
+//                ) + slideIntoContainer(
+//                    animationSpec = tween(300, easing = EaseOut),
+//                    towards = AnimatedContentTransitionScope.SlideDirection.Start
+//                )
+//            }, exitTransition = {
+//                fadeOut(
+//                    animationSpec = tween(
+//                        300, easing = LinearEasing
+//                    )
+//                )
+//            }
+            ) {
+                val prepareServiceViewModel =
+                    it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
+                LaunchedEffect(key1 = Unit) {
+                    prepareServiceViewModel.startToTrackNetWorkState()
+                    prepareServiceViewModel.requestForCheckDownload()
+                }
                 val checkState by prepareServiceViewModel.checkDownloadState.collectAsStateWithLifecycle()
-                ModelDownloadScreen.ModelDownloadRequestScreen(
-                    isCheck = checkState,
-                    moveToLoading = onDoneDownload,
-                    moveToDownloadProgress = { type ->
-                        val isDownload = type == CheckResponse.TYPE_MUST_DOWNLOAD
-                        navHostController.navigate(
-                            "${Page.ModelDownloadProgress.name}?isDownload={$isDownload}"
-                        ) {
-                            popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
+                UIComponents.AnimatedSlideToLeft(
+                    isVisible = checkState != null,
+                ) {
+                    ModelDownloadScreen.ModelDownloadRequestScreen(
+                        isCheck = checkState,
+                        moveToLoading = onDoneDownload,
+                        moveToDownloadProgress = { type ->
+                            val isDownload = type == CheckResponse.TYPE_MUST_DOWNLOAD
+                            navHostController.navigate(
+                                "${Page.ModelDownloadProgress.name}?isDownload={$isDownload}"
+                            ) {
+                                popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
+                            }
+                        },
+                        requestCheckDownload = {
+                            prepareServiceViewModel.requestForCheckDownload()
                         }
-                    },
-                    requestDownload = {
-                        prepareServiceViewModel.requestForCheckDownload()
-                    }
-                )
+                    )
+                }
                 DisposableEffect(Unit) {
                     onDispose {
                         prepareServiceViewModel.clearStates()
@@ -284,17 +340,20 @@ object MainScreen {
                     type = NavType.BoolType
                     defaultValue = true
                 }),
-                enterTransition = {
-                    fadeIn()
-                },
-                exitTransition = {
-                    fadeOut(
-                        animationSpec = tween(300, easing = LinearEasing)
-                    ) + slideOutOfContainer(
-                        animationSpec = tween(300, easing = EaseOut),
-                        towards = AnimatedContentTransitionScope.SlideDirection.End
-                    )
-                }) {
+//                enterTransition = {
+//                    fadeIn()
+//                },
+//                exitTransition = {
+//                    fadeOut(
+//                        animationSpec = tween(300, easing = LinearEasing)
+//                    ) + slideOutOfContainer(
+//                        animationSpec = tween(300, easing = EaseOut),
+//                        towards = AnimatedContentTransitionScope.SlideDirection.End
+//                    )
+//                }
+            ) {
+                val prepareServiceViewModel =
+                    it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
                 val isDownload = it.arguments?.getBoolean("isDownload")
                 val downloadState by prepareServiceViewModel.downloadState.collectAsStateWithLifecycle()
                 val networkState by prepareServiceViewModel.networkState.collectAsStateWithLifecycle()
@@ -307,29 +366,19 @@ object MainScreen {
                         if (currentFileIndex + 1 == totalFileCnt && currentBytes == totalBytes) onDoneDownload()//다끝냄을 알림
                     }
                 }
-
-                downloadState?.run {
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn(),
-                        exit = fadeOut(
-                            animationSpec = tween(300, easing = LinearEasing)
-                        ) + slideOutHorizontally(
-                            animationSpec = tween(300, easing = EaseOut),
-                            targetOffsetX = { init -> -init }
-                        )
-                    ) {
-                        ModelDownloadScreen.ModelDownloadProgressScreen(
-                            isDownload = isDownload,
-                            downloadedInfo = this@run,
-                            onDismissEvent = { context ->
-                                if (isDownload != null && isDownload.not()) onDoneDownload()
-                                else (context as Activity).finish()
-                            })
-                    }
-
-
+                UIComponents.AnimatedSlideToLeft(
+                    isVisible = (downloadState != null),
+                ) {
+                    ModelDownloadScreen.ModelDownloadProgressScreen(
+                        isDownload = isDownload,
+                        downloadedInfo = downloadState!!,
+                        onDismissEvent = { context ->
+                            if (isDownload != null && isDownload.not()) onDoneDownload()
+                            else (context as Activity).finish()
+                        })
                 }
+
+
             }
 
 
@@ -339,12 +388,12 @@ object MainScreen {
     private fun NavGraphBuilder.permissionAllowedGraph(
         routeName: String,
         navHostController: NavHostController,
-        prepareServiceViewModel: PrepareServiceViewModel,
         previewState: State<CameraState>,
         cameraInit: () -> Unit,
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(
+                navHostController = navHostController,
                 moveToNext = {
                     navHostController.navigate(route = Page.AppLoading.name) {
                         //백스택에서 스플래시 화면을 제거한다.
@@ -352,7 +401,6 @@ object MainScreen {
                     }
                 })
             runAppLoadingScreen(navHostController = navHostController,
-                prepareServiceViewModel = prepareServiceViewModel,
                 previewState = previewState,
                 cameraInit = cameraInit,
                 onMoveToDownload = {
@@ -361,12 +409,9 @@ object MainScreen {
                     }
                 })
             relatedWithDownload(routeName = Graph.DownloadProcess.name,
-                prepareServiceViewModel = prepareServiceViewModel,
                 navHostController = navHostController,
                 onDoneDownload = {
-                    navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {
-
-                    }
+                    navHostController.navigate(Page.AppLoading.name + "?afterDownload=${true}") {}
                 })
         }
 
@@ -374,6 +419,8 @@ object MainScreen {
     }
 
     //카메라를 사용할 때 사용되는 그래프
+    @SuppressLint("HardwareIds")
+    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun NavGraphBuilder.usingCameraGraph(
         routeName: String,
         navHostController: NavHostController,
@@ -389,17 +436,30 @@ object MainScreen {
                 exitTransition = { fadeOut() }) {
                 val isOnClose = remember { mutableStateOf(false) }
                 val localActivity = LocalContext.current as Activity
+                val userSet by cameraViewModel.userSetState.collectAsStateWithLifecycle()
+                LaunchedEffect(key1 = userSet) {
+                    cameraViewModel.loadUserSet()
+                }
                 if (isOnClose.value.not()) {
-                    Screen(cameraViewModel,
-                        previewView = previewView,
-                        onClickSettingBtnEvent = {
-                            navHostController.navigate(route = Page.Setting.name) {}
-                        }, onClickGalleryBtn = {
-                            navHostController.navigate(route = Page.Images.name) {}
-                        }, cameraInit = cameraInit, onFinishEvent = {
-                            isOnClose.value = true
-                            localActivity.finish()
-                        })
+                    UIComponents.AnimatedSlideToRight(isVisible = userSet != null) {
+                        Screen(
+                            cameraViewModel,
+                            previewView = previewView,
+                            onClickSettingBtnEvent = {
+                                navHostController.navigate(route = Page.Setting.name) {}
+                            },
+                            onClickGalleryBtn = {
+                                navHostController.navigate(route = Page.Images.name) {}
+                            },
+                            cameraInit = cameraInit,
+                            onFinishEvent = {
+                                isOnClose.value = true
+                                localActivity.finish()
+                            },
+                            userSet = userSet!!
+                        )
+                    }
+
                 }
 
 
@@ -417,6 +477,7 @@ object MainScreen {
                     animationSpec = tween(300)
                 )
             }) {
+
                 val imageList = galleryViewModel.capturedImageState.collectAsState()
                 val context = LocalContext.current
                 val deleteTargetIndex = remember {
@@ -462,18 +523,31 @@ object MainScreen {
                 }
             }
             //설정 화면
-            composable(route = Page.Setting.name, enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                    animationSpec = tween(150)
-                )
-            }, exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.End,
-                    animationSpec = tween(150)
-                )
-            }) {
-                SettingScreen.Screen()
+            composable(route = Page.Setting.name,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(150)
+                    )
+                }, exitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(150)
+                    )
+                }) {
+                val userSet by cameraViewModel.userSetState.collectAsStateWithLifecycle()
+                LaunchedEffect(key1 = Unit, key2 = userSet) {
+                    cameraViewModel.loadUserSet()
+                }
+                UIComponents.AnimatedSlideToRight(isVisible = userSet != null) {
+                    SettingScreen.Screen(userSet = userSet!!, onSaveUserSet = { setting ->
+                        cameraViewModel.saveUserSet(setting)
+                    },
+                        onBackPressed = {
+                            navHostController.navigateUp()
+                        }
+                    )
+                }
             }
 
 
@@ -481,9 +555,11 @@ object MainScreen {
     }
 
     private fun NavGraphBuilder.runSplashScreen(
-        moveToNext: () -> Unit
+        navHostController: NavHostController,
+        moveToNext: (Boolean) -> Unit
     ) {
         val splashPage = Page.Splash.name
+
         composable(route = splashPage, enterTransition = {
             fadeIn(
                 animationSpec = tween(
@@ -498,18 +574,25 @@ object MainScreen {
             )
         }) {
             //여기서부터는 Composable 영역
-            PrepareServiceScreens.SplashScreen()
+            val prepareServiceViewModel =
+                it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
+            val checkState = prepareServiceViewModel.checkUserSuccess.collectAsStateWithLifecycle()
             LaunchedEffect(Unit) {
+                prepareServiceViewModel.checkToUse()
+            }
+            PrepareServiceScreens.SplashScreen()
+            LaunchedEffect(checkState.value) {
                 //1초 뒤에 앱 로딩 화면으로 넘어감.
-                delay(1000)
-                moveToNext()
+                if (checkState.value != null) {
+                    delay(1000)
+                    moveToNext(checkState.value!!)
+                }
             }
         }
     }
 
     private fun NavGraphBuilder.runAppLoadingScreen(
         navHostController: NavHostController,
-        prepareServiceViewModel: PrepareServiceViewModel,
         cameraInit: () -> Unit,
         previewState: State<CameraState>,
         onMoveToDownload: (String) -> Unit,
@@ -538,8 +621,8 @@ object MainScreen {
                 )
             }) {
             val afterDownload = it.arguments?.getBoolean("afterDownload")
-
-
+            val prepareServiceViewModel =
+                it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
                 previewState = previewState,
@@ -558,6 +641,16 @@ object MainScreen {
             )
 
         }
+    }
+
+    //네비게이션 간 뷰모델
+    @Composable
+    inline fun <reified T : ViewModel> NavBackStackEntry.sharedViewModel(navHostController: NavHostController): T {
+        val navGraphRoute = destination.parent?.route ?: return hiltViewModel()
+        val parentEntry = remember(this) {
+            navHostController.getBackStackEntry(navGraphRoute)
+        }
+        return hiltViewModel(parentEntry)
     }
 
 

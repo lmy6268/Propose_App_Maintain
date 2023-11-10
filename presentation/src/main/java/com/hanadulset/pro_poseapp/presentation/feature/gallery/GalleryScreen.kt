@@ -104,13 +104,13 @@ object GalleryScreen {
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-
-
             //Child 2
             //사진이 보이는 화면
             HorizontalPager(
-                state = horizontalPagerState, modifier = Modifier
-                    .fillMaxSize(), pageSpacing = 0.dp
+                state = horizontalPagerState,
+                modifier = Modifier
+                    .fillMaxSize(),
+                pageSpacing = 0.dp
             ) {
 
                 ImageContent(
@@ -134,10 +134,9 @@ object GalleryScreen {
             ) {
                 //UpperBar -> 상단바 (뒤로가기, 현재 사진 수 ,갤러리 화면)
                 Box(modifier = Modifier.fillMaxSize()) {
-
                     Row(
                         modifier = Modifier
-                            .background(Color.Black)
+                            .background(Color.Black.copy(alpha = 0.3F))
                             .fillMaxWidth()
                             .padding(top = 40.dp, start = 20.dp, end = 20.dp)
                             .align(Alignment.TopCenter)
@@ -190,9 +189,9 @@ object GalleryScreen {
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)
-                            .height(screenHeight / 5)
+                            .height(screenHeight / 6)
                             .navigationBarsPadding()
-                            .background(Color.Black),
+                            .background(Color.Black.copy(alpha = 0.3F)),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(

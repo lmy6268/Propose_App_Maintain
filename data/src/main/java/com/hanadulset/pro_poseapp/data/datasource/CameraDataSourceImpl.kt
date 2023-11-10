@@ -228,10 +228,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
 
     companion object {
-        private const val PHOTO_TYPE = "image/jpeg"
-        private const val DATE_FORMAT = "yyyy_MM_dd_HH_mm_ss_SSS"
-        private const val APP_NAME = "Pro_Pose"
-        private val TAG = this::class.simpleName
         const val CAMERA_INIT_COMPLETE = 0
         const val CAMERA_INIT_ERROR = 1
     }

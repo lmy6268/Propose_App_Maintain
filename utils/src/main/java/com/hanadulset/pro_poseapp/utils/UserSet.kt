@@ -1,7 +1,9 @@
 package com.hanadulset.pro_poseapp.utils
 
-data class UserSet(
-    val isTimerOn: Boolean,
-    val isFlashOn: Boolean,
+import kotlinx.serialization.Serializable
 
-    )
+@Serializable
+data class UserSet(
+    val isCompOn: Boolean = true,
+    val poseCnt: Int = 10
+)

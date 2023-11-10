@@ -5,6 +5,7 @@ import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImp
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.UserDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.UserRepository
+import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
 import com.hanadulset.pro_poseapp.utils.eventlog.FeedBackData
 import kotlinx.coroutines.flow.Flow
@@ -40,4 +41,15 @@ class UserRepositoryImpl @Inject constructor(private val applicationContext: Con
 
     override suspend fun userDeviceInternetConnection(): Flow<Boolean> =
         downloadSourceImpl.checkInternetConnection()
+
+    override suspend fun loadUserSet(): UserSet = userDataSourceImpl.loadUserSet()
+
+    override suspend fun saveUserSet(userSet: UserSet) = userDataSourceImpl.saveUserSet(userSet)
+    override suspend fun saveUserSuccessToTermOfUse() {
+        userDataSourceImpl.saveUserSuccessToTermOfUse()
+    }
+
+    override suspend fun checkUserSuccessToTermOfUse() =
+        userDataSourceImpl.checkUserSuccessToTermOfUse()
+
 }

@@ -41,6 +41,7 @@ object CustomDialog {
         modifier: Modifier = Modifier,
         dialogTitle: String,
         subTitle: String,
+        subTitleAdd: String = "",
         dismissText: String = "취소",
         confirmText: String = "확인",
         onDismissRequest: () -> Unit,
@@ -83,6 +84,12 @@ object CustomDialog {
                     text = subTitle, style = subStyle
                 )
                 Spacer(modifier = Modifier.height(10.dp))
+                if (subTitleAdd != "") {
+                    Text(
+                        text = subTitleAdd, style = subStyle
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -170,8 +177,9 @@ object CustomDialog {
     ) {
         CustomAlertDialog(
             modifier = modifier,
-            dialogTitle = "인터넷에 연결되어있지 않습니다.",
-            subTitle = "추가 작업을 진행하기 위해서는 인터넷 연결이 필요합니다.",
+            dialogTitle = "리소스 서버에 연결할 수 없습니다.",
+            subTitle = "인터넷 설정을 확인해주세요.",
+            subTitleAdd = "인터넷에 연결되어있는 경우, 다시 한번 시도해주세요.",
             dismissText = "설정하러 가기",
             confirmText = "다시 시도하기",
             onDismissRequest = onDismissRequest,

@@ -1,8 +1,11 @@
 package com.hanadulset.pro_poseapp.data.datasource
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
+import android.provider.Settings
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -21,6 +24,9 @@ import com.amazonaws.regions.Region
 import com.amazonaws.regions.Regions
 import com.amazonaws.retry.RetryPolicy
 import com.amazonaws.services.s3.AmazonS3Client
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.DownloadResourcesDataSource
 import com.hanadulset.pro_poseapp.data.mapper.UserConfig
 import com.hanadulset.pro_poseapp.utils.BuildConfig
@@ -92,8 +98,10 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                                             applicationContext.dataDir.absolutePath,
                                             "/$fileName"
                                         )
-                                    targetFile.copyTo(savedPath,
-                                        overwrite = true).run {
+                                    targetFile.copyTo(
+                                        savedPath,
+                                        overwrite = true
+                                    ).run {
                                         targetFile.delete()
                                         modifyVersionIDLocal(fileName, versionID)
                                     }
@@ -150,10 +158,25 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         }
     }
 
+    private fun checkNetworkState(context: Context): Boolean {
+        val connectivityManager: ConnectivityManager =
+            context.getSystemService(ConnectivityManager::class.java)
+        val network: Network =
+            connectivityManager.activeNetwork ?: return false
+        val actNetwork: NetworkCapabilities =
+            connectivityManager.getNetworkCapabilities(network)
+                ?: return false
 
+        return when {
+            actNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
+            actNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
+            else -> false
+        }
+    }
 //체크에 관련된 메소드
 
     //다운로드 여부를 체크하기 위한 메소드 -> 현재 인터넷 연결이 없을 때, 체크하는 방법이 따로 없음.
+    @SuppressLint("HardwareIds")
     override suspend fun checkForDownload(): CheckResponse =
         withContext(Dispatchers.IO) {
             CognitoCachingCredentialsProvider(
@@ -202,7 +225,31 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                     } catch (ex: AmazonClientException) {
                         onErrorFlag = true
                         isOkayToSkip = isExistInData(fileName)
-                        Log.e("Amazon Error: ", ex.message!!)
+                        Firebase.analytics.logEvent("EVENT_AWS_S3_ERROR") {
+                            param(
+                                "networkConnection",
+                                checkNetworkState(applicationContext).toString()
+                            )
+                            param("timestamp", System.currentTimeMillis())
+                            param("errorMessage", "${
+                                ex.message?.replace(")", "")?.split(";")
+                                    ?.let { it[1] + "," + it[3] }
+                            }")
+                            param(
+                                "deviceID",
+                                Settings.Secure.getString(
+                                    applicationContext.contentResolver,
+                                    Settings.Secure.ANDROID_ID
+                                )
+                            )
+                        }
+                        Log.e(
+                            "Amazon Error: ",
+                            "${
+                                ex.message?.replace(")", "")?.split(";")
+                                    ?.let { it[1] + "," + it[3] }
+                            }"
+                        )
                     }
                 }
 
@@ -211,7 +258,8 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                 //검증 결과를 응답으로 전달
                 return@run CheckResponse(
                     needToDownload = isOkayToSkip.not() || needToDownload.isNotEmpty(),
-                    downloadType = if (mustDownloadFlag) CheckResponse.TYPE_MUST_DOWNLOAD else if (onErrorFlag) CheckResponse.TYPE_ERROR
+                    downloadType = if (mustDownloadFlag) CheckResponse.TYPE_MUST_DOWNLOAD
+                    else if (onErrorFlag) CheckResponse.TYPE_ERROR
                     else CheckResponse.TYPE_ADDITIONAL_DOWNLOAD,
                     totalSize = totalSize,
                     hasRemainStorage = checkFreeSpaceInDataDir(totalSize)

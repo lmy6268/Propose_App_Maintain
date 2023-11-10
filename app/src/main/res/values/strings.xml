@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Pro_Pose</string>
+    <string name="app_name">프로_포즈</string>
+    <string name="facebook_app_id">1071683047300206</string>
 </resources>
