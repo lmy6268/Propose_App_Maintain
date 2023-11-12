@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import android.app.Activity
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,6 +46,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -96,7 +98,11 @@ object PrepareServiceScreens {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(150.dp, Alignment.CenterVertically)
             ) {
-                Text(text = CATCH_PRAISE, style = style.heading01)
+                Text(
+                    text = CATCH_PRAISE,
+                    style = style.heading01,
+                    fontSize = 20.sp
+                )
 
                 Image(
                     modifier = Modifier
@@ -110,7 +116,8 @@ object PrepareServiceScreens {
                         positionOfTitle.value = layoutCoordinates.positionInRoot()
                     },
                     text = APP_NAME,
-                    style = style.heading01
+                    style = style.heading01,
+                    fontSize = 20.sp
                 )
             }
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -131,41 +138,46 @@ object PrepareServiceScreens {
     @Composable
     fun AppLoadingScreen(
         previewState: State<CameraState>,
-        cameraInit: () -> Unit,
-        prepareServiceViewModel: PrepareServiceViewModel,
         isAfterDownload: Boolean,
         onAfterLoadedEvent: () -> Unit,
         onMoveToDownload: () -> Unit,
+        onPrepareToLoadCamera: () -> Unit = {},
+        onRequestCheckForDownload: () -> Unit,
+        checkNeedToDownloadState: CheckResponse?,
+        totalLoadedState: Boolean
     ) {
-        val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
-        val checkNeedToDownloadState by prepareServiceViewModel.checkDownloadState.collectAsState()
-        val localActivity = LocalContext.current as Activity
+
         val isInitiated = remember {
             mutableStateOf(false)
         }
-
         val afterLoaded by rememberUpdatedState(newValue = onAfterLoadedEvent)
         LaunchedEffect(Unit) {
             delay(1000)
-            if (isAfterDownload) {
-                prepareServiceViewModel.preLoadModel()
-                cameraInit()
-            } else prepareServiceViewModel.requestForCheckDownload()
+            //만약 다운을 다 받은 상태라면 바로 카메라 로딩
+            if (isAfterDownload) onPrepareToLoadCamera()
+            //아니라면 다운로드 관련 체크로 넘어감
+            else onRequestCheckForDownload()
         }
 
+
+
         LaunchedEffect(checkNeedToDownloadState) {
+            //만약 다운로드 상태 파악이 완료된 경우
             if (checkNeedToDownloadState != null && isAfterDownload.not()) {
-                if (checkNeedToDownloadState!!.needToDownload.not()) {
-                    prepareServiceViewModel.preLoadModel()
-                    cameraInit()
-                } else onMoveToDownload()
+                if (checkNeedToDownloadState.needToDownload.not()) onPrepareToLoadCamera()
+                else onMoveToDownload()
             }
         }
 
+        //여기는 카메라 로딩 준비
         if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
             afterLoaded()//카메라 화면으로 이동하는 거임.
             isInitiated.value = true
-        } else InnerAppLoadingScreen()
+        }
+
+        AnimatedVisibility(visible = isInitiated.value.not()) {
+            InnerAppLoadingScreen()
+        }
 
 
     }
@@ -203,7 +215,9 @@ object PrepareServiceScreens {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(150.dp, Alignment.CenterVertically)
             ) {
-                Text(text = CATCH_PRAISE, style = style.heading01)
+                Text(
+                    text = CATCH_PRAISE, style = style.heading01, fontSize = 20.sp
+                )
 
                 Image(
                     modifier = Modifier
@@ -226,7 +240,10 @@ object PrepareServiceScreens {
                         barColor = LocalColors.current.secondaryWhite100,
                         backgroundColor = LocalColors.current.subSecondaryGray100
                     )
-                    Text(text = "$APP_NAME 로딩중...", style = style.heading02)
+                    Text(
+                        text = "$APP_NAME 로딩중...",
+                        style = style.heading02
+                    )
 
                 }
             }

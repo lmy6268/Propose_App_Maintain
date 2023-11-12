@@ -547,7 +547,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
 
     private fun loadPoseImages(): List<Uri> {
         val file = File(context.dataDir, "/silhouettes")
-        if (file.exists().not()) {
+//        if (file.exists().not()) {
             val tmpFile = File(context.dataDir, SILHOUETTE_IMAGE_ZIP)
             //데이터를 옮김
             context.assets.open(SILHOUETTE_IMAGE_ZIP).use { `is` ->
@@ -561,7 +561,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 }
             }
             unzip(tmpFile, file.parentFile!!.absolutePath)
-        }
+//        }
 
         return mutableListOf<Uri>().let { uriList ->
             mutableListOf<Pair<Int, Uri>>().run {

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
@@ -75,6 +76,10 @@ import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.Serializable
 
 object MainScreen {
     enum class Page {
@@ -257,14 +262,11 @@ object MainScreen {
                         navHostController.navigate(route = Graph.UsingCamera.name)
                     })
             }
-            runAppLoadingScreen(navHostController = navHostController,
+            runAppLoadingScreen(
+                navHostController = navHostController,
                 cameraInit = cameraInit,
-                previewState = previewState,
-                onMoveToDownload = {
-                    navHostController.navigate(Graph.DownloadProcess.name) {
-                        popUpTo(it) { inclusive = true }
-                    }
-                })
+                previewState = previewState
+            )
             relatedWithDownload(routeName = Graph.DownloadProcess.name,
                 navHostController = navHostController,
                 onDoneDownload = {
@@ -276,114 +278,6 @@ object MainScreen {
         }
     }
 
-    private fun NavGraphBuilder.relatedWithDownload(
-        routeName: String,
-        navHostController: NavHostController,
-        onDoneDownload: () -> Unit
-    ) {
-        navigation(startDestination = Page.ModelDownloadRequest.name, route = routeName) {
-            //다운로드 요청 페이지
-            composable(
-                route = Page.ModelDownloadRequest.name,
-//                enterTransition = {
-//                fadeIn(
-//                    animationSpec = tween(
-//                        300, easing = LinearEasing
-//                    )
-//                ) + slideIntoContainer(
-//                    animationSpec = tween(300, easing = EaseOut),
-//                    towards = AnimatedContentTransitionScope.SlideDirection.Start
-//                )
-//            }, exitTransition = {
-//                fadeOut(
-//                    animationSpec = tween(
-//                        300, easing = LinearEasing
-//                    )
-//                )
-//            }
-            ) {
-                val prepareServiceViewModel =
-                    it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
-                LaunchedEffect(key1 = Unit) {
-                    prepareServiceViewModel.startToTrackNetWorkState()
-                    prepareServiceViewModel.requestForCheckDownload()
-                }
-                val checkState by prepareServiceViewModel.checkDownloadState.collectAsStateWithLifecycle()
-                UIComponents.AnimatedSlideToLeft(
-                    isVisible = checkState != null,
-                ) {
-                    ModelDownloadScreen.ModelDownloadRequestScreen(
-                        isCheck = checkState,
-                        moveToLoading = onDoneDownload,
-                        moveToDownloadProgress = { type ->
-                            val isDownload = type == CheckResponse.TYPE_MUST_DOWNLOAD
-                            navHostController.navigate(
-                                "${Page.ModelDownloadProgress.name}?isDownload={$isDownload}"
-                            ) {
-                                popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
-                            }
-                        },
-                        requestCheckDownload = {
-                            prepareServiceViewModel.requestForCheckDownload()
-                        }
-                    )
-                }
-                DisposableEffect(Unit) {
-                    onDispose {
-                        prepareServiceViewModel.clearStates()
-                    }
-                }
-            }
-            //다운로드 진행 페이지
-            composable(route = "${Page.ModelDownloadProgress.name}?isDownload={isDownload}",
-                arguments = listOf(navArgument("isDownload") {
-                    type = NavType.BoolType
-                    defaultValue = true
-                }),
-//                enterTransition = {
-//                    fadeIn()
-//                },
-//                exitTransition = {
-//                    fadeOut(
-//                        animationSpec = tween(300, easing = LinearEasing)
-//                    ) + slideOutOfContainer(
-//                        animationSpec = tween(300, easing = EaseOut),
-//                        towards = AnimatedContentTransitionScope.SlideDirection.End
-//                    )
-//                }
-            ) {
-                val prepareServiceViewModel =
-                    it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
-                val isDownload = it.arguments?.getBoolean("isDownload")
-                val downloadState by prepareServiceViewModel.downloadState.collectAsStateWithLifecycle()
-                val networkState by prepareServiceViewModel.networkState.collectAsStateWithLifecycle()
-                LaunchedEffect(key1 = networkState) {
-                    if (networkState) prepareServiceViewModel.requestForDownload()
-                    else Log.e("네트워크 없음 알림.", "없습니다.")
-                }
-                LaunchedEffect(downloadState) {
-                    downloadState?.run {
-                        if (currentFileIndex + 1 == totalFileCnt && currentBytes == totalBytes) onDoneDownload()//다끝냄을 알림
-                    }
-                }
-                UIComponents.AnimatedSlideToLeft(
-                    isVisible = (downloadState != null),
-                ) {
-                    ModelDownloadScreen.ModelDownloadProgressScreen(
-                        isDownload = isDownload,
-                        downloadedInfo = downloadState!!,
-                        onDismissEvent = { context ->
-                            if (isDownload != null && isDownload.not()) onDoneDownload()
-                            else (context as Activity).finish()
-                        })
-                }
-
-
-            }
-
-
-        }
-    }
 
     private fun NavGraphBuilder.permissionAllowedGraph(
         routeName: String,
@@ -400,14 +294,11 @@ object MainScreen {
                         popUpTo(Page.Splash.name) { inclusive = true }
                     }
                 })
-            runAppLoadingScreen(navHostController = navHostController,
+            runAppLoadingScreen(
+                navHostController = navHostController,
                 previewState = previewState,
                 cameraInit = cameraInit,
-                onMoveToDownload = {
-                    navHostController.navigate(Graph.DownloadProcess.name) {
-                        popUpTo(it) { inclusive = true }
-                    }
-                })
+            )
             relatedWithDownload(routeName = Graph.DownloadProcess.name,
                 navHostController = navHostController,
                 onDoneDownload = {
@@ -595,7 +486,6 @@ object MainScreen {
         navHostController: NavHostController,
         cameraInit: () -> Unit,
         previewState: State<CameraState>,
-        onMoveToDownload: (String) -> Unit,
     ) {
         val appLoadingPage = Page.AppLoading.name
         composable(route = "$appLoadingPage?afterDownload={afterDownload}",
@@ -623,11 +513,11 @@ object MainScreen {
             val afterDownload = it.arguments?.getBoolean("afterDownload")
             val prepareServiceViewModel =
                 it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
+            val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
+            val checkNeedToDownloadState by prepareServiceViewModel.checkDownloadState.collectAsState()
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
                 previewState = previewState,
-                cameraInit = cameraInit,
-                prepareServiceViewModel = prepareServiceViewModel,
                 onAfterLoadedEvent = {
                     navHostController.navigate(Graph.UsingCamera.name) {
                         //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .
@@ -635,10 +525,121 @@ object MainScreen {
                     }
                 },
                 onMoveToDownload = {
-                    onMoveToDownload(appLoadingPage)
+                    //여기서 데이터 직렬화를 하고, 값을 전달하기
+                    navHostController.navigate(
+                        "${Page.ModelDownloadRequest.name}?checkResponse=${
+                            Json.encodeToString(
+                                checkNeedToDownloadState
+                            )
+                        }"
+                    ) {
+                        popUpTo(appLoadingPage) { inclusive = true }
+                    }
                 },
                 isAfterDownload = afterDownload!!,
+                onPrepareToLoadCamera = {
+                    prepareServiceViewModel.preLoadModel()
+                    cameraInit()
+                },
+                onRequestCheckForDownload = {
+                    prepareServiceViewModel.requestForCheckDownload()
+                },
+                checkNeedToDownloadState = checkNeedToDownloadState,
+                totalLoadedState = totalLoadedState
             )
+
+        }
+    }
+
+    private fun NavGraphBuilder.relatedWithDownload(
+        routeName: String,
+        navHostController: NavHostController,
+        onDoneDownload: () -> Unit
+    ) {
+        navigation(startDestination = Page.ModelDownloadRequest.name, route = routeName) {
+            //다운로드 요청 페이지
+            composable(
+                route = "${Page.ModelDownloadRequest.name}?checkResponse={checkResponse}",
+                arguments = listOf(navArgument("checkResponse") {
+                    type = createSerializableNavType<CheckResponse>()
+                })
+            ) {
+                val prepareServiceViewModel =
+                    it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
+                val arguments = requireNotNull(it.arguments)
+                val checkState =
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) arguments.getSerializable(
+                        "checkResponse"
+                    ) as? CheckResponse // Bundle에서 Serializable 타입으로 꺼낸다
+                    else arguments.getSerializable(
+                        "checkResponse",
+                        CheckResponse::class.java
+                    ) // Bundle에서 Serializable 타입으로 꺼낸다
+                LaunchedEffect(key1 = Unit) {
+                    prepareServiceViewModel.startToTrackNetWorkState()
+                }
+
+                ModelDownloadScreen.ModelDownloadRequestScreen(
+                    isCheck = checkState,
+                    moveToLoading = onDoneDownload,
+                    moveToDownloadProgress = { type ->
+                        val isDownload = type == CheckResponse.TYPE_MUST_DOWNLOAD
+                        navHostController.navigate(
+                            "${Page.ModelDownloadProgress.name}?isDownload={$isDownload}"
+                        ) {
+                            popUpTo(Page.ModelDownloadRequest.name) { inclusive = true }
+                        }
+                    },
+                    requestCheckDownload = {
+                        prepareServiceViewModel.requestForCheckDownload()
+                    }
+                )
+                DisposableEffect(Unit) {
+                    onDispose {
+                        prepareServiceViewModel.clearStates()
+                    }
+                }
+            }
+            //다운로드 진행 페이지
+            composable(
+                route = "${Page.ModelDownloadProgress.name}?isDownload={isDownload}",
+                arguments = listOf(navArgument("isDownload") {
+                    type = NavType.BoolType
+                    defaultValue = true
+                }),
+            ) {
+                val prepareServiceViewModel =
+                    it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
+                val isDownload = it.arguments?.getBoolean("isDownload")
+                val downloadState by prepareServiceViewModel.downloadState.collectAsStateWithLifecycle()
+                val networkState by prepareServiceViewModel.networkState.collectAsStateWithLifecycle()
+                LaunchedEffect(key1 = networkState) {
+                    if (networkState) prepareServiceViewModel.requestForDownload()
+                    else Log.e("네트워크 없음 알림.", "없습니다.")
+                }
+                LaunchedEffect(downloadState) {
+                    downloadState?.run {
+                        if (currentFileIndex + 1 == totalFileCnt && currentBytes == totalBytes) onDoneDownload()//다끝냄을 알림
+                    }
+                }
+                UIComponents.AnimatedSlideToLeft(
+                    isVisible = (downloadState != null),
+                ) {
+                    downloadState?.let { nowDownloadState ->
+                        ModelDownloadScreen.ModelDownloadProgressScreen(
+                            isDownload = isDownload,
+                            downloadedInfo = nowDownloadState,
+                            onDismissEvent = { context ->
+                                if (isDownload != null && isDownload.not()) onDoneDownload()
+                                else (context as Activity).finish()
+                            })
+                    }
+
+                }
+
+
+            }
+
 
         }
     }
@@ -651,6 +652,31 @@ object MainScreen {
             navHostController.getBackStackEntry(navGraphRoute)
         }
         return hiltViewModel(parentEntry)
+    }
+
+    //https://pluu.github.io/blog/android/2022/02/04/compose-pending-argument-part-2/ 참고
+    private inline fun <reified T : Serializable> createSerializableNavType(
+        isNullableAllowed: Boolean = false
+    ): NavType<T> {
+        return object : NavType<T>(isNullableAllowed) {
+            override val name: String
+                get() = "SupportSerializable"
+
+            override fun put(bundle: Bundle, key: String, value: T) {
+                bundle.putSerializable(key, value) // Bundle에 Serializable 타입으로 추가
+            }
+
+            override fun get(bundle: Bundle, key: String): T? {
+                return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) bundle.getSerializable(
+                    key
+                ) as? T // Bundle에서 Serializable 타입으로 꺼낸다
+                else bundle.getSerializable(key, T::class.java) // Bundle에서 Serializable 타입으로 꺼낸다
+            }
+
+            override fun parseValue(value: String): T {
+                return Json.decodeFromString(value) // String 전달된 Parsing 방법을 정의
+            }
+        }
     }
 
 

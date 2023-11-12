@@ -99,7 +99,6 @@ object ModelDownloadScreen {
         val launcher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
             onResult = {
-
             }
         )
         Box(
@@ -127,6 +126,7 @@ object ModelDownloadScreen {
                     }
                 )
             } else if (checkState!!.needToDownload.not()) moveToLoading()
+            //서버와 연결이 되지 않을 때
             else {
                 CustomDialog.InternetConnectionDialog(
                     modifier = Modifier

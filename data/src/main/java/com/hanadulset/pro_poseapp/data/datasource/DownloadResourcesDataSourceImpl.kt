@@ -17,24 +17,20 @@ import com.amazonaws.ClientConfiguration
 import com.amazonaws.auth.CognitoCachingCredentialsProvider
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHandler
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility
 import com.amazonaws.regions.Region
 import com.amazonaws.regions.Regions
-import com.amazonaws.retry.RetryPolicy
 import com.amazonaws.services.s3.AmazonS3Client
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.analytics
 import com.google.firebase.analytics.logEvent
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.DownloadResourcesDataSource
-import com.hanadulset.pro_poseapp.data.mapper.UserConfig
 import com.hanadulset.pro_poseapp.utils.BuildConfig
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.DownloadState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,11 +40,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
 import java.io.File
-import java.io.FileOutputStream
-import java.lang.Exception
 
 class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
     DownloadResourcesDataSource {
@@ -62,22 +54,6 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
     }
     private val downloadList = mutableListOf<Pair<String, String>>()
     private val downloadState = MutableStateFlow<Boolean?>(false)
-
-    private val config by lazy {
-        val file = File(applicationContext.dataDir, ASSET_CONFIG)
-        if (file.exists().not()) applicationContext.assets.open(ASSET_CONFIG).use { `is` ->
-            FileOutputStream(file).use { os ->
-                val buffer = ByteArray(4 * 1024)
-                var read: Int
-                while (`is`.read(buffer).also { read = it } != -1) {
-                    os.write(buffer, 0, read)
-                }
-                os.flush()
-            }
-        }
-        val jsonString = file.readText()
-        Json.decodeFromString<UserConfig>(jsonString)
-    }
 
 
     private val downloadFlow = callbackFlow {
@@ -201,7 +177,7 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                 var totalSize = 0L
 
                 //검증 대상 파일 대상 목록을 추가함.
-                checkedList.addAll(config.prepareMaterials.models)
+                checkedList.addAll(needToCheckFileList)
 
                 //검증 시간
                 checkedList.forEach { fileName ->
@@ -341,7 +317,7 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         }
 
     companion object {
-        private const val ASSET_CONFIG = "config.json"
+        private val needToCheckFileList = listOf("vapnet.ptl")
         private const val PREF_NAME = "userPreference"
         private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = PREF_NAME)
         private val LOCAL_REGION = Regions.AP_NORTHEAST_2 //리전

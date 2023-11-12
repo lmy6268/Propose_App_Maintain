@@ -82,9 +82,9 @@ object CameraScreenUnderBar {
     //총 세 개의 층이고, 추천 층을 제외한 두 층 각각은 별도의 패딩이 필요하다.
 
     //버튼 사이즈
-    val shutterButtonSize = 80.dp
-    val defaultButtonSize = 60.dp
-    val galleryButtonSize = 60.dp
+    val shutterButtonSize = 70.dp
+    val defaultButtonSize = shutterButtonSize - 20.dp
+    val galleryButtonSize = shutterButtonSize - 20.dp
 
     @Composable
     fun UnderBar(
@@ -356,15 +356,7 @@ fun ClickPoseBtnUnderBar(
             val nowScaleLimit by rememberUpdatedState(newValue = maxScale)
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (is16By9AspectRatio) Modifier.background(
-                            LocalColors.current.subPrimaryBlack100.copy(
-                                alpha = 0.5f
-                            )
-                        )
-                        else Modifier
-                    ),
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -413,14 +405,6 @@ fun ClickPoseBtnUnderBar(
             Spacer(
                 modifier = Modifier
                     .height(50.dp)
-                    .then(
-                        if (is16By9AspectRatio) Modifier.background(
-                            LocalColors.current.subPrimaryBlack100.copy(
-                                alpha = 0.5f
-                            )
-                        )
-                        else Modifier
-                    )
             )
         }
 
@@ -430,9 +414,7 @@ fun ClickPoseBtnUnderBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    if (is16By9AspectRatio) LocalColors.current.subPrimaryBlack100.copy(
-                        alpha = 0.5f
-                    ) else LocalColors.current.secondaryWhite100
+                    if (is16By9AspectRatio) Color.Unspecified else LocalColors.current.secondaryWhite100
                 )
                 .padding(top = 10.dp),
             currentSelectedIdx = currentSelectedPoseItemIdx,
@@ -447,12 +429,10 @@ fun ClickPoseBtnUnderBar(
         Row(
             modifier = Modifier
                 .background(
-                    if (is16By9AspectRatio) LocalColors.current.subPrimaryBlack100.copy(
-                        alpha = 0.5f
-                    ) else LocalColors.current.secondaryWhite100
+                    if (is16By9AspectRatio) Color.Unspecified else LocalColors.current.secondaryWhite100
                 )
                 .padding(horizontal = 50.dp)
-                .padding(vertical = 10.dp)
+                .padding(top = 10.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically

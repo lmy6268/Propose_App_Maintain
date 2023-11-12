@@ -6,7 +6,6 @@ import android.provider.Settings
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -16,7 +15,6 @@ import com.google.firebase.analytics.analytics
 import com.google.firebase.analytics.logEvent
 import com.google.gson.Gson
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.UserDataSource
-import com.hanadulset.pro_poseapp.data.mapper.UserConfig
 import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.database.UserLog
 import com.hanadulset.pro_poseapp.utils.database.UserLogDatabase

@@ -446,7 +446,7 @@ fun Screen(
                             .align(Alignment.TopCenter)
                     } else Modifier.align(Alignment.BottomCenter)
                 )
-                .padding(bottom = 15.dp),
+                .padding(bottom = 5.dp),
                 isVisible = showPoseListUnderBarState.value.not()
             ) {
                 //하단바 관련 모듈
@@ -511,7 +511,15 @@ fun Screen(
                                 .align(Alignment.TopCenter)
 
                         } else Modifier.align(Alignment.BottomCenter)
-                    ),
+                    )
+                    .then(
+                        if (aspectRatio.aspectRatioType == AspectRatio.RATIO_16_9) Modifier.background(
+                            LocalColors.current.subPrimaryBlack100.copy(
+                                alpha = 0.5f
+                            )
+                        ) else Modifier
+                    )
+                    .padding(bottom = 5.dp),
 
                 isVisible = showPoseListUnderBarState.value
             ) {
