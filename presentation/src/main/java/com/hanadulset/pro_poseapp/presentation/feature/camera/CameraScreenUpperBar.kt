@@ -35,25 +35,18 @@ object CameraScreenUpperBar {
     @Composable
     fun UpperBar(
         modifier: Modifier = Modifier, //상단바의 전반적인 크기를 조절
-        compStateInit: Boolean,
         viewRateList: List<ViewRate>,
-        onChangeCompSetEvent: (Boolean) -> Unit,
         moveToInfo: () -> Unit,
         onSelectedViewRate: (Int) -> Unit,
         needToCloseViewRateList: Boolean = false,
     ) {
         //변수 선언
         //구도 추천 여부
-        val recommendCompState = rememberSaveable { mutableStateOf(compStateInit) }
         val isExpandedState = remember {
             mutableStateOf(false)
         }
-        val changeCompState by rememberUpdatedState(newValue = {
-            recommendCompState.value = recommendCompState.value.not()
-            onChangeCompSetEvent(recommendCompState.value)
-        })
         val triggerCloseValue by rememberUpdatedState(newValue = needToCloseViewRateList)
-        val buttonSize = 38.dp
+        val buttonSize = 36.dp
 
         //컴포저블 세팅
         Row(
@@ -119,7 +112,6 @@ object CameraScreenUpperBar {
 @Preview
 fun PreviewUpperBar() {
     UpperBar(
-        compStateInit = false,
         viewRateList = listOf(
             ViewRate(
                 name = "3:4",
@@ -131,9 +123,6 @@ fun PreviewUpperBar() {
                 aspectRatioSize = Size(9, 16)
             )
         ),
-        onChangeCompSetEvent = {
-
-        },
         onSelectedViewRate = {
 
         },

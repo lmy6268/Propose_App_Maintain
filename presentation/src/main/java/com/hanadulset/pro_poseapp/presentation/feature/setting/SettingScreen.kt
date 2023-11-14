@@ -2,8 +2,8 @@ package com.hanadulset.pro_poseapp.presentation.feature.setting
 
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -22,8 +22,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.Surface
@@ -31,7 +33,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,12 +65,13 @@ object SettingScreen {
         BackHandler(
             enabled = true
         ) {
-            val data = setState.value
-            onSaveUserSet(
-                UserSet(
-                    data.isCompOn
+            setState.value.run {
+                onSaveUserSet(
+                    UserSet(
+                        isCompOn, isPoseOn
+                    )
                 )
-            )
+            }
             onBackPressed()
         }
         val ossLauncher = rememberLauncherForActivityResult(
@@ -88,12 +90,12 @@ object SettingScreen {
                 .build()
         )
 
-        val VERSION_NAME = (context.packageManager.getPackageInfo(
+        val versionName = (context.packageManager.getPackageInfo(
             context.packageName,
             0
         )?.versionName)
 
-
+        val verticalScrollState = rememberScrollState()
         Surface(
             color = LocalColors.current.primaryGreen100,
             modifier = modifier.fillMaxSize()
@@ -133,7 +135,7 @@ object SettingScreen {
                         ) {
                             Text(text = "프로_포즈", style = LocalTypography.current.heading01)
                             Text(
-                                text = "V $VERSION_NAME",
+                                text = "V $versionName",
                                 style = LocalTypography.current.sub01
                             )
                         }
@@ -148,10 +150,16 @@ object SettingScreen {
                     )
                 }
 
+
+
+
                 Card(
                     modifier = Modifier
                         .weight(2F)
-                        .fillMaxWidth(),
+                        .fillMaxWidth().verticalScroll(
+                            verticalScrollState
+                        )
+                        ,
                     shape = RoundedCornerShape(topStart = 25.dp, topEnd = 25.dp),
                     elevation = 10.dp
                 ) {
@@ -173,6 +181,14 @@ object SettingScreen {
                             isToggled = setState.value.isCompOn,
                             onToggleEvent = {
                                 setState.value = setState.value.copy(isCompOn = it)
+                            }
+                        )
+                        UIComponents.SettingBoxItemWithToggle(
+                            modifier = Modifier.fillMaxWidth(),
+                            innerText = "포즈 추천",
+                            isToggled = setState.value.isPoseOn,
+                            onToggleEvent = {
+                                setState.value = setState.value.copy(isPoseOn = it)
                             }
                         )
 
@@ -209,8 +225,7 @@ object SettingScreen {
                             innerText = "문의",
                             onClick = {
                                 sendEmailToAdmin(
-                                    context.packageManager,
-                                    privacyLauncher, VERSION_NAME
+                                    privacyLauncher, versionName = versionName
                                 )
                             }
                         )
@@ -225,7 +240,6 @@ object SettingScreen {
 
     @SuppressLint("QueryPermissionsNeeded")
     private fun sendEmailToAdmin(
-        packageManager: PackageManager,
         launcher: ManagedActivityResultLauncher<Intent, ActivityResult>,
         versionName: String?
     ) {
@@ -236,13 +250,24 @@ object SettingScreen {
                     "Device : ${Build.MANUFACTURER} ${Build.PRODUCT} \n " +
                     "Android(SDK) : ${Build.VERSION.RELEASE}"
         val emailType = "message/rfc822"
-        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+        val emailSelectorIntent = Intent(Intent.ACTION_SENDTO).apply {
             setDataAndType(Uri.parse("mailto:"), emailType)
-            putExtra(Intent.EXTRA_SUBJECT, emailTitle)
-            putExtra(Intent.EXTRA_EMAIL, emailReceiver)
-            putExtra(Intent.EXTRA_TEXT, emailContent)
         }
-        if (emailIntent.resolveActivity(packageManager) != null) launcher.launch(emailIntent)
+        val emailIntent =
+            Intent(Intent.ACTION_SEND).apply {
+                putExtra(Intent.EXTRA_EMAIL, emailReceiver)
+                putExtra(Intent.EXTRA_SUBJECT, emailTitle)
+                putExtra(Intent.EXTRA_TEXT, emailContent)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                selector = emailSelectorIntent
+            }
+        try {
+            launcher.launch(emailIntent)
+        } catch (ex: ActivityNotFoundException) {
+
+        }
+
     }
 
 }

@@ -36,7 +36,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
@@ -45,6 +47,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -68,10 +72,22 @@ object PrepareServiceScreens {
     fun SplashScreen() {
 
         val appIconSize = 200.dp
+        val boxSize = remember {
+            mutableStateOf(DpSize.Zero)
+        }
+        val localDensity = LocalDensity.current
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(color = Color.White)
+                .onSizeChanged {
+                    localDensity.run {
+                        boxSize.value = DpSize(
+                            it.width.toDp(),
+                            it.height.toDp()
+                        )
+                    }
+                }
         ) {
             val resource = rememberAsyncImagePainter(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -84,7 +100,6 @@ object PrepareServiceScreens {
             )
             val style = LocalTypography.current
             val color = LocalColors.current
-            val localDensity = LocalDensity.current
             val positionOfTitle = remember {
                 mutableStateOf(Offset.Zero)
             }
@@ -113,7 +128,7 @@ object PrepareServiceScreens {
 
                 Text(
                     modifier = Modifier.onGloballyPositioned { layoutCoordinates ->
-                        positionOfTitle.value = layoutCoordinates.positionInRoot()
+                        positionOfTitle.value = layoutCoordinates.boundsInRoot().center
                     },
                     text = APP_NAME,
                     style = style.heading01,
@@ -126,7 +141,7 @@ object PrepareServiceScreens {
                     radius = localDensity.run { 320.dp.toPx() },
                     center = localDensity.run {
                         positionOfTitle.value.let {
-                            Offset(it.x + 50.dp.toPx(), it.y + 50.dp.toPx())
+                            Offset(it.x, it.y + 50.dp.toPx())
                         }
                     }
                 )
@@ -186,10 +201,22 @@ object PrepareServiceScreens {
     @Composable
     fun InnerAppLoadingScreen() {
         val appIconSize = 200.dp
+        val localDensity = LocalDensity.current
+        val boxSize = remember {
+            mutableStateOf(DpSize.Zero)
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(color = Color.White)
+                .onSizeChanged {
+                    localDensity.run {
+                        boxSize.value = DpSize(
+                            it.width.toDp(),
+                            it.height.toDp()
+                        )
+                    }
+                }
         ) {
             val resource = rememberAsyncImagePainter(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -202,7 +229,7 @@ object PrepareServiceScreens {
             )
             val style = LocalTypography.current
             val color = LocalColors.current
-            val localDensity = LocalDensity.current
+
             val positionOfTitle = remember {
                 mutableStateOf(Offset.Zero)
             }
@@ -228,7 +255,7 @@ object PrepareServiceScreens {
 
                 Column(
                     modifier = Modifier.onGloballyPositioned { layoutCoordinates ->
-                        positionOfTitle.value = layoutCoordinates.positionInRoot()
+                        positionOfTitle.value = layoutCoordinates.boundsInRoot().center
                     },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(
@@ -253,7 +280,7 @@ object PrepareServiceScreens {
                     radius = localDensity.run { 320.dp.toPx() },
                     center = localDensity.run {
                         positionOfTitle.value.let {
-                            Offset(it.x + 60.dp.toPx(), it.y + 50.dp.toPx())
+                            Offset(it.x, it.y + 10.dp.toPx())
                         }
                     }
 

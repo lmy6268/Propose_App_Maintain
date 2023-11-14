@@ -94,7 +94,7 @@ class UserDataSourceImpl constructor(private val applicationContext: Context) : 
 
     //Mapper Method
     private fun EventLog.asUserLog(): UserLog = UserLog(
-        timeStamp = this.timestamp ?: System.currentTimeMillis().toString(),
+        timeStamp = this.timestamp,
         eventId = eventId,
         poseID = poseID,
         prevRecommendPoses = Gson().toJson(prevRecommendPoses),

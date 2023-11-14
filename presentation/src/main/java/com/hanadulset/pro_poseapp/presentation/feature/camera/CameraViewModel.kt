@@ -172,9 +172,6 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             _capturedBitmapState.value = captureImageUseCase()
         }
-//        CoroutineScope(Dispatchers.IO).launch {
-//            writeUserLogUseCase(eventLog)
-//        }
     }
 
     fun getViewRateList() = viewRateList

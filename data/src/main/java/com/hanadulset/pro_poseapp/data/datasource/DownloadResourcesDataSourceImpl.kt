@@ -209,7 +209,10 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                             param("timestamp", System.currentTimeMillis())
                             param("errorMessage", "${
                                 ex.message?.replace(")", "")?.split(";")
-                                    ?.let { it[1] + "," + it[3] }
+                                    ?.let {
+                                        if (it.size >= 4) it[1] + "," + it[3]
+                                        else it
+                                    }
                             }")
                             param(
                                 "deviceID",
@@ -223,7 +226,10 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                             "Amazon Error: ",
                             "${
                                 ex.message?.replace(")", "")?.split(";")
-                                    ?.let { it[1] + "," + it[3] }
+                                    ?.let {
+                                        if (it.size >= 4) it[1] + "," + it[3]
+                                        else it
+                                    }
                             }"
                         )
                     }

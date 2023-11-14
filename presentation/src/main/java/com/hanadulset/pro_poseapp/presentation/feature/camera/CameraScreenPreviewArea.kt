@@ -1,7 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
-import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
@@ -9,8 +8,6 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationState
@@ -19,16 +16,17 @@ import androidx.compose.animation.core.animateTo
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,15 +54,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Dimension
-import com.hanadulset.pro_poseapp.presentation.component.UIComponents
+import coil.size.Scale
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
 
@@ -82,6 +79,7 @@ object CameraScreenPreviewArea {
         edgeImageBitmap: Bitmap?,
         poseOffset: SizeF?,
         isRecommendCompEnabled: Boolean,
+        isRecommendPoseEnabled: Boolean,
         loadLastImage: () -> Unit,
         upperBarSize: DpSize,
         pointerOffset: Offset?,
@@ -91,13 +89,14 @@ object CameraScreenPreviewArea {
         onStopCaptureAnimation: () -> Unit,
         onStopTrackPoint: () -> Unit,
         onPoseChangeOffset: (SizeF) -> Unit,
-        onPointMatched: () -> Unit,
+        onPointMatched: (Boolean) -> Unit,
         onLimitMaxScale: (Float) -> Unit
     ) {
         val localDensity = LocalDensity.current
 
         val previewView by rememberUpdatedState(newValue = preview)
         val compSwitchValue by rememberUpdatedState(newValue = isRecommendCompEnabled)
+        val poseSwitchValue by rememberUpdatedState(newValue = isRecommendPoseEnabled)
 
         //외부로 부터 받은 값이 더이상 변하지 않는 경우
         val upBarSize by remember { mutableStateOf(upperBarSize) }
@@ -201,8 +200,8 @@ object CameraScreenPreviewArea {
 
 
             //포즈 화면 구성 -> 포즈 값만 있어도 됨.
-            if (poseData != null) {
-                PoseScreen(
+            if (poseData != null && poseSwitchValue) {
+                ShowingPoseScreen(
                     modifier = modifier.requiredSize(
                         DpSize(
                             previewViewSize.value.width.dp,
@@ -276,7 +275,7 @@ object CameraScreenPreviewArea {
     }
 
     @Composable
-    fun PoseScreen(
+    fun ShowingPoseScreen(
         modifier: Modifier = Modifier,
         poseData: PoseData,
         poseScale: Float,
@@ -339,6 +338,22 @@ object CameraScreenPreviewArea {
                             )
                         }
                     }
+                    //아직 어색함
+                    val poseBottomRightOffset = remember {
+                        localDensity.run {
+                            mutableStateOf(
+                                if (inputPoseOffset != null) Offset(
+                                    inputPoseOffset.width + poseItemSize.value.width,
+                                    inputPoseOffset.height + poseItemSize.value.height
+                                )
+                                else Offset(
+                                    boxSize.value.width * poseItem.centerRate.width + poseItemSize.value.width / 2,
+                                    boxSize.value.height * poseItem.centerRate.height + poseItemSize.value.height / 2
+                                )
+                            )
+                        }
+                    }
+
 
                     LaunchedEffect(key1 = Unit) {
                         poseTopLeftOffset.value = poseTopLeftOffset.value.run {
@@ -360,7 +375,7 @@ object CameraScreenPreviewArea {
                                         poseItemSize.value.height.toInt()
                                     )
                                 )
-                            ).build()
+                            ).scale(Scale.FIT).build()
                         )
                     })
                     val scaleOfPose by rememberUpdatedState(newValue = poseScale)
@@ -388,6 +403,20 @@ object CameraScreenPreviewArea {
                                 poseItemSize.value.height.toDp()
                             )
                         })
+                        .then(
+                            (painter?.state as? AsyncImagePainter.State.Success)
+                                ?.painter
+                                ?.intrinsicSize
+                                ?.let { intrinsicSize ->
+                                    Modifier.aspectRatio(intrinsicSize.width / intrinsicSize.height)
+                                } ?: Modifier
+                        )
+                        .onSizeChanged {
+                            poseItemSize.value = Size(
+                                it.width.toFloat(),
+                                it.height.toFloat()
+                            )
+                        }
                         .offset {
                             onLimitMaxScale(calculateMaxScale())
                             poseTopLeftOffset.value.run { IntOffset(x.toInt(), y.toInt()) }
@@ -395,10 +424,9 @@ object CameraScreenPreviewArea {
                         .graphicsLayer {
                             transformOrigin = TransformOrigin(0f, 0f)
                             localDensity.run {
-//                                Top_left 기준 픽셀 오프셋 -> 이걸 가지고 중심점 값과 잘 대비 및 분류해두자.
+                                //Top_left 기준 픽셀 오프셋 -> 이걸 가지고 중심점 값과 잘 대비 및 분류해두자.
                                 //스케일 관련
-                                transformOrigin =
-                                    TransformOrigin(0f, 0f) //top-left 기준으로 사이즈를 늘려나가자.
+                                transformOrigin = TransformOrigin(0f, 0f) //top-left 기준으로 사이즈를 늘려나가자.
                                 scaleX = scaleOfPose
                                 scaleY = scaleOfPose
                             }
@@ -406,7 +434,7 @@ object CameraScreenPreviewArea {
                         .pointerInput(Unit) {
                             //드래그를 인식하고 반영한다. -> dragAmount 만큼 이동
                             detectDragGestures { change, dragAmount ->
-                                val checkOffset = dragAmount + poseTopLeftOffset.value
+                                val checkOffset = dragAmount * scaleOfPose + poseTopLeftOffset.value
                                 poseTopLeftOffset.value = checkOffset.run {
                                     Offset(
                                         x.coerceIn(

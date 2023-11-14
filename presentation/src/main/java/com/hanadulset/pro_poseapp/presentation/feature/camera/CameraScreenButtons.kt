@@ -505,6 +505,7 @@ object CameraScreenButtons {
     @Composable
     fun NormalButton(
         modifier: Modifier = Modifier,
+        isButtonEnable: Boolean = true,
         buttonSize: Dp = 20.dp,
         buttonName: String,
         innerIconDrawableId: Int? = null,
@@ -517,6 +518,7 @@ object CameraScreenButtons {
         onClick: () -> Unit
     ) {
         IconButton(
+            enabled = isButtonEnable,
             modifier = modifier.size(buttonSize),
             onClick = onClick,
         ) {

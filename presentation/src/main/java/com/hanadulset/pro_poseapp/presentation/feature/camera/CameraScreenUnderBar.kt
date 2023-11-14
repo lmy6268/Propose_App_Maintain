@@ -99,10 +99,12 @@ object CameraScreenUnderBar {
         userEdgeDetectionValue: Boolean,
         systemEdgeDetectionValue: Boolean,
         onSystemEdgeDetectionClicked: () -> Unit,
-        onUserEdgeDetectionClicked: () -> Unit
+        onUserEdgeDetectionClicked: () -> Unit,
+        isRecommendPoseEnabled: Boolean
     ) {
 
         val galleryThumbUri by rememberUpdatedState(newValue = galleryImageUri)
+        val poseSwitchValue by rememberUpdatedState(newValue = isRecommendPoseEnabled)
 
         Column(
             modifier = modifier,
@@ -125,6 +127,7 @@ object CameraScreenUnderBar {
                 onShutterClickEvent = onShutterClickEvent,
                 onGalleryButtonClickEvent = onGalleryButtonClickEvent,
                 galleryImageUri = galleryThumbUri,
+                isRecommendPoseEnabled = poseSwitchValue,
                 onRecommendPoseEvent = onPoseRecommendEvent
             )
         }
@@ -194,11 +197,13 @@ fun LowerLayer(
     galleryImageUri: Uri?,
     onRecommendPoseEvent: () -> Unit,
     onShutterClickEvent: () -> Unit = {},
+    isRecommendPoseEnabled: Boolean,
     onGalleryButtonClickEvent: () -> Unit = {},
 ) {
 
     //개별 상태변수를 가지고 있으므로써, 의도치 않은 리컴포지션을 방지
     val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
+    val poseSwitchValue by rememberUpdatedState(newValue = isRecommendPoseEnabled)
 
 
     Row(
@@ -220,7 +225,7 @@ fun LowerLayer(
             buttonSize = shutterButtonSize
         ) { onShutterClickEvent() }
 
-        CameraScreenButtons.NormalButton(
+        if (poseSwitchValue) CameraScreenButtons.NormalButton(
             modifier = Modifier.shadow(elevation = 2.dp, shape = CircleShape),
             buttonSize = defaultButtonSize,
             buttonName = "포즈 추천 버튼",
@@ -230,6 +235,12 @@ fun LowerLayer(
             onClick = onRecommendPoseEvent,
             buttonTextSize = 12
         )
+        else CameraScreenButtons.NormalButton(
+            buttonName = "비어있는 공간",
+            isButtonEnable = false,
+            buttonSize = defaultButtonSize,
+            colorTint = Color.Transparent,
+            onClick = {})
     }
 }
 

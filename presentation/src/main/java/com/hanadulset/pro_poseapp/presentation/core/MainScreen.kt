@@ -617,87 +617,84 @@ object MainScreen {
                     if (networkState) prepareServiceViewModel.requestForDownload()
                     else Log.e("네트워크 없음 알림.", "없습니다.")
                 }
-                LaunchedEffect(downloadState) {
-                    downloadState?.run {
+
+                downloadState?.run {
+                    LaunchedEffect(this) {
                         if (currentFileIndex + 1 == totalFileCnt && currentBytes == totalBytes) onDoneDownload()//다끝냄을 알림
                     }
-                }
-                UIComponents.AnimatedSlideToLeft(
-                    isVisible = (downloadState != null),
-                ) {
-                    downloadState?.let { nowDownloadState ->
-                        ModelDownloadScreen.ModelDownloadProgressScreen(
-                            isDownload = isDownload,
-                            downloadedInfo = nowDownloadState,
-                            onDismissEvent = { context ->
-                                if (isDownload != null && isDownload.not()) onDoneDownload()
-                                else (context as Activity).finish()
-                            })
-                    }
 
+                    ModelDownloadScreen.ModelDownloadProgressScreen(
+                        isDownload = isDownload,
+                        downloadedInfo = this,
+                        onDismissEvent = { context ->
+                            if (isDownload != null && isDownload.not()) onDoneDownload()
+                            else (context as Activity).finish()
+                        })
                 }
 
-
             }
 
 
         }
-    }
 
-    //네비게이션 간 뷰모델
-    @Composable
-    inline fun <reified T : ViewModel> NavBackStackEntry.sharedViewModel(navHostController: NavHostController): T {
-        val navGraphRoute = destination.parent?.route ?: return hiltViewModel()
-        val parentEntry = remember(this) {
-            navHostController.getBackStackEntry(navGraphRoute)
+
+    }
+}
+
+//네비게이션 간 뷰모델
+@Composable
+inline fun <reified T : ViewModel> NavBackStackEntry.sharedViewModel(navHostController: NavHostController): T {
+    val navGraphRoute = destination.parent?.route ?: return hiltViewModel()
+    val parentEntry = remember(this) {
+        navHostController.getBackStackEntry(navGraphRoute)
+    }
+    return hiltViewModel(parentEntry)
+}
+
+//https://pluu.github.io/blog/android/2022/02/04/compose-pending-argument-part-2/ 참고
+private inline fun <reified T : Serializable> createSerializableNavType(
+    isNullableAllowed: Boolean = false
+): NavType<T> {
+    return object : NavType<T>(isNullableAllowed) {
+        override val name: String
+            get() = "SupportSerializable"
+
+        override fun put(bundle: Bundle, key: String, value: T) {
+            bundle.putSerializable(key, value) // Bundle에 Serializable 타입으로 추가
         }
-        return hiltViewModel(parentEntry)
-    }
 
-    //https://pluu.github.io/blog/android/2022/02/04/compose-pending-argument-part-2/ 참고
-    private inline fun <reified T : Serializable> createSerializableNavType(
-        isNullableAllowed: Boolean = false
-    ): NavType<T> {
-        return object : NavType<T>(isNullableAllowed) {
-            override val name: String
-                get() = "SupportSerializable"
-
-            override fun put(bundle: Bundle, key: String, value: T) {
-                bundle.putSerializable(key, value) // Bundle에 Serializable 타입으로 추가
-            }
-
-            override fun get(bundle: Bundle, key: String): T? {
-                return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) bundle.getSerializable(
-                    key
-                ) as? T // Bundle에서 Serializable 타입으로 꺼낸다
-                else bundle.getSerializable(key, T::class.java) // Bundle에서 Serializable 타입으로 꺼낸다
-            }
-
-            override fun parseValue(value: String): T {
-                return Json.decodeFromString(value) // String 전달된 Parsing 방법을 정의
-            }
+        override fun get(bundle: Bundle, key: String): T? {
+            return if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) bundle.getSerializable(
+                key
+            ) as? T // Bundle에서 Serializable 타입으로 꺼낸다
+            else bundle.getSerializable(key, T::class.java) // Bundle에서 Serializable 타입으로 꺼낸다
         }
-    }
 
-
-    private fun deleteImage(
-        contentResolver: ContentResolver,
-        launcher: ManagedActivityResultLauncher<IntentSenderRequest, ActivityResult>,
-        galleryViewModel: GalleryViewModel,
-        index: Int,
-        uri: Uri,
-    ): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            MediaStore.createDeleteRequest(
-                contentResolver,
-                arrayListOf(uri)
-            ).intentSender.run {
-                launcher.launch(IntentSenderRequest.Builder(this).build())
-            }
-            false
-        } else {
-            galleryViewModel.deleteImage(index, false)
-            true
+        override fun parseValue(value: String): T {
+            return Json.decodeFromString(value) // String 전달된 Parsing 방법을 정의
         }
     }
 }
+
+
+private fun deleteImage(
+    contentResolver: ContentResolver,
+    launcher: ManagedActivityResultLauncher<IntentSenderRequest, ActivityResult>,
+    galleryViewModel: GalleryViewModel,
+    index: Int,
+    uri: Uri,
+): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        MediaStore.createDeleteRequest(
+            contentResolver,
+            arrayListOf(uri)
+        ).intentSender.run {
+            launcher.launch(IntentSenderRequest.Builder(this).build())
+        }
+        false
+    } else {
+        galleryViewModel.deleteImage(index, false)
+        true
+    }
+}
+
