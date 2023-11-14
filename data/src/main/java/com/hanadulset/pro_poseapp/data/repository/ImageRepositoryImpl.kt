@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.SizeF
+import androidx.core.net.toFile
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
@@ -93,8 +94,7 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         fileHandleDataSource.loadCapturedImages(true)
 
 
-    override suspend fun deleteCapturedImage(uri: Uri): Boolean =
-        fileHandleDataSource.deleteCapturedImage(uri)
+    override suspend fun deleteCapturedImage(uri: Uri): Boolean = uri.toFile().delete()
 
     override suspend fun updateOffsetPoint(
         backgroundBitmap: Bitmap,

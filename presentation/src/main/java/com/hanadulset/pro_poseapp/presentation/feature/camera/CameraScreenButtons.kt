@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.IndicationInstance
@@ -19,9 +20,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
@@ -36,7 +37,6 @@ import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,7 +45,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
@@ -72,9 +71,9 @@ import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
 
 object CameraScreenButtons {
     val pretendardFamily = FontFamily(
@@ -82,12 +81,13 @@ object CameraScreenButtons {
         Font(R.font.pretendard_light, FontWeight.Light, FontStyle.Normal),
     )
 
-    private object RedRippleTheme : RippleTheme {
+    private object LocalButtonRippleTheme : RippleTheme {
 
         private var defaultColor = Color.White
         private var alphaColor = Color.Black
         fun setRippleEffect(
-            defaultColor: Color = Color.Unspecified, alphaColor: Color = Color.Black
+            defaultColor: Color = Color.Unspecified,
+            alphaColor: Color = Color.Black
         ) {
             this.defaultColor = defaultColor
             this.alphaColor = alphaColor
@@ -109,17 +109,18 @@ object CameraScreenButtons {
         modifier: Modifier = Modifier,
         buttonSize: Dp = 30.dp,
         buttonStatus: Boolean,
-        activatedColor: Color = Color(0xFF95FA99),
-        inActivatedColor: Color = Color(0x80999999),
+        activatedColor: Color = LocalColors.current.primaryGreen100,
+        inActivatedColor: Color = LocalColors.current.subSecondaryGray80,
         buttonDescription: String = "버튼",
         buttonText: String = "",
         buttonTextColor: Color = Color.White,
         iconDrawableId: Int = R.drawable.based_circle,
+        innerIconDrawableId: Int? = null,
         onClickEvent: () -> Unit
     ) {
         val buttonState by rememberUpdatedState(newValue = buttonStatus)
 
-        CompositionLocalProvider(LocalRippleTheme provides RedRippleTheme.apply {
+        CompositionLocalProvider(LocalRippleTheme provides LocalButtonRippleTheme.apply {
             setRippleEffect(
                 alphaColor = if (buttonState) activatedColor else inActivatedColor,
                 defaultColor = Color.Black
@@ -136,10 +137,16 @@ object CameraScreenButtons {
                 )
                 if (buttonText != "") Text(
                     text = buttonText,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     color = if (buttonState.not()) buttonTextColor else Color.Black,
                     fontFamily = pretendardFamily,
-                    fontWeight = if (buttonState) FontWeight.Bold else FontWeight.Light
+                    fontWeight = FontWeight.Bold
+                )
+                else if (innerIconDrawableId != null) Icon(
+                    painter = painterResource(id = innerIconDrawableId),
+                    tint = if (buttonState.not()) buttonTextColor else Color.Black,
+                    modifier = Modifier.size(buttonSize / 2),
+                    contentDescription = "내부 아이콘"
                 )
 
             }
@@ -152,15 +159,16 @@ object CameraScreenButtons {
         defaultButtonSize: Dp,
         buttonValue: Int,
         selectedButtonScale: Float = 2F,
-        selectedButtonColor: Color = Color(0xFF95FFA7),
-        unSelectedButtonColor: Color = Color(0x80999999),
+        selectedButtonColor: Color = LocalColors.current.subPrimaryBlack100,
+        unSelectedButtonColor: Color = LocalColors.current.secondaryWhite100,
         onClickEvent: () -> Unit
     ) {
 
         Box(
             modifier = Modifier
                 .clickable(
-                    interactionSource = MutableInteractionSource(), indication = rememberRipple(
+                    interactionSource = MutableInteractionSource(),
+                    indication = rememberRipple(
                         color = Color(0xFF999999), bounded = true, radius = defaultButtonSize / 2
                     ), //Ripple 효과 제거,
                     onClick = onClickEvent
@@ -181,7 +189,7 @@ object CameraScreenButtons {
                 modifier = Modifier.align(Alignment.Center),
                 text = if (selected) "${buttonValue}X" else buttonValue.toString(),
                 fontSize = 10.sp,
-                color = if (selected) Color.Black else Color.White,
+                color = if (selected) LocalColors.current.primaryGreen100 else LocalColors.current.subPrimaryBlack100,
                 fontFamily = pretendardFamily,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Light
 
@@ -192,12 +200,11 @@ object CameraScreenButtons {
     @Composable
     fun SwitchableButton(
         modifier: Modifier = Modifier,
-        innerText: String,
         init: Boolean,
         buttonSize: DpSize = DpSize(23.dp, 15.dp),
         positiveColor: Color,
         negativeColor: Color,
-        onChangeState: () -> Unit,
+        onChangeState: (Boolean) -> Unit,
         scale: Float = 2f,
         strokeWidth: Dp = (buttonSize.height / 10),
         gapBetweenThumbAndTrackEdge: Dp = (buttonSize.width / 9),
@@ -211,47 +218,38 @@ object CameraScreenButtons {
             else with(LocalDensity.current) { (thumbRadius + gapBetweenThumbAndTrackEdge).toPx() },
                 label = ""
             )
-        val localFont = LocalTypography.current
+        Column(modifier) {
+            Canvas(
+                modifier = Modifier
+                    .size(buttonSize)
+                    .scale(scale = scale)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            // This is called when the user taps on the canvas
+                            switchON.value = !switchON.value
+                            onChangeState(switchON.value)
+                        })
+                    }) {
+                // Track
+                drawRoundRect(
+                    color = if (switchON.value) positiveColor else negativeColor,
+                    cornerRadius = CornerRadius(
+                        x = buttonSize.height.toPx(),
+                        y = buttonSize.height.toPx()
+                    ),
+                    style = Stroke(width = strokeWidth.toPx())
+                )
 
-        Column(
-            modifier = modifier,
-            verticalArrangement = Arrangement.spacedBy(15.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                style = localFont.heading03,
-                text = "$innerText ${if (switchON.value) "On" else "Off"}"
-            )
-            Column {
-                Canvas(
-                    modifier = Modifier
-                        .size(buttonSize)
-                        .scale(scale = scale)
-                        .pointerInput(Unit) {
-                            detectTapGestures(onTap = {
-                                // This is called when the user taps on the canvas
-                                switchON.value = !switchON.value
-                                onChangeState()
-                            })
-                        }) {
-                    // Track
-                    drawRoundRect(
-                        color = if (switchON.value) positiveColor else negativeColor,
-                        cornerRadius = CornerRadius(x = 10.dp.toPx(), y = 10.dp.toPx()),
-                        style = Stroke(width = strokeWidth.toPx())
+                // Thumb
+                drawCircle(
+                    color = if (switchON.value) positiveColor else negativeColor,
+                    radius = thumbRadius.toPx(),
+                    center = Offset(
+                        x = animatePosition.value, y = size.height / 2
                     )
-
-                    // Thumb
-                    drawCircle(
-                        color = if (switchON.value) positiveColor else negativeColor,
-                        radius = thumbRadius.toPx(),
-                        center = Offset(
-                            x = animatePosition.value, y = size.height / 2
-                        )
-                    )
-                }
-
+                )
             }
+
         }
 
 
@@ -270,12 +268,12 @@ object CameraScreenButtons {
         val fixedBtnImage = if (isFixedBtnPressed) R.drawable.fixbutton_fixed
         else R.drawable.fixbutton_unfixed
 
-        val activatedColor = Color(0xFF95FA99)
-        val inActivatedColor = Color(0xFF999999)
+        val activatedColor = LocalColors.current.primaryGreen100
+        val inActivatedColor = LocalColors.current.subSecondaryGray100
 
 
 
-        CompositionLocalProvider(LocalRippleTheme provides RedRippleTheme.apply {
+        CompositionLocalProvider(LocalRippleTheme provides LocalButtonRippleTheme.apply {
             setRippleEffect(
                 defaultColor = if (isFixedBtnPressed) activatedColor
                 else inActivatedColor, alphaColor = Color.Black
@@ -333,7 +331,9 @@ object CameraScreenButtons {
             modifier = modifier
                 .clickable(
                     indication = rememberRipple(
-                        color = Color(0xFF999999), bounded = true, radius = buttonSize / 2
+                        color = LocalColors.current.subSecondaryGray100,
+                        bounded = true,
+                        radius = buttonSize / 2
                     ), //Ripple 효과 제거
                     interactionSource = interactionSource, onClick = onClickEvent
                 ), shape = CircleShape
@@ -377,7 +377,7 @@ object CameraScreenButtons {
         onSelectedItemEvent: (Int) -> Unit,
         isExpanded: (Boolean) -> Unit,
         defaultButtonSize: Dp = 44.dp,
-        defaultButtonColor: Color = Color.Black,
+        defaultButtonColor: Color = LocalColors.current.subPrimaryBlack100,
         triggerClose: Boolean,
     ) {
         val isExpandedState = remember {
@@ -419,7 +419,8 @@ object CameraScreenButtons {
         ) {
             if (isExpandedState.value) Box(
                 modifier
-                    .wrapContentSize()
+                    .height(defaultButtonSize)
+                    .fillMaxWidth()
                     .background(
                         color = defaultButtonColor.copy(alpha = 0.8f),
                         shape = RoundedCornerShape(30.dp)
@@ -452,7 +453,7 @@ object CameraScreenButtons {
                     Modifier
                         .wrapContentHeight()
                         .align(Alignment.Center)
-                        .fillMaxWidth(0.9F),
+                        .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     for (idx in itemList.indices) {
@@ -467,7 +468,7 @@ object CameraScreenButtons {
                             Text(
                                 text = itemList[idx],
                                 color = Color.White,
-                                fontSize = 12.sp,
+                                fontSize = 14.sp,
                                 fontWeight = if (selectedIndexState.intValue == idx) FontWeight.Bold else FontWeight.Light,
                                 textAlign = TextAlign.Center
                             )
@@ -480,14 +481,21 @@ object CameraScreenButtons {
                 modifier = modifier, onClick = onBtnClicked
             ) {
                 Icon(
-                    modifier = Modifier.size(defaultButtonSize),
+                    modifier = Modifier
+                        .size(defaultButtonSize)
+                        .border(
+                            BorderStroke(2.dp, LocalColors.current.subPrimaryBlack100),
+                            shape = CircleShape
+                        ),
                     painter = painterResource(id = R.drawable.based_circle),
-                    tint = defaultButtonColor,
+                    tint = LocalColors.current.secondaryWhite100,
                     contentDescription = type
                 )
                 Text(
-                    color = Color.White, text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
-                    fontWeight = FontWeight(FontWeight.Bold.weight), fontSize = 12.sp
+                    color = LocalColors.current.subPrimaryBlack100,
+                    text = itemList[selectedIndexState.intValue], //화면 비 글씨 표기
+                    fontWeight = FontWeight(FontWeight.Bold.weight),
+                    fontSize = 14.sp
                 )
             }
 
@@ -497,6 +505,7 @@ object CameraScreenButtons {
     @Composable
     fun NormalButton(
         modifier: Modifier = Modifier,
+        isButtonEnable: Boolean = true,
         buttonSize: Dp = 20.dp,
         buttonName: String,
         innerIconDrawableId: Int? = null,
@@ -509,6 +518,7 @@ object CameraScreenButtons {
         onClick: () -> Unit
     ) {
         IconButton(
+            enabled = isButtonEnable,
             modifier = modifier.size(buttonSize),
             onClick = onClick,
         ) {
@@ -526,7 +536,7 @@ object CameraScreenButtons {
                 fontWeight = FontWeight.Bold
             )
             if (innerIconDrawableId != null) Icon(
-                modifier = modifier.size(innerIconDrawableSize), painter = painterResource(
+                modifier = Modifier.size(innerIconDrawableSize), painter = painterResource(
                     id = innerIconDrawableId
                 ), contentDescription = "$buttonName 아이콘", tint = innerIconColorTint
             )
@@ -541,7 +551,6 @@ fun TestSwitch() {
     SwitchableButton(init = false,
         positiveColor = Color(0x99999999),
         negativeColor = Color(0xFFFFFF00),
-        innerText = "구도",
         modifier = Modifier,
         onChangeState = {
 

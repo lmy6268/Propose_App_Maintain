@@ -11,7 +11,7 @@
         android:fillColor="#ffffff"/>
     <path
         android:pathData="M387,66V98H419V66H387Z"
-        android:fillColor="#AEFCAF"/>
+        android:fillColor="#93C0FF"/>
     <path
         android:pathData="M86,106V234H91V440H299V446H427V318H419V112H214V106H86Z"
         android:fillColor="#000000"/>

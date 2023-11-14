@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 
 object PermScreen {
@@ -67,7 +68,7 @@ object PermScreen {
         Surface(
             modifier = Modifier
                 .fillMaxSize(),
-            color = Color(0xFF95FFA7)
+            color = LocalColors.current.primaryGreen100
         ) {
             Column(
                 modifier = Modifier
@@ -77,7 +78,7 @@ object PermScreen {
                 verticalArrangement = Arrangement.spacedBy(60.dp, Alignment.CenterVertically)
             ) {
                 Text(
-                    text = "Pro_Pose 서비스를 이용하기 위해\n" +
+                    text = "프로_포즈(Pro_Pose) 서비스를 이용하기 위해\n" +
                             "접근 권한의 허용이 필요합니다.",
                     style = localTypography.heading02,
                 )

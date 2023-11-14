@@ -47,6 +47,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.ContentScale
@@ -103,13 +104,13 @@ object GalleryScreen {
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-
-
             //Child 2
             //사진이 보이는 화면
             HorizontalPager(
-                state = horizontalPagerState, modifier = Modifier
-                    .fillMaxSize(), pageSpacing = 0.dp
+                state = horizontalPagerState,
+                modifier = Modifier
+                    .fillMaxSize(),
+                pageSpacing = 0.dp
             ) {
 
                 ImageContent(
@@ -133,10 +134,9 @@ object GalleryScreen {
             ) {
                 //UpperBar -> 상단바 (뒤로가기, 현재 사진 수 ,갤러리 화면)
                 Box(modifier = Modifier.fillMaxSize()) {
-
                     Row(
                         modifier = Modifier
-                            .background(Color.Black)
+                            .background(Color.Black.copy(alpha = 0.3F))
                             .fillMaxWidth()
                             .padding(top = 40.dp, start = 20.dp, end = 20.dp)
                             .align(Alignment.TopCenter)
@@ -189,9 +189,9 @@ object GalleryScreen {
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)
-                            .height(screenHeight / 5)
+                            .height(screenHeight / 6)
                             .navigationBarsPadding()
-                            .background(Color.Black),
+                            .background(Color.Black.copy(alpha = 0.3F)),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -248,12 +248,8 @@ object GalleryScreen {
     ) {
         val imagePainter = rememberAsyncImagePainter(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(
-                    imgUri.run { this ?: R.drawable.impossible_icon }
-                )
-                .size(with(LocalDensity.current) {
-                    imgSize.toPx().toInt()
-                }) //뷰 사이즈의 크기 만큼 이미지 리사이징
+                .data(imgUri.run { this ?: R.drawable.impossible_icon })
+                .size(with(LocalDensity.current) { imgSize.toPx().toInt() }) //뷰 사이즈의 크기 만큼 이미지 리사이징
                 .build()
         )
         Image(
@@ -267,7 +263,7 @@ object GalleryScreen {
             painter = imagePainter,
             contentScale = ContentScale.Fit,
             contentDescription = "저장된 이미지",
-            alignment = Alignment.Center
+            alignment = Alignment.Center,
         )
     }
 

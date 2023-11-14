@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -58,6 +60,7 @@ object CameraScreenCompScreen {
         modifier: Modifier = Modifier,
         pointOffSet: Offset?,
         triggerPoint: (DpSize) -> Unit,
+        onPointMatched: (Boolean) -> Unit,
         stopToTracking: () -> Unit = {} //만약 트래커의 Offset이 화면을 벗어나는 경우, 트래킹을 멈춤
     ) {
         val localDensity = LocalDensity.current //현재 밀도
@@ -68,10 +71,12 @@ object CameraScreenCompScreen {
         }
 
         //현재 구도추천 포인트의 위치  -> 아마 애니메이션 넣어줘야 할 듯
-        val pointOffsetNow by rememberUpdatedState(newValue = pointOffSet)
+        val pointOffsetNow by remember(pointOffSet) { derivedStateOf { pointOffSet } }
         //구도추천 활성화 여부
         val isPointOn = remember { mutableStateOf(false) }
-
+        val nowInHorizon = remember {
+            mutableStateOf(false)
+        }
         Box(modifier = modifier
             .fillMaxSize()
             .onGloballyPositioned { coordinates ->
@@ -108,6 +113,7 @@ object CameraScreenCompScreen {
                     CompGuidePoint(
                         areaSize = compSize.value!!,
                         pointOffSet = pointOffsetNow!!,
+                        onPointMatched = { onPointMatched(nowInHorizon.value) },
                     )
                 } else {
                     //흔들림 감지 -> 구도 포인트가 없을 때만, 흔들림을 감지 하기 시작한다.
@@ -126,7 +132,11 @@ object CameraScreenCompScreen {
                                 (it!!.width / 2).toPx(), (it.height / 2).toPx()
                             )
                         }
-                    })
+                    },
+                    onMakeHorizontalEvent = {
+                        nowInHorizon.value = it
+                    }
+                )
             }
 
 
@@ -141,12 +151,17 @@ object CameraScreenCompScreen {
         pointOffSet: Offset,
         pointColor: Color = Color(0x80FFFFFF),
         pointRadius: Float = 55F,
+        onPointMatched: () -> Unit
     ) {
         val areaCentroid = LocalDensity.current.run {
             with(areaSize.center) { Offset(x.toPx(), y.toPx()) }
         } //화면 중심부의 좌표
 
         val isMatched = remember {
+            mutableStateOf(false)
+        }
+        val localColor = LocalColors.current
+        val isTriggered = remember {
             mutableStateOf(false)
         }
 
@@ -167,7 +182,12 @@ object CameraScreenCompScreen {
                 pointOffSet
             }
         }
-
+        LaunchedEffect(isMatched.value) {
+            if (isMatched.value && isTriggered.value.not()) {
+                onPointMatched()
+                isTriggered.value = true
+            }
+        }
 
         Box(
             modifier = modifier.size(areaSize)
@@ -193,7 +213,7 @@ object CameraScreenCompScreen {
                     drawCircle(
                         center = point(),
                         radius = pointRadius,
-                        color = Color(0x8095FFA7),
+                        color = localColor.primaryGreen100.copy(alpha = 0.8f),
                     )
                 }
             }
@@ -281,7 +301,10 @@ object CameraScreenCompScreen {
     // 수평계 모듈
     @Composable
     fun HorizontalCheckModule(
-        modifier: Modifier = Modifier, centerRadius: Float, centroid: Offset
+        modifier: Modifier = Modifier,
+        centerRadius: Float,
+        centroid: Offset,
+        onMakeHorizontalEvent: (Boolean) -> Unit = {}
     ) {
         val context = LocalContext.current
 
@@ -300,8 +323,6 @@ object CameraScreenCompScreen {
             object : OrientationEventListener(context.applicationContext) {
                 override fun onOrientationChanged(orientation: Int) {
                     // -1이 나오면 측정을 중지한다.
-
-
                     if (orientation != -1) {
                         rotationState.intValue = when (orientation) {
                             in 180 - angleThreshold..180 + angleThreshold -> 180
@@ -342,6 +363,7 @@ object CameraScreenCompScreen {
             ) {
                 val calibrationDegree = -rotationState.intValue
                 if (calibrationDegree in listOf(0, -180)) {
+                    onMakeHorizontalEvent(true)
                     drawLine(
                         start = leftStartOffset,
                         end = rightEndOffset,
@@ -357,6 +379,7 @@ object CameraScreenCompScreen {
                         )
                     )
                 } else {
+                    onMakeHorizontalEvent(false)
                     drawLine(
                         Color.White, leftStartOffset, leftEndOffset, strokeWidth = 10F
                     )

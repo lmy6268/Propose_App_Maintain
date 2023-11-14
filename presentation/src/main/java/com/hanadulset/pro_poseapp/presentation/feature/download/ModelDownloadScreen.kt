@@ -2,7 +2,12 @@ package com.hanadulset.pro_poseapp.presentation.feature.download
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,7 +55,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.core.CustomDialog
 import com.hanadulset.pro_poseapp.utils.CheckResponse
@@ -82,30 +91,33 @@ object ModelDownloadScreen {
     fun ModelDownloadRequestScreen(
         isCheck: CheckResponse?,
         moveToLoading: () -> Unit,
-        moveToDownloadProgress: (Int) -> Unit
+        moveToDownloadProgress: (Int) -> Unit,
+        requestCheckDownload: () -> Unit = {}
     ) {
         val context = LocalContext.current
         val checkState by rememberUpdatedState(newValue = isCheck)
-
-
-        if (checkState != null)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF95FFA7))
-                    .navigationBarsPadding(),
+        val launcher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+            onResult = {
+            }
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LocalColors.current.primaryGreen100)
+                .navigationBarsPadding(),
+        ) {
+            if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
+                || checkState!!.downloadType == CheckResponse.TYPE_ADDITIONAL_DOWNLOAD
             ) {
-
                 CustomDialog.DownloadAlertDialog(
-                    isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
-                            || checkState!!.downloadType == CheckResponse.TYPE_ERROR,
+                    isDownload = checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD,
                     modifier = Modifier
                         .wrapContentSize()
                         .align(Alignment.BottomCenter),
                     totalSize = checkState!!.totalSize,
                     onDismissRequest = {
                         if (checkState!!.downloadType == CheckResponse.TYPE_MUST_DOWNLOAD
-                            || checkState!!.downloadType == CheckResponse.TYPE_ERROR
                         ) (context as Activity).finish()
                         else moveToLoading()
                     },
@@ -113,7 +125,23 @@ object ModelDownloadScreen {
                         moveToDownloadProgress(checkState!!.downloadType)
                     }
                 )
+            } else if (checkState!!.needToDownload.not()) moveToLoading()
+            //서버와 연결이 되지 않을 때
+            else {
+                CustomDialog.InternetConnectionDialog(
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .align(Alignment.BottomCenter),
+                    //설정화면으로 연결
+                    onConfirmRequest = requestCheckDownload,
+                    onDismissRequest = {
+                        Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                            launcher.launch(this)
+                        }
+                    }
+                )
             }
+        }
 
 
     }
@@ -139,7 +167,7 @@ object ModelDownloadScreen {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF95FFA7))
+                .background(LocalColors.current.primaryGreen100)
         ) {
             Surface(
                 modifier = Modifier
@@ -229,7 +257,7 @@ object ModelDownloadScreen {
         modifier: Modifier = Modifier,
         progress: Float,
         backgroundColor: Color = Color(0xFFF0F0F0),
-        color: Color = Color(0xFF95FFA7),
+        color: Color = LocalColors.current.primaryGreen100,
     ) {
         val strokeWidth = LocalDensity.current.run { 15.dp.toPx() }
 

@@ -2,11 +2,11 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.camera.core.AspectRatio
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,48 +15,52 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Icon
 import androidx.compose.material.Slider
 import androidx.compose.material.SliderDefaults
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -67,13 +71,20 @@ import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents.CircularWaitingBar
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ParticularZoomButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ToggledButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenUnderBar.defaultButtonSize
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenUnderBar.galleryButtonSize
+import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenUnderBar.shutterButtonSize
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import kotlinx.coroutines.launch
 
 object CameraScreenUnderBar {
 
     //하단바 구성
     //총 세 개의 층이고, 추천 층을 제외한 두 층 각각은 별도의 패딩이 필요하다.
+
+    //버튼 사이즈
+    val shutterButtonSize = 70.dp
+    val defaultButtonSize = shutterButtonSize - 20.dp
+    val galleryButtonSize = shutterButtonSize - 20.dp
 
     @Composable
     fun UnderBar(
@@ -84,16 +95,19 @@ object CameraScreenUnderBar {
         onGalleryButtonClickEvent: () -> Unit,
         onZoomLevelChangeEvent: (Float) -> Unit,
         lowerLayerPaddingBottom: Dp = 0.dp,
+        zoomLevelState: Float,
         userEdgeDetectionValue: Boolean,
         systemEdgeDetectionValue: Boolean,
         onSystemEdgeDetectionClicked: () -> Unit,
-        onUserEdgeDetectionClicked: () -> Unit
+        onUserEdgeDetectionClicked: () -> Unit,
+        isRecommendPoseEnabled: Boolean
     ) {
 
         val galleryThumbUri by rememberUpdatedState(newValue = galleryImageUri)
+        val poseSwitchValue by rememberUpdatedState(newValue = isRecommendPoseEnabled)
 
         Column(
-            modifier = modifier.padding(bottom = 10.dp),
+            modifier = modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -101,8 +115,10 @@ object CameraScreenUnderBar {
                 modifier = Modifier.fillMaxWidth(),
                 onUserEdgeDetectionClicked = onUserEdgeDetectionClicked,
                 onZoomLevelChangeEvent = onZoomLevelChangeEvent,
-                onRecommendPoseEvent = onPoseRecommendEvent,
-                userEdgeDetectionValue = userEdgeDetectionValue
+                onFixedButtonClickEvent = onSystemEdgeDetectionClicked,
+                userEdgeDetectionValue = userEdgeDetectionValue,
+                systemEdgeDetectionValue = systemEdgeDetectionValue,
+                zoomLevelState = zoomLevelState,
             )
             LowerLayer(
                 modifier = Modifier
@@ -110,9 +126,9 @@ object CameraScreenUnderBar {
                     .padding(bottom = lowerLayerPaddingBottom),
                 onShutterClickEvent = onShutterClickEvent,
                 onGalleryButtonClickEvent = onGalleryButtonClickEvent,
-                onFixedButtonClickEvent = onSystemEdgeDetectionClicked,
                 galleryImageUri = galleryThumbUri,
-                systemEdgeDetectionValue = systemEdgeDetectionValue
+                isRecommendPoseEnabled = poseSwitchValue,
+                onRecommendPoseEvent = onPoseRecommendEvent
             )
         }
 
@@ -124,48 +140,51 @@ object CameraScreenUnderBar {
 // 포즈 추천 , 따오기 -> On/Off , 줌레벨은 선택된 버튼이 돋보이도록 사이즈 조절
 // 포즈 추천 버튼, 줌레벨 설정 버튼 , 따오기 버튼이 존재
 
-//따오기를 할 때, 고정을 할 수 있음.. -> 이문제는 어떻게 해결해야 할까?
-// 고정을 할 때, 따오기를 이전에 했다면, 해제해줘야하는데 어떻게 해야할 까?
 @Composable
 fun UpperLayer(
     modifier: Modifier = Modifier,
-    buttonSize: Dp = 44.dp,
+    systemEdgeDetectionValue: Boolean,
     onUserEdgeDetectionClicked: () -> Unit,
     userEdgeDetectionValue: Boolean,
     onZoomLevelChangeEvent: (Float) -> Unit,
-    onRecommendPoseEvent: () -> Unit,
+    onFixedButtonClickEvent: () -> Unit = {},
+    zoomLevelState: Float
 ) {
     val edgeDetectorState by rememberUpdatedState(newValue = userEdgeDetectionValue)
-
-
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 50.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
 
-        CameraScreenButtons.NormalButton(
-            buttonSize = buttonSize,
-            buttonName = "포즈 추천 버튼",
-            buttonText = "포즈",
-            colorTint = Color.Black,
-            onClick = onRecommendPoseEvent
-        )
-
-        //줌 레벨 설정 버튼
-        ZoomButtonRow(
-            modifier = Modifier.wrapContentSize(),
-            defaultButtonSize = buttonSize,
-            onClickEvent = onZoomLevelChangeEvent
-        )
-
+        val fixedBtnValue by rememberUpdatedState(newValue = systemEdgeDetectionValue)
         //따오기 버튼
         ToggledButton(
-            buttonSize = buttonSize,
-            buttonText = "따오기",
+            modifier = Modifier.shadow(elevation = 2.dp, shape = CircleShape),
+            buttonSize = defaultButtonSize,
             onClickEvent = onUserEdgeDetectionClicked,
-            buttonStatus = edgeDetectorState
+            buttonStatus = edgeDetectorState,
+            buttonText = "따오기",
+            inActivatedColor = LocalColors.current.secondaryWhite100,
+            buttonTextColor = LocalColors.current.subPrimaryBlack100
         )
+        //줌 레벨 설정 버튼
+
+        ZoomButtonRow(
+            modifier = Modifier.wrapContentSize(),
+            onClickEvent = onZoomLevelChangeEvent,
+            zoomLevelState = zoomLevelState
+        )
+        //고정
+        CameraScreenButtons.FixedButton(
+            modifier = Modifier.shadow(elevation = 2.dp, shape = CircleShape),
+            buttonSize = defaultButtonSize,
+            onFixedButtonPressedEvent = onFixedButtonClickEvent,
+            fixedBtnStatus = fixedBtnValue
+        )
+
     }
 
 
@@ -176,40 +195,52 @@ fun UpperLayer(
 fun LowerLayer(
     modifier: Modifier = Modifier,
     galleryImageUri: Uri?,
-    systemEdgeDetectionValue: Boolean,
+    onRecommendPoseEvent: () -> Unit,
     onShutterClickEvent: () -> Unit = {},
+    isRecommendPoseEnabled: Boolean,
     onGalleryButtonClickEvent: () -> Unit = {},
-    onFixedButtonClickEvent: () -> Unit = {}
 ) {
 
     //개별 상태변수를 가지고 있으므로써, 의도치 않은 리컴포지션을 방지
     val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
-    val fixedBtnValue by rememberUpdatedState(newValue = systemEdgeDetectionValue)
+    val poseSwitchValue by rememberUpdatedState(newValue = isRecommendPoseEnabled)
+
 
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 50.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         //갤러리 이미지 버튼
         GalleryImageButton(
             galleryImageUri = galleryImageState,
-            buttonSize = 60.dp,
+            buttonSize = galleryButtonSize,
             onClickEvent = onGalleryButtonClickEvent
         )
 
         //셔터
         CameraScreenButtons.ShutterButton(
-            buttonSize = 80.dp
+            buttonSize = shutterButtonSize
         ) { onShutterClickEvent() }
 
-        //고정
-        CameraScreenButtons.FixedButton(
-            modifier = Modifier,
-            buttonSize = 60.dp,
-            onFixedButtonPressedEvent = onFixedButtonClickEvent,
-            fixedBtnStatus = fixedBtnValue
+        if (poseSwitchValue) CameraScreenButtons.NormalButton(
+            modifier = Modifier.shadow(elevation = 2.dp, shape = CircleShape),
+            buttonSize = defaultButtonSize,
+            buttonName = "포즈 추천 버튼",
+            buttonText = "포즈",
+            buttonTextColor = LocalColors.current.subPrimaryBlack100,
+            colorTint = LocalColors.current.secondaryWhite100,
+            onClick = onRecommendPoseEvent,
+            buttonTextSize = 12
         )
+        else CameraScreenButtons.NormalButton(
+            buttonName = "비어있는 공간",
+            isButtonEnable = false,
+            buttonSize = defaultButtonSize,
+            colorTint = Color.Transparent,
+            onClick = {})
     }
 }
 
@@ -223,8 +254,7 @@ private fun GalleryImageButton(
     onClickEvent: () -> Unit,
 ) {
     val imagePainter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(galleryImageUri)
+        model = ImageRequest.Builder(LocalContext.current).data(galleryImageUri)
             .size(with(LocalDensity.current) { buttonSize.toPx().toInt() }) //현재 버튼의 크기만큼 리사이징한다.
             .build()
     )
@@ -257,28 +287,45 @@ private fun GalleryImageButton(
 fun ZoomButtonRow(
     modifier: Modifier,
     selectedButtonScale: Float = 1.2F,
-    defaultButtonSize: Dp = 20.dp,
-    spaceByEachItems: Dp = 8.dp,
+    defaultButtonSize: Dp = 40.dp,
+    spaceByEachItems: Dp = 10.dp,
     onClickEvent: (Float) -> Unit,
+    zoomLevelState: Float
 ) {
-    val selectedButtonIndexState = rememberSaveable { mutableIntStateOf(0) }
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(
-            spaceByEachItems, Alignment.CenterHorizontally
-        )
+    val zoomLevel by rememberUpdatedState(newValue = zoomLevelState)
+
+    Box(
+        modifier = Modifier
+            .wrapContentSize()
+            .background(
+                shape = RoundedCornerShape(100.dp),
+                color = LocalColors.current.subSecondaryGray100.copy(alpha = 0.5F)
+            )
+            .padding(horizontal = 15.dp, vertical = 10.dp)
     ) {
-        listOf(1, 2).forEachIndexed { index, value ->
-            ParticularZoomButton(
-                selected = selectedButtonIndexState.intValue == index,
-                defaultButtonSize = defaultButtonSize / selectedButtonScale,
-                buttonValue = value,
-                selectedButtonScale = selectedButtonScale
-            ) {
-                selectedButtonIndexState.intValue = index
-                onClickEvent(value.toFloat())
+        Row(
+            modifier = modifier.align(Alignment.Center),
+            horizontalArrangement = Arrangement.spacedBy(
+                spaceByEachItems, Alignment.CenterHorizontally
+            )
+        ) {
+            listOf(1, 2).forEachIndexed { index, value ->
+                ParticularZoomButton(
+                    selected = (index + 1) == zoomLevel.toInt(),
+                    defaultButtonSize = defaultButtonSize / selectedButtonScale,
+                    buttonValue = value,
+                    selectedButtonScale = selectedButtonScale
+                ) {
+                    onClickEvent(value.toFloat())
+                }
             }
         }
     }
+
+
+//    }
+
+
 }
 
 
@@ -288,51 +335,88 @@ fun ClickPoseBtnUnderBar(
     modifier: Modifier = Modifier,
     poseList: List<PoseData>?,
     galleryImageUri: Uri?,
-    initScale: Float = 1F,
-    currentSelectedIdx: Int,
+    initPoseItemScale: Float = 1F,
+    currentSelectedPoseItemIdx: Int,
     onRefreshPoseData: () -> Unit,
     onClickShutterBtn: () -> Unit,
     onGalleryButtonClickEvent: () -> Unit,
     onClickCloseBtn: () -> Unit,
     onSelectedPoseIndexEvent: (Int) -> Unit,
-    onChangeScale: (Float) -> Unit
+    onChangeScale: (Float) -> Unit,
+    is16By9AspectRatio: Boolean,
+    maxScale: Float,
 ) {
-
     val galleryImageState by rememberUpdatedState(newValue = galleryImageUri)
-
     BackHandler(onBack = onClickCloseBtn) //뒤로가기 버튼을 누르면 이전 화면으로 돌아감.
+
 
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
 
-        if (poseList != null && currentSelectedIdx > 0) {
-            val trackingValue = remember {
-                mutableFloatStateOf(initScale)
+        if (poseList != null && currentSelectedPoseItemIdx > 0) {
+            val trackedPoseScaleValue = remember {
+                mutableFloatStateOf(initPoseItemScale)
             }
-            LaunchedEffect(initScale) {
-                trackingValue.floatValue = initScale
+            LaunchedEffect(initPoseItemScale) {
+                trackedPoseScaleValue.floatValue = initPoseItemScale
             }
 
-            Slider(
-                colors = SliderDefaults.colors(
+            val nowScaleLimit by rememberUpdatedState(newValue = maxScale)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .padding(start = 10.dp),
+                    painter = painterResource(id = R.drawable.icon_zoom_out),
+                    contentDescription = "",
+                    tint = if (is16By9AspectRatio) LocalColors.current.secondaryWhite100 else Color.Unspecified
+                )
+                Slider(colors = SliderDefaults.colors(
                     thumbColor = LocalColors.current.primaryGreen100,
                     activeTrackColor = LocalColors.current.primaryGreen100,
                     inactiveTrackColor = LocalColors.current.secondaryWhite80,
                     activeTickColor = LocalColors.current.primaryGreen100,
                     inactiveTickColor = Color.Transparent
                 ),
+                    modifier = Modifier
+                        .width(width = (LocalConfiguration.current.screenWidthDp / 1.5).dp)
+                        .height(50.dp),
+                    value = trackedPoseScaleValue.floatValue,
+                    steps = 10,
+                    valueRange = 0.5F.rangeTo(2F),
+                    onValueChange = {
+                        it.coerceIn(
+                            maximumValue = nowScaleLimit,
+                            minimumValue = 0.5F
+                        ).run {
+                            trackedPoseScaleValue.floatValue = this
+                            onChangeScale(this)
+                        }
+                    })
+                Icon(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .padding(end = 10.dp),
+                    painter = painterResource(id = R.drawable.icon_zoom_in),
+                    contentDescription = "",
+                    tint = if (is16By9AspectRatio) LocalColors.current.secondaryWhite100 else Color.Unspecified
+
+                )
+            }
+
+        } else {
+            Spacer(
                 modifier = Modifier
-                    .width(width = (LocalConfiguration.current.screenWidthDp / 1.5).dp)
-                    .padding(bottom = 10.dp),
-                value = trackingValue.floatValue,
-                steps = 10,
-                valueRange = 0.5F.rangeTo(2F),
-                onValueChange = {
-                    trackingValue.floatValue = it
-                    onChangeScale(it)
-                })
+                    .height(50.dp)
+            )
         }
 
 
@@ -340,40 +424,52 @@ fun ClickPoseBtnUnderBar(
         PoseSelectRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White),
-            currentSelectedIdx = currentSelectedIdx,
-            poseList = poseList,
+                .background(
+                    if (is16By9AspectRatio) Color.Unspecified else LocalColors.current.secondaryWhite100
+                )
+                .padding(top = 10.dp),
+            currentSelectedIdx = currentSelectedPoseItemIdx,
+            inputPosedDataList = poseList,
             onSelectedPoseIndexEvent = {
                 onSelectedPoseIndexEvent(it)
-            }
+            },
+            itemTextColor = if (is16By9AspectRatio) LocalColors.current.secondaryWhite100
+            else LocalColors.current.subPrimaryBlack100
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .background(
+                    if (is16By9AspectRatio) Color.Unspecified else LocalColors.current.secondaryWhite100
+                )
+                .padding(horizontal = 50.dp)
+                .padding(top = 10.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             //창 닫는 버튼
             GalleryImageButton(
                 galleryImageUri = galleryImageState,
-                buttonSize = 60.dp,
+                buttonSize = galleryButtonSize,
                 onClickEvent = onGalleryButtonClickEvent
             )
 
             //셔터 버튼
             CameraScreenButtons.ShutterButton(
-                onClickEvent = onClickShutterBtn,
-                buttonSize = 80.dp
+                onClickEvent = onClickShutterBtn, buttonSize = shutterButtonSize
             )
 
             //포즈 새로고침 버튼
             CameraScreenButtons.NormalButton(
+                modifier = Modifier.shadow(elevation = 2.dp, shape = CircleShape),
                 buttonName = "포즈 새로고침",
-                innerIconDrawableSize = 20.dp,
-                colorTint = Color.Black,
+                innerIconDrawableSize = defaultButtonSize / 3,
+                colorTint = LocalColors.current.secondaryWhite100,
                 innerIconDrawableId = R.drawable.refresh,
                 onClick = onRefreshPoseData,
-                buttonSize = 60.dp
+                buttonSize = defaultButtonSize,
+                innerIconColorTint = LocalColors.current.subPrimaryBlack100
             )
         }
     }
@@ -386,66 +482,51 @@ fun ClickPoseBtnUnderBar(
 fun PoseSelectRow(
     modifier: Modifier = Modifier,
     currentSelectedIdx: Int,
-    poseList: List<PoseData>?,
+    inputPosedDataList: List<PoseData>?,
     onSelectedPoseIndexEvent: (Int) -> Unit,
+    itemTextColor: Color
 ) {
     val scrollState = rememberLazyListState()
     val nowSelected by rememberUpdatedState(newValue = currentSelectedIdx)
-    val rememberCoroutineScope = rememberCoroutineScope()
-    val scrollBySnap = remember { mutableStateOf(false) }
-    val scrollByClick = remember { mutableStateOf(false) }
-    val localDensity = LocalDensity.current
-    val rowWidth =
-        remember { derivedStateOf { with(localDensity) { scrollState.layoutInfo.viewportSize.width.toDp() } } }
-
-    val padding by rememberUpdatedState(newValue = rowWidth.value / 3F + 10.dp)
+    val rowWidth = LocalConfiguration.current.screenWidthDp.dp
+    val poseItemSize = DpSize(80.dp, 80.dp)
+    val textSize = 10.dp
+    val flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(scrollState))
+    val padding by rememberUpdatedState(newValue = (rowWidth - poseItemSize.width) / 2)
 
 
-    fun onClickedItem(idx: Int) {
-        /*코루틴을 컴포저블에서 사용하기 위해서는 rememberCoroutineScope()를 사용해야 함.*/
-        rememberCoroutineScope.launch {
+    LaunchedEffect(inputPosedDataList) {
+        scrollState.scrollToItem(nowSelected)
+    }
 
-            if (scrollBySnap.value.not()) {
-                scrollByClick.value = true //클릭으로 스크롤 했다고 알림.
-                val itemInfo =
-                    scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
-                if (itemInfo != null) {
-                    val center = scrollState.layoutInfo.viewportEndOffset / 2
-                    val childCenter = itemInfo.offset + (itemInfo.size / 2)
-                    scrollState.animateScrollBy((childCenter - center).toFloat())
-                } else {
-                    scrollState.animateScrollToItem(idx)
-                }
-                onSelectedPoseIndexEvent(idx)
-            } else scrollBySnap.value = false
-
-        }
+    LaunchedEffect(nowSelected) {
+        scrollState.animateScrollToItem(nowSelected)
     }
 
 
-
-
-
     LazyRow(
-        modifier = modifier.background(LocalColors.current.secondaryWhite80), state = scrollState,
-        horizontalArrangement = Arrangement.Center,
+        modifier = modifier,
+        state = scrollState,
+        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
         contentPadding = PaddingValues(
-            horizontal = padding,
-            vertical = 10.dp
+            horizontal = padding
         ),
-        flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(scrollState)),
+        flingBehavior = flingBehavior,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (poseList != null) {
-            itemsIndexed(poseList) { idx, posedata ->
+        if (inputPosedDataList != null) {
+            itemsIndexed(inputPosedDataList) { idx, posedata ->
                 PoseSelectionItem(
-                    modifier = Modifier.padding(horizontal = 10.dp),
+                    modifier = Modifier.size(poseItemSize),
                     isSelected = idx == nowSelected,
                     imageUri = posedata.imageUri,
                     poseIndex = idx,
                     onClickEvent = {
-                        onClickedItem(idx)
-                    }, poseSize = 70
+                        onSelectedPoseIndexEvent(idx)
+                    },
+                    poseSize = poseItemSize.height - textSize * 2,
+                    textSize = textSize,
+                    itemTextColor = itemTextColor
                 )
             }
         } else { //아직 포즈를 찾고 있는 중 일 때
@@ -453,7 +534,7 @@ fun PoseSelectRow(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp),
+                        .height(poseItemSize.height),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -461,11 +542,11 @@ fun PoseSelectRow(
                     Text(
                         text = "포즈 추천 중..",
                         textAlign = TextAlign.Center,
+                        color = itemTextColor,
                         fontFamily = CameraScreenButtons.pretendardFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp,
-                        modifier = Modifier
-                            .padding(top = 5.dp)
+                        modifier = Modifier.padding(top = 5.dp)
                     )
                 }
             }
@@ -483,7 +564,9 @@ fun PoseSelectionItem(
     isSelected: Boolean,
     imageUri: Uri?,
     poseIndex: Int,
-    poseSize: Int,
+    poseSize: Dp,
+    textSize: Dp,
+    itemTextColor: Color,
     onClickEvent: () -> Unit
 ) {
     val colorTheme = LocalColors.current
@@ -492,27 +575,21 @@ fun PoseSelectionItem(
     val selectedColor = colorTheme.primaryGreen100
     val stateColor = if (isSelected) selectedColor else unSelectedColor
     val defaultModifier = Modifier
+        .padding(2.dp)
         .wrapContentSize()
         .clickable(
-            interactionSource = MutableInteractionSource(),
-            indication = rememberRipple(
+            interactionSource = MutableInteractionSource(), indication = rememberRipple(
                 color = if (isSelected) selectedColor
-                else unSelectedColor,
-                bounded = true,
-                radius = poseSize.dp / 2
+                else unSelectedColor, bounded = true, radius = poseSize / 2
             )
         ) { onClickEvent() }
-    val painter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(
-                imageUri.run {
-                    this ?: R.drawable.impossible_icon
-                }
-            )
-            .size(with(LocalDensity.current) {
-                poseSize.dp.toPx().toInt()
-            }) //현재 버튼의 크기만큼 리사이징한다.
-            .build()
+    val painter = rememberAsyncImagePainter(model = ImageRequest.Builder(LocalContext.current)
+        .data(imageUri.run {
+            this ?: R.drawable.impossible_icon
+        }).size(with(LocalDensity.current) {
+            poseSize.toPx().toInt()
+        }) //현재 버튼의 크기만큼 리사이징한다.
+        .build()
     )
 
     Column(
@@ -521,8 +598,7 @@ fun PoseSelectionItem(
         verticalArrangement = Arrangement.Center
     ) {
         val checkedPainter = rememberAsyncImagePainter(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(R.drawable.selected_icon)
+            model = ImageRequest.Builder(LocalContext.current).data(R.drawable.selected_icon)
                 .build()
         )
 
@@ -537,15 +613,16 @@ fun PoseSelectionItem(
                     Box(
                         modifier = Modifier
                             .padding(2.dp)
-                            .size(poseSize.dp)
+                            .size(poseSize)
                             .zIndex(1F)
                     ) {
                         Image(
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .size((poseSize / 2).dp),
-                            painter = checkedPainter, contentDescription = "",
-                            colorFilter = ColorFilter.tint(color = Color.White)
+                                .size(poseSize / 2),
+                            painter = checkedPainter,
+                            contentDescription = "",
+                            colorFilter = ColorFilter.tint(color = LocalColors.current.secondaryWhite100)
                         )
                     }
                 }
@@ -555,12 +632,11 @@ fun PoseSelectionItem(
                     Image(
                         modifier = Modifier
                             .background(color = stateColor)
-                            .padding(2.dp)
-                            .size(poseSize.dp),
+                            .size(poseSize),
                         painter = painter,
                         contentDescription = "이미지",
                         contentScale = ContentScale.Fit,
-                        colorFilter = if (imageUri == null) ColorFilter.tint(color = Color.Black) else null
+                        colorFilter = ColorFilter.tint(color = LocalColors.current.subPrimaryBlack100)
                     )
                 }
             }
@@ -571,13 +647,14 @@ fun PoseSelectionItem(
             textAlign = TextAlign.Center,
             fontFamily = CameraScreenButtons.pretendardFamily,
             fontWeight = FontWeight.Bold,
-            fontSize = 10.sp,
+            fontSize = with(LocalDensity.current) { textSize.toSp() },
+            color = itemTextColor,
             modifier = Modifier
-                .width(poseSize.dp)
-                .padding(top = 5.dp)
+                .padding(top = 3.dp)
+                .width(poseSize)
+                .wrapContentHeight()
+
         )
-
-
     }
 
 
@@ -616,41 +693,25 @@ fun PoseSelectionItem(
 fun PreviewSelector() {
     val poseList = listOf(
         PoseData(
-            poseId = 0,
-            imageUri = null,
-            poseCat = 1
+            poseId = 0, imageUri = null, poseCat = 1
         ), PoseData(
-            poseId = 0,
-            poseCat = 1
+            poseId = 0, poseCat = 1
         ), PoseData(
-            poseId = 0,
-            poseCat = 1
+            poseId = 0, poseCat = 1
         ), PoseData(
-            poseId = 0,
-            poseCat = 1
+            poseId = 0, poseCat = 1
         ), PoseData(
-            poseId = 0,
-            poseCat = 1
-        ),
-        PoseData(
-            poseId = 0,
-            poseCat = 1
-        ),
-        PoseData(
-            poseId = 0,
-            poseCat = 1
-        ),
-        PoseData(
-            poseId = 0,
-            poseCat = 1
-        ),
-        PoseData(
-            poseId = 0,
-            poseCat = 1
-        ),
-        PoseData(
-            poseId = 0,
-            poseCat = 1
+            poseId = 0, poseCat = 1
+        ), PoseData(
+            poseId = 0, poseCat = 1
+        ), PoseData(
+            poseId = 0, poseCat = 1
+        ), PoseData(
+            poseId = 0, poseCat = 1
+        ), PoseData(
+            poseId = 0, poseCat = 1
+        ), PoseData(
+            poseId = 0, poseCat = 1
         )
 
 
@@ -662,13 +723,22 @@ fun PreviewSelector() {
         onClickCloseBtn = {},
         onClickShutterBtn = {},
         onRefreshPoseData = {},
-        currentSelectedIdx = 0,
+        currentSelectedPoseItemIdx = 0,
         galleryImageUri = null,
         onGalleryButtonClickEvent = {
 
         },
         onChangeScale = {
 
-        }
+        },
+        is16By9AspectRatio = true,
+        maxScale = 2F
     )
+}
+
+@Preview
+@Composable
+fun TestZoomRow() {
+    ZoomButtonRow(modifier = Modifier.wrapContentSize(), onClickEvent = { }, zoomLevelState = 1F)
+
 }

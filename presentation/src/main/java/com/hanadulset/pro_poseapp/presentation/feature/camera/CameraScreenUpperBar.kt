@@ -2,24 +2,29 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.util.Size
 import androidx.camera.core.AspectRatio
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ExpandableButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenUpperBar.UpperBar
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
@@ -30,33 +35,25 @@ object CameraScreenUpperBar {
     @Composable
     fun UpperBar(
         modifier: Modifier = Modifier, //상단바의 전반적인 크기를 조절
-        compStateInit: Boolean,
         viewRateList: List<ViewRate>,
-        onChangeCompSetEvent: (Boolean) -> Unit,
         moveToInfo: () -> Unit,
         onSelectedViewRate: (Int) -> Unit,
         needToCloseViewRateList: Boolean = false,
     ) {
         //변수 선언
         //구도 추천 여부
-        val recommendCompState = remember { mutableStateOf(compStateInit) }
         val isExpandedState = remember {
             mutableStateOf(false)
         }
-        val changeCompState by rememberUpdatedState(newValue = {
-            recommendCompState.value = recommendCompState.value.not()
-            onChangeCompSetEvent(recommendCompState.value)
-        })
         val triggerCloseValue by rememberUpdatedState(newValue = needToCloseViewRateList)
-
+        val buttonSize = 36.dp
 
         //컴포저블 세팅
         Row(
-            modifier = modifier,
+            modifier = modifier.padding(horizontal = buttonSize),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-
             //오버레이 되는 확장 가능한 버튼
             ExpandableButton(
                 itemList = viewRateList.map { it.name },
@@ -66,33 +63,40 @@ object CameraScreenUpperBar {
                 isExpanded = {
                     isExpandedState.value = it
                 },
-                defaultButtonSize = 44.dp,
+                defaultButtonSize = buttonSize,
                 triggerClose = triggerCloseValue
             )
 
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
                 //구도추천 On/OFF
-                CameraScreenButtons.SwitchableButton(
-                    innerText = "구도 추천",
-                    init = recommendCompState.value,
-                    positiveColor = Color(0xFF95FA99),
-                    negativeColor = Color.Black,
-                    onChangeState = {
-                        changeCompState()
-                    }
-                )
+//                CameraScreenButtons.SwitchableButton(
+//                    innerText = "구도 추천",
+//                    init = recommendCompState.value,
+//                    positiveColor = LocalColors.current.primaryGreen100,
+//                    negativeColor = Color.Black,
+//                    onChangeState = {
+//                        changeCompState()
+//                    }
+//                )
 
 
                 //정보화면 이동
                 CameraScreenButtons.NormalButton(
-                    innerIconDrawableId = R.drawable.settings,
+                    modifier = Modifier.border(
+                        BorderStroke(
+                            2.dp,
+                            LocalColors.current.subPrimaryBlack100
+                        ),
+                        shape = CircleShape
+                    ),
                     buttonName = "정보",
                     onClick = moveToInfo,
-                    colorTint = Color.Black,
-                    buttonSize = 44.dp,
-                    innerIconColorTint = Color.White,
-                    innerIconDrawableSize = 24.dp
+                    colorTint = LocalColors.current.secondaryWhite100,
+                    buttonSize = buttonSize,
+                    buttonText = "i",
+                    buttonTextColor = LocalColors.current.subPrimaryBlack100,
+                    buttonTextSize = (buttonSize.value.toInt() / 2)
                 )
 
             }
@@ -108,7 +112,6 @@ object CameraScreenUpperBar {
 @Preview
 fun PreviewUpperBar() {
     UpperBar(
-        compStateInit = false,
         viewRateList = listOf(
             ViewRate(
                 name = "3:4",
@@ -120,9 +123,6 @@ fun PreviewUpperBar() {
                 aspectRatioSize = Size(9, 16)
             )
         ),
-        onChangeCompSetEvent = {
-
-        },
         onSelectedViewRate = {
 
         },

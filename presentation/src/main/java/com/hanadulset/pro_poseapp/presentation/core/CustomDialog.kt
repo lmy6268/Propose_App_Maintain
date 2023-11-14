@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hanadulset.pro_poseapp.presentation.R
+import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import kotlin.math.roundToInt
 
 object CustomDialog {
@@ -40,6 +41,7 @@ object CustomDialog {
         modifier: Modifier = Modifier,
         dialogTitle: String,
         subTitle: String,
+        subTitleAdd: String = "",
         dismissText: String = "취소",
         confirmText: String = "확인",
         onDismissRequest: () -> Unit,
@@ -82,6 +84,12 @@ object CustomDialog {
                     text = subTitle, style = subStyle
                 )
                 Spacer(modifier = Modifier.height(10.dp))
+                if (subTitleAdd != "") {
+                    Text(
+                        text = subTitleAdd, style = subStyle
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -89,7 +97,7 @@ object CustomDialog {
                     DialogButton(
                         buttonText = dismissText,
                         buttonSize = buttonSize,
-                        backgroundColor = Color(0xFFFAFAFA),
+                        backgroundColor = LocalColors.current.secondaryWhite100,
                         fontFamily = pretendardFamily,
                         fontWeight = FontWeight.Light,
                         onClick = onDismissRequest
@@ -97,7 +105,7 @@ object CustomDialog {
                     DialogButton(
                         buttonText = confirmText,
                         buttonSize = buttonSize,
-                        backgroundColor = Color(0xFF95FFA7),
+                        backgroundColor = LocalColors.current.primaryGreen100,
                         fontFamily = pretendardFamily,
                         fontWeight = FontWeight.Bold,
                         onClick = onConfirmRequest
@@ -169,9 +177,10 @@ object CustomDialog {
     ) {
         CustomAlertDialog(
             modifier = modifier,
-            dialogTitle = "인터넷 연결이 끊겼습니다.",
-            subTitle = "현재 작업을 완료하기 위해서는 인터넷 연결이 필요합니다.",
-            dismissText = "설정하러가기",
+            dialogTitle = "리소스 서버에 연결할 수 없습니다.",
+            subTitle = "인터넷 설정을 확인해주세요.",
+            subTitleAdd = "인터넷에 연결되어있는 경우, 다시 한번 시도해주세요.",
+            dismissText = "설정하러 가기",
             confirmText = "다시 시도하기",
             onDismissRequest = onDismissRequest,
             onConfirmRequest = onConfirmRequest

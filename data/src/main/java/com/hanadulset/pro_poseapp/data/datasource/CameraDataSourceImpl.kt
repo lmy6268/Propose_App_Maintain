@@ -197,47 +197,14 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     fun unbindCameraResources(): Boolean {
         return try {
             cameraProvider!!.unbindAll()
-            Log.d("available cameras: ", cameraProvider!!.availableCameraInfos.map { it.cameraState.value }.toString())
+            Log.d(
+                "available cameras: ",
+                cameraProvider!!.availableCameraInfos.map { it.cameraState.value }.toString()
+            )
             true
         } catch (exc: Exception) {
             false
         }
-    }
-
-    private suspend fun saveImageAndSendUri(): Uri = suspendCoroutine { cont ->
-        val sdf = SimpleDateFormat(
-            DATE_FORMAT,
-            Locale.KOREA
-        ).format(System.currentTimeMillis())
-        val name = "IMG_${sdf}.jpg"
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-            put(MediaStore.MediaColumns.MIME_TYPE, PHOTO_TYPE)
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/${APP_NAME}")
-            }
-        }
-        val outputOptions = ImageCapture.OutputFileOptions
-            .Builder(
-                context.contentResolver,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues
-            )
-            .build()
-
-        imageCapture!!.takePicture(
-            outputOptions, executor, object : ImageCapture.OnImageSavedCallback {
-                override fun onError(exc: ImageCaptureException) {
-                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
-                }
-
-                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    val savedUri = output.savedUri!!
-                    Log.d(TAG, "Photo capture succeeded: $savedUri")
-
-                    cont.resume(savedUri)
-                }
-            })
     }
 
 
@@ -261,10 +228,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
 
     companion object {
-        private const val PHOTO_TYPE = "image/jpeg"
-        private const val DATE_FORMAT = "yyyy_MM_dd_HH_mm_ss_SSS"
-        private const val APP_NAME = "Pro_Pose"
-        private val TAG = this::class.simpleName
         const val CAMERA_INIT_COMPLETE = 0
         const val CAMERA_INIT_ERROR = 1
     }

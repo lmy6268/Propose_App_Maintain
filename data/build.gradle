@@ -4,6 +4,8 @@ plugins {
     id 'org.jetbrains.kotlin.android'
     id 'com.google.devtools.ksp'
     id 'com.google.dagger.hilt.android'
+    // Add the Google services Gradle plugin
+    id 'com.google.gms.google-services'
 }
 android {
     namespace 'com.hanadulset.pro_poseapp.data'
@@ -39,6 +41,12 @@ dependencies {
     // Open csv file
     implementation 'com.opencsv:opencsv:4.4'
 
+
+    var firebase_version = "32.5.0"
+    // Import the Firebase BoM
+    implementation platform("com.google.firebase:firebase-bom:$firebase_version")
+    // When using the BoM, don't specify versions in Firebase dependencies
+    implementation 'com.google.firebase:firebase-analytics'
     //Ktor
     var ktor_version = "2.3.3"
     implementation "io.ktor:ktor-client-cio:$ktor_version"

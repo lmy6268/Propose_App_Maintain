@@ -16,6 +16,8 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.GetPoseFromImageUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.LoadUserSetUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.SaveUserSetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
@@ -28,6 +30,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffset
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.utils.ImageUtils
+import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
@@ -55,9 +58,10 @@ class CameraViewModel @Inject constructor(
     private val getLatestImageUseCase: GetLatestImageUseCase,
     private val getPoseFromImageUseCase: GetPoseFromImageUseCase,
     private val setFocusUseCase: SetFocusUseCase,
-    private val writeUserLogUseCase: WriteUserLogUseCase,
     private val updatePointOffsetUseCase: UpdatePointOffsetUseCase,
-    private val stopPointOffsetUseCase: StopPointOffsetUseCase
+    private val stopPointOffsetUseCase: StopPointOffsetUseCase,
+    private val loadUserSetUseCase: LoadUserSetUseCase,
+    private val saveUserSetUseCase: SaveUserSetUseCase
 
 ) : ViewModel() {
 
@@ -65,14 +69,17 @@ class CameraViewModel @Inject constructor(
 
     private val viewRateList = listOf(
         ViewRate(
-            name = "3:4", aspectRatioType = AspectRatio.RATIO_4_3, aspectRatioSize = Size(3, 4)
+            name = "4:3", aspectRatioType = AspectRatio.RATIO_4_3, aspectRatioSize = Size(3, 4)
         ), ViewRate(
-            "9:16", aspectRatioType = AspectRatio.RATIO_16_9, aspectRatioSize = Size(9, 16)
+            "16:9", aspectRatioType = AspectRatio.RATIO_16_9, aspectRatioSize = Size(9, 16)
         )
     )
+    private val _userSetState = MutableStateFlow<UserSet?>(null)
+    val userSetState = _userSetState.asStateFlow()
 
 
-    private val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
+    private
+    val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
     val backgroundDataState = _backgroundDataState.asStateFlow()
 
     private val _aspectRatioState = MutableStateFlow(viewRateList[0])
@@ -161,12 +168,9 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    fun getPhoto(eventLog: EventLog) {
+    fun getPhoto() {
         viewModelScope.launch {
             _capturedBitmapState.value = captureImageUseCase()
-        }
-        CoroutineScope(Dispatchers.IO).launch {
-            writeUserLogUseCase(eventLog)
         }
     }
 
@@ -180,10 +184,14 @@ class CameraViewModel @Inject constructor(
             viewModelScope.launch {
                 _bitmapState.value?.let { bitmap ->
                     val recommendedData = recommendPoseUseCase(bitmap)
-                    _poseResultState.value =
-                        recommendedData.poseDataList.apply {
-                            add(0, PoseData(poseId = -1, -1))
-                        }
+                    _poseResultState.value = null
+                    _poseResultState.value = recommendedData.poseDataList.apply {
+                        add(0, PoseData(poseId = -1, -1))
+                    }.subList(
+                        0,
+                        if (_userSetState.value != null) _userSetState.value!!.poseCnt + 1
+                        else recommendedData.poseDataList.size
+                    )
                     _backgroundDataState.value =
                         recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
                     _poseOnRecommend.value = false//포즈 추천이 끝남을 알림
@@ -294,5 +302,17 @@ class CameraViewModel @Inject constructor(
         setFocusUseCase(meteringPoint, durationMilliSeconds)
     }
 
+
+    fun loadUserSet() {
+        viewModelScope.launch {
+            _userSetState.value = loadUserSetUseCase()
+        }
+    }
+
+    fun saveUserSet(userSet: UserSet) {
+        viewModelScope.launch {
+            saveUserSetUseCase(userSet = userSet)
+        }
+    }
 
 }
