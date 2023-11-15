@@ -18,12 +18,6 @@ interface ModelRunner {
     //파일명을 이용하여, AI 모델을 로드한다.
     fun loadModel(moduleAssetName: String): Module
 
-    //Bounding Box
-    fun runBbPrediction(originBitmap: Bitmap, layoutBitmap: Bitmap): DoubleArray
-
-    //Yolo V5 모델
-    fun runYolo(bitmap: Bitmap): Pair<Size, FloatArray>
-
     //미리 실행해둠
     suspend fun preRun(): Boolean
 
