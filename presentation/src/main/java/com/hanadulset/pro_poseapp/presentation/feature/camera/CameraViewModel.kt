@@ -28,21 +28,17 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
-import com.hanadulset.pro_poseapp.utils.eventlog.EventLog
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventLog
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 @ExperimentalGetImage
@@ -78,8 +74,7 @@ class CameraViewModel @Inject constructor(
     val userSetState = _userSetState.asStateFlow()
 
 
-    private
-    val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
+    private val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
     val backgroundDataState = _backgroundDataState.asStateFlow()
 
     private val _aspectRatioState = MutableStateFlow(viewRateList[0])
@@ -92,7 +87,7 @@ class CameraViewModel @Inject constructor(
     private val _capturedBitmapState = MutableStateFlow<Uri?>( //캡쳐된 이미지 상태
         null
     )
-    private val _poseResultState = MutableStateFlow<List<PoseData>?>(null)
+    private val _poseResultState = MutableStateFlow<MutableList<PoseData>?>(null)
     private val _fixedScreenState = MutableStateFlow<Bitmap?>(null)
     private val _modifiedPointState = MutableStateFlow<Offset?>(null)
 
@@ -122,7 +117,6 @@ class CameraViewModel @Inject constructor(
             Log.d("현재 인식됨: ", "네")
         }
 
-
         imageProxy.use {
             _bitmapState.value = ImageUtils.imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
             trackToNewOffset()
@@ -131,9 +125,7 @@ class CameraViewModel @Inject constructor(
 
 
     private fun convertAnalyzedOffsetToPreviewOffset(
-        reversed: Boolean,
-        offset: SizeF,
-        analyzedImageSize: Size
+        reversed: Boolean, offset: SizeF, analyzedImageSize: Size
     ): SizeF {
         return if (reversed) //preview -> analyzed
             offset.let {
@@ -168,9 +160,9 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    fun getPhoto() {
+    fun getPhoto(captureEventLog: CaptureEventLog) {
         viewModelScope.launch {
-            _capturedBitmapState.value = captureImageUseCase()
+            _capturedBitmapState.value = captureImageUseCase(captureEventLog)
         }
     }
 
@@ -184,17 +176,12 @@ class CameraViewModel @Inject constructor(
             viewModelScope.launch {
                 _bitmapState.value?.let { bitmap ->
                     val recommendedData = recommendPoseUseCase(bitmap)
-                    _poseResultState.value = null
                     _poseResultState.value = recommendedData.poseDataList.apply {
                         add(0, PoseData(poseId = -1, -1))
-                    }.subList(
-                        0,
-                        if (_userSetState.value != null) _userSetState.value!!.poseCnt + 1
-                        else recommendedData.poseDataList.size
-                    )
-                    _backgroundDataState.value =
-                        recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
-                    _poseOnRecommend.value = false//포즈 추천이 끝남을 알림
+                    }.subList(0, if (_userSetState.value != null) _userSetState.value!!.poseCnt + 1 else recommendedData.poseDataList.size)
+                    _backgroundDataState.value = recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
+                    _poseOnRecommend.value = false
+                //포즈 추천이 끝남을 알림
                 }
             }
         }
@@ -210,22 +197,16 @@ class CameraViewModel @Inject constructor(
             viewModelScope.launch {
                 val res = updatePointOffsetUseCase(
                     targetOffset = convertAnalyzedOffsetToPreviewOffset(
-                        reversed = true,
-                        offset = SizeF(
-                            _modifiedPointState.value!!.x,
-                            _modifiedPointState.value!!.y
-                        ),
-                        analyzedImageSize = analyzedImageSize
-                    ),
-                    backgroundBitmap = backgroundBitmap
+                        reversed = true, offset = SizeF(
+                            _modifiedPointState.value!!.x, _modifiedPointState.value!!.y
+                        ), analyzedImageSize = analyzedImageSize
+                    ), backgroundBitmap = backgroundBitmap
                 )
                 if (res == null) {
                     stopToTrack() //만약 에러인 경우 추적을 그만함.
                 } else {
                     _modifiedPointState.value = convertAnalyzedOffsetToPreviewOffset(
-                        false,
-                        res,
-                        analyzedImageSize = analyzedImageSize
+                        false, res, analyzedImageSize = analyzedImageSize
                     ).let { Offset(it.width, it.height) }
                 }
             }
@@ -241,8 +222,8 @@ class CameraViewModel @Inject constructor(
                 recommendCompInfoUseCase(bitmap).let { res ->
                     _modifiedPointState.value = previewSizeState!!.center.let {
                         Offset(
-                            it.x * (1f + if (res.first == "horizon") res.second / 100f else 0f),
-                            it.y * (1f + if (res.first == "vertical") res.second / 100f else 0f)
+                            it.x * ((1F + res.first * 2)),
+                            it.y * ((1F + res.second * 2))
                         )
                     }
 
@@ -260,8 +241,7 @@ class CameraViewModel @Inject constructor(
     fun setZoomLevel(zoomLevel: Float) = setZoomLevelUseCase(zoomLevel)
 
     fun changeViewRate(idx: Int): Boolean {
-        val res =
-            _aspectRatioState.value.aspectRatioType == viewRateList[idx].aspectRatioType
+        val res = _aspectRatioState.value.aspectRatioType == viewRateList[idx].aspectRatioType
         if (res.not()) _aspectRatioState.value = viewRateList[idx]
         return res
 
@@ -285,7 +265,8 @@ class CameraViewModel @Inject constructor(
         val res = getPoseFromImageUseCase(uri)
         _fixedScreenState.value = res
         viewModelScope.launch {
-            File(uri.toString()).delete()
+            Log.d("따오기 이미지: ", uri.toString())
+//            File(uri.toString()).delete()
         }
 
     }

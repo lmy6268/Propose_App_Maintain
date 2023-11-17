@@ -21,6 +21,6 @@ interface ModelRunner {
     //미리 실행해둠
     suspend fun preRun(): Boolean
 
-    fun runVapNet(bitmap: Bitmap): Pair<String, Int>?
+    fun runVapNet(bitmap: Bitmap): Pair<Float, Float>?
 
 }

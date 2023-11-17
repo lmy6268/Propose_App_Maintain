@@ -57,7 +57,7 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
     }
 
 
-    override fun runVapNet(bitmap: Bitmap): Pair<String, Int> {
+    override fun runVapNet(bitmap: Bitmap): Pair<Float, Float> {
         val resizedBitmap = imageProcessDataSource.resizeBitmapWithOpenCV(bitmap, RESNET_INPUT_SIZE)
 
         val meanArray = arrayOf(0.485F, 0.456F, 0.406F).toFloatArray()
@@ -73,32 +73,36 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
             outputTuple[1].toTensor().dataAsFloatArray,
             outputTuple[2].toTensor().dataAsFloatArray
         )
-        val threshold = 0.8
+        val suggestionThreshold = 0.9
+        val adjustmentThreshold = 0.5
+        var res: Pair<Float, Float> = Pair(0F, 0F)
+        if (suggestion[0] > suggestionThreshold) { //조정이 필요한 경우
+            val magIndex = adjustment.toList().indexOf(adjustment.max())
+            val magOutput = magnitude[magIndex]
 
-        val res = if (suggestion[0] > threshold) { //조정이 필요한 경우
-            val idx = adjustment.toList().indexOf(adjustment.max())
-            val magOutPut = magnitude[idx]
-            when (idx) {
-                in 0..1 -> {
-                    val value = (magOutPut.absoluteValue * 100).roundToInt()
-                    Pair(
-                        "horizon",
-                        if (idx == 0) -value else value
-                    ) //Left인경우, 중심 기준으로 - 이기 때문에 -를 붙여준다.
-                }
+            if (adjustment.sum() in 0.99F..1.01F) {   //이전 모델 이용시
+                res = when (magIndex) {
+                    in 0..1 -> {
+                        val horizontalMoveRate = magOutput.absoluteValue
+                        res.copy(first= if (magIndex == 0) -horizontalMoveRate else horizontalMoveRate)
+                    }
 
-                else -> {
-                    val value = (magOutPut.absoluteValue * 100).roundToInt()
-                    Pair(
-                        "vertical",
-                        if (idx == 2) -value else value
-                    ) //UP 인 경우, 좌표상으로는 - 이므로, 앞에 -를 붙여준다
+                    else -> {
+                        val verticalMoveRate = magOutput.absoluteValue
+                        res.copy(second = if (magIndex == 2) -verticalMoveRate else verticalMoveRate)
+                    }
                 }
+            } else {//최근 모델 이용시
+                // 방향 별 움직인 비율 체크 -> 값이 큰 인덱스를 해당 방향 인덱스로 가짐
+                val horizontalMoveIndex = if (adjustment[0] > adjustment[1]) 0 else 1
+                val verticalMoveIndex = if (adjustment[2] > adjustment[3]) 2 else 3
+                if (adjustment[horizontalMoveIndex] >= adjustmentThreshold)
+                    res =
+                        res.copy(first = magnitude[horizontalMoveIndex] * (if (horizontalMoveIndex == 0) -1F else 1F))
+                if (adjustment[verticalMoveIndex] >= adjustmentThreshold)
+                    res =
+                        res.copy(second = magnitude[verticalMoveIndex] * (if (verticalMoveIndex == 2) -1F else 1F))
             }
-
-
-        } else {
-            Pair("good", 0)
         }
 
         Log.d("구도추천 결과:", res.toString())

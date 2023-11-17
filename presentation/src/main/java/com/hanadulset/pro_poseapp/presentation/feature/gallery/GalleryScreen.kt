@@ -74,8 +74,7 @@ object GalleryScreen {
     @Composable
     fun GalleryScreen(
         imageList: List<ImageResult>,
-        onLoadImages: () -> Unit,
-        onDeleteImage: (Int, () -> Unit) -> Unit,
+        onDeleteImage: (Int) -> Unit,
         onBackPressed: () -> Unit
     ) {
         //변수 목록
@@ -197,10 +196,7 @@ object GalleryScreen {
                         IconButton(
                             onClick = {
                                 if (imageList.isNotEmpty()) {
-                                    //삭제하시겠습니까? 다이얼로그 보여주기
-                                    onDeleteImage(horizontalPagerState.currentPage) {
-                                        onLoadImages()
-                                    }
+                                    onDeleteImage(horizontalPagerState.currentPage)
                                 }
                             },
                             modifier = Modifier
@@ -276,10 +272,7 @@ object GalleryScreen {
 fun Test() {
     GalleryScreen.GalleryScreen(
         imageList = listOf(ImageResult(), ImageResult(), ImageResult(), ImageResult()),
-        onLoadImages = { },
-        onDeleteImage = { index, func ->
-
-        },
+        onDeleteImage = {},
         onBackPressed = {}
     )
 }

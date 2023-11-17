@@ -3,7 +3,6 @@ package com.hanadulset.pro_poseapp.data.datasource.interfaces
 import android.graphics.Bitmap
 import android.net.Uri
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
-import com.hanadulset.pro_poseapp.utils.eventlog.FeedBackData
 
 
 /**파일 생성 및 저장 등을 관리하는 데이터소스*/
@@ -13,8 +12,9 @@ interface FileHandleDataSource {
     suspend fun saveImageToGallery(bitmap: Bitmap): Uri
 
 
-
     suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ImageResult>
+
+    suspend fun deleteCapturedImage(uri: Uri): Boolean
 
     /**모델을 다운로드하고 파일로 저장한다.
      * 1. 현재 저장되어있는 각 파일의 버전 정보를 확인한다.
@@ -27,6 +27,4 @@ interface FileHandleDataSource {
      * */
 
 
-
-    suspend fun sendFeedBackData(feedBackData: FeedBackData) //피드백 데이터를 서버로 보냄
 }

@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
-import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -25,7 +26,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,36 +33,31 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.UpdateAvailability
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
-import com.hanadulset.pro_poseapp.presentation.core.CustomDialog.InternetConnectionDialog
-import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.asDeferred
 
 object PrepareServiceScreens {
     private const val APP_NAME = "프로_포즈"
@@ -161,6 +156,15 @@ object PrepareServiceScreens {
         checkNeedToDownloadState: CheckResponse?,
         totalLoadedState: Boolean
     ) {
+        val appUpdateManager = AppUpdateManagerFactory.create(LocalContext.current)
+        val appUpdateInfoTask = appUpdateManager.appUpdateInfo
+        val appUpdateUserUpdateAdmitLauncher =
+            rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartIntentSenderForResult(),
+                onResult = {
+
+                })
+
 
         val isInitiated = remember {
             mutableStateOf(false)
@@ -168,13 +172,25 @@ object PrepareServiceScreens {
         val afterLoaded by rememberUpdatedState(newValue = onAfterLoadedEvent)
         LaunchedEffect(Unit) {
             delay(1000)
+//            val updateInfo = appUpdateInfoTask.asDeferred().await()
+//            if (updateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE && updateInfo.isUpdateTypeAllowed(
+//                    AppUpdateType.IMMEDIATE
+//                )
+//            ) {
+//                //다운로드 요청
+//                appUpdateManager.startUpdateFlowForResult(
+//                    updateInfo,
+//                    appUpdateUserUpdateAdmitLauncher,
+//                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+//                )
+//            }
+
+
             //만약 다운을 다 받은 상태라면 바로 카메라 로딩
             if (isAfterDownload) onPrepareToLoadCamera()
             //아니라면 다운로드 관련 체크로 넘어감
             else onRequestCheckForDownload()
         }
-
-
 
         LaunchedEffect(checkNeedToDownloadState) {
             //만약 다운로드 상태 파악이 완료된 경우
@@ -183,6 +199,7 @@ object PrepareServiceScreens {
                 else onMoveToDownload()
             }
         }
+
 
         //여기는 카메라 로딩 준비
         if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {

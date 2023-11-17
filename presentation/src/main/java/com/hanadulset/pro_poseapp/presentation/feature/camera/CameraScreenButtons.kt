@@ -37,6 +37,7 @@ import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,7 +73,6 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
-import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
 
 object CameraScreenButtons {
@@ -378,7 +378,7 @@ object CameraScreenButtons {
         isExpanded: (Boolean) -> Unit,
         defaultButtonSize: Dp = 44.dp,
         defaultButtonColor: Color = LocalColors.current.subPrimaryBlack100,
-        triggerClose: Boolean,
+        triggerClose: () -> Boolean,
     ) {
         val isExpandedState = remember {
             mutableStateOf(false)
@@ -398,11 +398,11 @@ object CameraScreenButtons {
             mutableStateOf(DpSize(100.dp, 100.dp))
         }
 
-
-        if (triggerClose) closeExpandedWindow()
-
-
-
+        if (isExpandedState.value) {
+            LaunchedEffect(key1 = triggerClose()) {
+                if (triggerClose()) closeExpandedWindow()
+            }
+        }
         Box(modifier = modifier
             .animateContentSize(
                 //크기 변경이 감지되면 애니메이션을 추가해준다.
@@ -517,14 +517,25 @@ object CameraScreenButtons {
         colorTint: Color = Color(0x80FAFAFA),
         onClick: () -> Unit
     ) {
+        val iconButtonPainter = rememberAsyncImagePainter(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(R.drawable.based_circle)
+                .build()
+        )
+        val innerIconDrawablePainter = rememberAsyncImagePainter(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(innerIconDrawableId)
+                .build()
+        )
+
         IconButton(
             enabled = isButtonEnable,
             modifier = modifier.size(buttonSize),
-            onClick = onClick,
+            onClick = { onClick() },
         ) {
             Icon(
                 modifier = modifier.size(buttonSize),
-                painter = painterResource(id = R.drawable.based_circle),
+                painter = iconButtonPainter,
                 tint = colorTint,
                 contentDescription = buttonName
             )
@@ -535,11 +546,14 @@ object CameraScreenButtons {
                 fontFamily = pretendardFamily,
                 fontWeight = FontWeight.Bold
             )
-            if (innerIconDrawableId != null) Icon(
-                modifier = Modifier.size(innerIconDrawableSize), painter = painterResource(
-                    id = innerIconDrawableId
-                ), contentDescription = "$buttonName 아이콘", tint = innerIconColorTint
-            )
+            if (innerIconDrawableId != null) {
+                Icon(
+                    modifier = Modifier.size(innerIconDrawableSize),
+                    painter = innerIconDrawablePainter,
+                    contentDescription = "$buttonName 아이콘",
+                    tint = innerIconColorTint
+                )
+            }
         }
     }
 

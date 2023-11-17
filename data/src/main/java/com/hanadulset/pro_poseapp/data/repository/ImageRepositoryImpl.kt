@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.SizeF
-import androidx.core.net.toFile
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
@@ -20,13 +19,13 @@ import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
 import kotlinx.coroutines.flow.Flow
 
-class ImageRepositoryImpl(private val context: Context) : ImageRepository {
+class ImageRepositoryImpl(private val applicationContext: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
-        ModelRunnerImpl(context)
+        ModelRunnerImpl(applicationContext)
     }
 
     private val poseDataSourceImpl by lazy {
-        PoseDataSourceImpl(context)
+        PoseDataSourceImpl(applicationContext)
     }
 
     private val imageProcessDataSource by lazy {
@@ -34,14 +33,14 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     }
 
     private val fileHandleDataSource by lazy {
-        FileHandleDataSourceImpl(context)
+        FileHandleDataSourceImpl(applicationContext)
     }
 
     private val compDataSource by lazy {
         CompDataSourceImpl(modelRunnerImpl)
     }
     private val downloadResourcesDataSource by lazy {
-        DownloadResourcesDataSourceImpl(context)
+        DownloadResourcesDataSourceImpl(applicationContext)
     }
 
 
@@ -82,10 +81,18 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
     //이미지에서 포즈를 가져오기
     override fun getPoseFromImage(uri: Uri?): Bitmap? = if (uri != null) {
         val backgroundBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+            ImageDecoder.decodeBitmap(
+                ImageDecoder.createSource(
+                    applicationContext.contentResolver,
+                    uri
+                )
+            )
         } else {
-            MediaStore.Images.Media.getBitmap(context.contentResolver, uri);
+            MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri);
         }
+
+
+
         val softwareBitmap = backgroundBitmap.copy(Bitmap.Config.ARGB_8888, false)
         getFixedScreen(softwareBitmap)
     } else null
@@ -94,7 +101,8 @@ class ImageRepositoryImpl(private val context: Context) : ImageRepository {
         fileHandleDataSource.loadCapturedImages(true)
 
 
-    override suspend fun deleteCapturedImage(uri: Uri): Boolean = uri.toFile().delete()
+    override suspend fun deleteCapturedImage(uri: Uri): Boolean =
+        fileHandleDataSource.deleteCapturedImage(uri)
 
     override suspend fun updateOffsetPoint(
         backgroundBitmap: Bitmap,

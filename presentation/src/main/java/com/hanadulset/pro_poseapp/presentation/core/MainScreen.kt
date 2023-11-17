@@ -327,12 +327,12 @@ object MainScreen {
                 exitTransition = { fadeOut() }) {
                 val isOnClose = remember { mutableStateOf(false) }
                 val localActivity = LocalContext.current as Activity
-                val userSet by cameraViewModel.userSetState.collectAsStateWithLifecycle()
-                LaunchedEffect(key1 = userSet) {
+                val userSet = cameraViewModel.userSetState.collectAsStateWithLifecycle()
+                LaunchedEffect(key1 = userSet.value) {
                     cameraViewModel.loadUserSet()
                 }
                 if (isOnClose.value.not()) {
-                    UIComponents.AnimatedSlideToRight(isVisible = userSet != null) {
+                    UIComponents.AnimatedSlideToRight(isVisible = userSet.value != null) {
                         Screen(
                             cameraViewModel,
                             previewView = previewView,
@@ -347,7 +347,7 @@ object MainScreen {
                                 isOnClose.value = true
                                 localActivity.finish()
                             },
-                            userSet = userSet!!
+                            userSet = { userSet.value!! }
                         )
                     }
 
@@ -390,8 +390,7 @@ object MainScreen {
 
                 if (imageList.value != null) {
                     GalleryScreen.GalleryScreen(imageList = imageList.value!!,
-                        onLoadImages = { galleryViewModel.loadImages() },
-                        onDeleteImage = { index, func ->
+                        onDeleteImage = { index ->
                             coroutineScope.launch {
                                 deleteTargetIndex.value = index
                                 deleteImage(
@@ -402,7 +401,9 @@ object MainScreen {
                                     uri = imageList.value!![index].dataUri!!,
                                 )
                                 galleryViewModel.deleteCompleteState.collectLatest {
-                                    it?.run { func() }
+                                    it?.run {
+                                        galleryViewModel.loadImages()
+                                    }
                                 }
                             }
                         },
@@ -683,18 +684,17 @@ private fun deleteImage(
     galleryViewModel: GalleryViewModel,
     index: Int,
     uri: Uri,
-): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         MediaStore.createDeleteRequest(
             contentResolver,
             arrayListOf(uri)
         ).intentSender.run {
             launcher.launch(IntentSenderRequest.Builder(this).build())
         }
-        false
+
     } else {
         galleryViewModel.deleteImage(index, false)
-        true
     }
 }
 

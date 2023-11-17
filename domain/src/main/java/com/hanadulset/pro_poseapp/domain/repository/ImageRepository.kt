@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 //이미지 저장 및 분석을 담당하는 레포지토리
 interface ImageRepository {
-    suspend fun getRecommendCompInfo(   backgroundBitmap: Bitmap): Pair<String, Int>
+    suspend fun getRecommendCompInfo(backgroundBitmap: Bitmap): Pair<Float, Float>
     suspend fun getRecommendPose(
         backgroundBitmap: Bitmap
     ): PoseDataResult //추천된 포즈데이터 반환하기
