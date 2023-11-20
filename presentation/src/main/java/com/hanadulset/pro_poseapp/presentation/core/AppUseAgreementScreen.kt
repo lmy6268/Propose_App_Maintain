@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
@@ -30,23 +29,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 
-object TermOfUseScreen {
+object AppUseAgreementScreen {
     @Composable
-    fun TermOfUseScreen(
+    fun AppUseAgreementScreen(
         onSuccess: () -> Unit
     ) {
         val iconPainter = rememberAsyncImagePainter(
@@ -156,7 +150,7 @@ object TermOfUseScreen {
 @Preview
 @Composable
 private fun PreviewScreen() {
-    TermOfUseScreen.TermOfUseScreen {
+    AppUseAgreementScreen.AppUseAgreementScreen {
 
     }
 }

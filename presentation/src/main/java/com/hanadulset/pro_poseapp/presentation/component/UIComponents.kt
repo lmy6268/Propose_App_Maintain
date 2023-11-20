@@ -295,7 +295,8 @@ object UIComponents {
         modifier: Modifier = Modifier,
         innerText: String,
         innerTextSize: Dp = 23.dp,
-        isToggled: Boolean,
+        isToggled: () -> Boolean,
+        isEnabled: () -> Boolean = { true },
         onToggleEvent: (Boolean) -> Unit
     ) {
         Box(
@@ -313,15 +314,18 @@ object UIComponents {
                 style = LocalTypography.current.sub01,
                 fontSize = LocalDensity.current.run {
                     (innerTextSize * 0.7F).toSp()
-                }
+                },
+                color = if (isEnabled()) LocalColors.current.subPrimaryBlack100
+                else LocalColors.current.subSecondaryGray100
             )
             SwitchableButton(
                 modifier = Modifier.align(Alignment.CenterEnd),
-                init = isToggled,
-                negativeColor = LocalColors.current.subPrimaryBlack100,
-                positiveColor = LocalColors.current.primaryGreen100,
+                init = isToggled(),
+                negativeColor = if (isEnabled()) (LocalColors.current.subPrimaryBlack100) else LocalColors.current.subSecondaryGray100,
+                positiveColor = if (isEnabled()) (LocalColors.current.primaryGreen100) else LocalColors.current.subSecondaryGray100,
                 onChangeState = onToggleEvent,
                 scale = 1F,
+                isEnabled = isEnabled,
                 buttonSize = DpSize(width = innerTextSize * 1.7F, height = innerTextSize)
             )
         }

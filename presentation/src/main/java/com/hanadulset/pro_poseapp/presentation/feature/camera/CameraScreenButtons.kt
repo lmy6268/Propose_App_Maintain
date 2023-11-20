@@ -205,6 +205,7 @@ object CameraScreenButtons {
         positiveColor: Color,
         negativeColor: Color,
         onChangeState: (Boolean) -> Unit,
+        isEnabled: () -> Boolean = { true },
         scale: Float = 2f,
         strokeWidth: Dp = (buttonSize.height / 10),
         gapBetweenThumbAndTrackEdge: Dp = (buttonSize.width / 9),
@@ -223,13 +224,19 @@ object CameraScreenButtons {
                 modifier = Modifier
                     .size(buttonSize)
                     .scale(scale = scale)
-                    .pointerInput(Unit) {
-                        detectTapGestures(onTap = {
-                            // This is called when the user taps on the canvas
-                            switchON.value = !switchON.value
-                            onChangeState(switchON.value)
-                        })
-                    }) {
+                    .then(
+                        if(isEnabled()){
+                            Modifier.pointerInput(Unit) {
+                                detectTapGestures(onTap = {
+                                    // This is called when the user taps on the canvas
+                                    switchON.value = !switchON.value
+                                    onChangeState(switchON.value)
+                                })
+                            }
+                        }
+                        else Modifier
+                    )
+            ) {
                 // Track
                 drawRoundRect(
                     color = if (switchON.value) positiveColor else negativeColor,

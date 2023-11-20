@@ -10,16 +10,15 @@ interface PoseDataSource {
     /**포즈를 추천해준다.*/
     suspend fun recommendPose(backgroundBitmap: Bitmap): PoseDataResult
 
-
-
+    fun preparePoseData()
     //그외, 위를 구현하기 위한 메소드들 정리
     // 포즈 추천 관련
 
     /**Hog 뽑기 위한 사전 작업*/
-    fun preProcessing(image: Bitmap): Mat
+    suspend fun preProcessing(image: Bitmap): Mat
 
     /**HOG 값과 Resnet 결과값 간의 유클리드 거리를 구한다. */
-    fun getDistance(angle:List<Double>, centroidIdx: Int): Double
+    fun getDistance(angle: List<Double>, centroidIdx: Int): Double
 
     fun distanceAngle(aAngle: List<Double>, bAngle: List<Double>): Double
 
@@ -37,16 +36,14 @@ interface PoseDataSource {
     fun reshapeList(inputList: List<Double>, newShape: List<Int>): List<List<Double>>
 
     /**그레디언트를 뽑아낸다.*/
-    fun getGradient(targetImage: Mat): Pair<Mat, Mat>
+    suspend fun getGradient(targetImage: Mat): Pair<Mat, Mat>
 
     /**히스토그램을 뽑아낸다.*/
-    fun getHistogram(magnitude: Mat, orientation: Mat): DoubleArray
+    suspend fun getHistogram(magnitude: Mat, orientation: Mat): DoubleArray
 
     /**히스토그램 맵을 뽑아낸다. */
-    fun getHistogramMap(backgroundBitmap: Bitmap): Mat
+    suspend fun getHistogramMap(backgroundBitmap: Bitmap): Mat
 
-    /**HOG값을 뽑아낸다.*/
-    fun getHOG(backgroundBitmap: Bitmap): List<Double>
 
     fun getAngleFromHog(histogramMap: Mat): List<Double>
 

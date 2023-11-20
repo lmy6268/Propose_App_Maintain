@@ -38,6 +38,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -176,12 +177,21 @@ class CameraViewModel @Inject constructor(
             viewModelScope.launch {
                 _bitmapState.value?.let { bitmap ->
                     val recommendedData = recommendPoseUseCase(bitmap)
-                    _poseResultState.value = recommendedData.poseDataList.apply {
-                        add(0, PoseData(poseId = -1, -1))
-                    }.subList(0, if (_userSetState.value != null) _userSetState.value!!.poseCnt + 1 else recommendedData.poseDataList.size)
-                    _backgroundDataState.value = recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
+                    _poseResultState.update {
+                        recommendedData.poseDataList.apply {
+                            add(0, PoseData(poseId = -1, -1))
+                        }.subList(
+                            0,
+                            if (_userSetState.value != null) _userSetState.value!!.poseCnt + 1
+                            else recommendedData.poseDataList.size
+                        )
+                    }
+                    _backgroundDataState.update {
+                        recommendedData.let { Pair(it.backgroundId, it.backgroundAngleList) }
+                    }
+
                     _poseOnRecommend.value = false
-                //포즈 추천이 끝남을 알림
+                    //포즈 추천이 끝남을 알림
                 }
             }
         }
@@ -205,9 +215,11 @@ class CameraViewModel @Inject constructor(
                 if (res == null) {
                     stopToTrack() //만약 에러인 경우 추적을 그만함.
                 } else {
-                    _modifiedPointState.value = convertAnalyzedOffsetToPreviewOffset(
-                        false, res, analyzedImageSize = analyzedImageSize
-                    ).let { Offset(it.width, it.height) }
+                    _modifiedPointState.update {
+                        convertAnalyzedOffsetToPreviewOffset(
+                            false, res, analyzedImageSize = analyzedImageSize
+                        ).let { Offset(it.width, it.height) }
+                    }
                 }
             }
         }
@@ -220,11 +232,13 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             _bitmapState.value?.let { bitmap ->
                 recommendCompInfoUseCase(bitmap).let { res ->
-                    _modifiedPointState.value = previewSizeState!!.center.let {
-                        Offset(
-                            it.x * ((1F + res.first * 2)),
-                            it.y * ((1F + res.second * 2))
-                        )
+                    _modifiedPointState.update {
+                        previewSizeState!!.center.let {
+                            Offset(
+                                it.x * ((1F + res.first * 2)),
+                                it.y * ((1F + res.second * 2))
+                            )
+                        }
                     }
 
                 }
@@ -233,8 +247,8 @@ class CameraViewModel @Inject constructor(
     }
 
     fun stopToTrack() {
-        _trackingSwitchON.value = false
-        _modifiedPointState.value = null
+        _trackingSwitchON.update { false }
+        _modifiedPointState.update { null }
         stopPointOffsetUseCase()
     }
 
@@ -286,7 +300,7 @@ class CameraViewModel @Inject constructor(
 
     fun loadUserSet() {
         viewModelScope.launch {
-            _userSetState.value = loadUserSetUseCase()
+            _userSetState.update { loadUserSetUseCase() }
         }
     }
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.center
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
@@ -61,8 +62,10 @@ object CameraScreenCompScreen {
             mutableStateOf<DpSize?>(null)
         }
 
+
         //구도추천 활성화 여부
         val isPointOn = remember { mutableStateOf(false) }
+
         val horizonState = remember {
             mutableStateOf(false)
         }
@@ -87,7 +90,7 @@ object CameraScreenCompScreen {
             }) {
             if (compSize.value != null) {
                 //구도 추천 포인트 표시
-                if (isPointOn.value && pointOffSet() != null) {
+                if (isPointOn.value && pointOffSet() != null)
                     CompGuidePoint(
                         areaSize = { compSize.value!! },
                         pointOffSetState = { pointOffSet()!! },
@@ -97,12 +100,12 @@ object CameraScreenCompScreen {
                         isOnHorizon = { horizonState.value },
                         onStopToTracking = { stopToTracking() }
                     )
-                } else {
+                else {
                     //흔들림 감지 -> 구도 포인트가 없을 때만, 흔들림을 감지 하기 시작한다.
-                    SensorTrigger(onTracking = {
+                    SensorTrigger {
                         isPointOn.value = true
                         triggerPoint(compSize.value!!)
-                    })
+                    }
                 }
 
                 //수평계
@@ -120,17 +123,38 @@ object CameraScreenCompScreen {
                     }
                 )
             }
-
-
         }
 
+    }
+
+    private fun checkPointInBoundary(
+        offset: () -> Offset,
+        areaSize: () -> DpSize,
+        localDensity: Density,
+        onStopToTracking: () -> Unit
+    ) {
+        offset().run {
+            val comp = with(localDensity) {
+                areaSize().let {
+                    Size(
+                        it.width.toPx(), it.height.toPx()
+                    )
+                }
+            }
+            val xRange = Range(0F, comp.width)
+            val yRange = Range(0F, comp.height)
+            val isInBoundary = this.x in xRange && this.y in yRange //영역 내에 포인트가 있는지 확인
+            if (isInBoundary.not()) {
+                onStopToTracking() //구도 포인트를 제거함
+            }
+        }
     }
 
     @Composable
     private fun CompGuidePoint(
         modifier: Modifier = Modifier,
         areaSize: () -> DpSize,
-        pointOffSetState: () -> Offset,
+        pointOffSetState: () -> Offset?,
         pointColor: Color = Color(0x80FFFFFF),
         pointRadius: Float = 55F,
         onPointMatched: () -> Unit,
@@ -151,76 +175,80 @@ object CameraScreenCompScreen {
         }
         val onHorizon by rememberUpdatedState(newValue = isOnHorizon)
 
+        //PointOffsetState 값은 계속해서 들어온다.
+        // -> 해당 값을 연산해서, 붙이던지 말던지 한다.
 
-        val point by rememberUpdatedState {
-            val distance = with(Pair(areaCentroid, pointOffSetState())) {
-                sqrt((first.x - second.x).pow(2) + (first.y - second.y).pow(2))
+        //만약, 들어온 값이 가까운 거리에 있는 경우, 포인트를 가운데로 옮긴다.
+        // null값이 들어오는 경우, 그리는 것을 중단한다.
+        if (pointOffSetState() != null) {
+            //현재 구도 포인트의 위치
+            val pointOffset = rememberUpdatedState {
+                //거리계산
+                val distance = with(Pair(areaCentroid, pointOffSetState()!!)) {
+                    sqrt((first.x - second.x).pow(2) + (first.y - second.y).pow(2))
+                }
+                val catchThreshold = 50F
+                if (distance in 0F..catchThreshold) {
+                    //색 변경
+                    isMatched.value = true
+                    //위치 고정
+                    areaCentroid
+                } else {
+                    //원래대로 색 되돌리기
+                    isMatched.value = false
+                    pointOffSetState()!!
+                }
             }
-            val catchThreshold = 50F
-            if (distance in 0F..catchThreshold) {
-                //색 변경
-                isMatched.value = true
-                //위치 고정
-                areaCentroid
-            } else {
-                //원래대로 색 되돌리기
-                isMatched.value = false
-                pointOffSetState()
+            LaunchedEffect(pointOffset.value()) {
+                checkPointInBoundary(
+                    offset = { pointOffset.value() },
+                    areaSize = areaSize,
+                    localDensity = localDensity,
+                    onStopToTracking = onStopToTracking,
+                )
             }
-        }
-        LaunchedEffect(pointOffSetState()) {
-            pointOffSetState().run {
-                val comp = with(localDensity) {
-                    areaSize().let {
-                        Size(
-                            it.width.toPx(), it.height.toPx()
+
+            LaunchedEffect(isMatched.value, onHorizon)
+            {
+                if (isMatched.value && isTriggered.value.not() && onHorizon()) {
+                    onPointMatched()
+                    isTriggered.value = true
+                }
+            }
+
+            Box(
+                modifier = modifier.size(areaSize())
+            )
+            {
+                Canvas(
+                    modifier = Modifier
+                ) {
+                    if (isMatched.value.not()) drawCircle(
+                        center = pointOffset.value(),
+                        radius = pointRadius,
+                        color = pointColor,
+                    )
+                    else {
+                        drawCircle(
+                            center = pointOffset.value(),
+                            radius = pointRadius,
+                            color = Color(0x90FFFF00),
+                            style = Stroke(
+                                width = 10F
+                            )
+                        )
+                        drawCircle(
+                            center = pointOffset.value(),
+                            radius = pointRadius,
+                            color = localColor.primaryGreen100.copy(alpha = 0.8f),
                         )
                     }
                 }
-                val xRange = Range(0F, comp.width)
-                val yRange = Range(0F, comp.height)
-                val isInBoundary = this.x in xRange && this.y in yRange //영역 내에 포인트가 있는지 확인
-                if (isInBoundary.not()) {
-                    onStopToTracking() //구도 포인트를 제거함
-                }
             }
-        }
-        LaunchedEffect(isMatched.value, onHorizon) {
-            if (isMatched.value && isTriggered.value.not() && onHorizon()) {
-                onPointMatched()
-                isTriggered.value = true
-            }
+
         }
 
-        Box(
-            modifier = modifier.size(areaSize())
-        ) {
-            Canvas(
-                modifier = Modifier
-            ) {
 
-                if (isMatched.value.not()) drawCircle(
-                    center = point(),
-                    radius = pointRadius,
-                    color = pointColor,
-                )
-                else {
-                    drawCircle(
-                        center = point(),
-                        radius = pointRadius,
-                        color = Color(0x90FFFF00),
-                        style = Stroke(
-                            width = 10F
-                        )
-                    )
-                    drawCircle(
-                        center = point(),
-                        radius = pointRadius,
-                        color = localColor.primaryGreen100.copy(alpha = 0.8f),
-                    )
-                }
-            }
-        }
     }
 
     @Composable
@@ -228,7 +256,6 @@ object CameraScreenCompScreen {
         onTracking: () -> Unit,
     ) {
         val context = LocalContext.current
-
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 

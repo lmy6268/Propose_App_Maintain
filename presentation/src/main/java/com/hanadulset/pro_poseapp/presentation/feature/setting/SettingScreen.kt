@@ -75,6 +75,7 @@ object SettingScreen {
         val privacyLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
             onResult = {
+
             })
         val context = LocalContext.current
         val iconPainter = rememberAsyncImagePainter(
@@ -184,7 +185,7 @@ object SettingScreen {
                         UIComponents.SettingBoxItemWithToggle(
                             modifier = Modifier.fillMaxWidth(),
                             innerText = "구도 추천",
-                            isToggled = setState.value.isCompOn,
+                            isToggled = { setState.value.isCompOn },
                             onToggleEvent = {
                                 setState.value = setState.value.copy(isCompOn = it)
                             }
@@ -192,7 +193,8 @@ object SettingScreen {
                         UIComponents.SettingBoxItemWithToggle(
                             modifier = Modifier.fillMaxWidth(),
                             innerText = "포즈 추천",
-                            isToggled = setState.value.isPoseOn,
+                            isEnabled = { setState.value.isCompOn },
+                            isToggled = { setState.value.isPoseOn },
                             onToggleEvent = {
                                 setState.value = setState.value.copy(isPoseOn = it)
                             }
@@ -270,10 +272,8 @@ object SettingScreen {
             }
         try {
             launcher.launch(emailIntent)
-        } catch (ex: ActivityNotFoundException) {
-
+        } catch (_: ActivityNotFoundException) {
         }
-
     }
 
 }

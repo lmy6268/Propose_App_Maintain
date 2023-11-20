@@ -23,7 +23,6 @@ import kotlinx.serialization.json.Json
 //기기 내의 사용자 설정 및 사용자의 로그를 정리하고 기록하는 데이터 소스
 @SuppressLint("HardwareIds")
 class UserDataSourceImpl constructor(private val applicationContext: Context) : UserDataSource {
-    private val firebaseAnalytics = Firebase.analytics
 
     private val deviceID: String by lazy {
         Settings.Secure.getString(applicationContext.contentResolver, Settings.Secure.ANDROID_ID)
@@ -53,7 +52,7 @@ class UserDataSourceImpl constructor(private val applicationContext: Context) : 
 
     override suspend fun saveUserSuccessToTermOfUse() {
         //기록을 남김
-        firebaseAnalytics.logEvent("EVENT_SUCCESS_TO_USE") {
+        Firebase.analytics.logEvent("EVENT_SUCCESS_TO_USE") {
             param("userID", deviceID)
             param("userAnswer", true.toString())
         }
@@ -67,7 +66,6 @@ class UserDataSourceImpl constructor(private val applicationContext: Context) : 
         applicationContext.dataStore.data.map { preferences ->
             preferences[stringPreferencesKey("userSuccessToUse")] == "True"
         }.first()
-
 
 
     companion object {

@@ -2,8 +2,7 @@ package com.hanadulset.pro_poseapp.data.datasource
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.Log
-import com.hanadulset.pro_poseapp.data.datasource.interfaces.ModelRunner
+import com.hanadulset.pro_poseapp.data.datasource.interfaces.ModelRunnerDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,9 +16,9 @@ import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.absoluteValue
-import kotlin.math.roundToInt
+import kotlin.math.exp
 
-class ModelRunnerImpl(private val context: Context) : ModelRunner {
+class ModelRunnerDataSourceDataSourceImpl(private val context: Context) : ModelRunnerDataSource {
 
     private lateinit var vapNetModule: Module
 
@@ -84,9 +83,8 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
                 res = when (magIndex) {
                     in 0..1 -> {
                         val horizontalMoveRate = magOutput.absoluteValue
-                        res.copy(first= if (magIndex == 0) -horizontalMoveRate else horizontalMoveRate)
+                        res.copy(first = if (magIndex == 0) -horizontalMoveRate else horizontalMoveRate)
                     }
-
                     else -> {
                         val verticalMoveRate = magOutput.absoluteValue
                         res.copy(second = if (magIndex == 2) -verticalMoveRate else verticalMoveRate)
@@ -94,18 +92,20 @@ class ModelRunnerImpl(private val context: Context) : ModelRunner {
                 }
             } else {//최근 모델 이용시
                 // 방향 별 움직인 비율 체크 -> 값이 큰 인덱스를 해당 방향 인덱스로 가짐
-                val horizontalMoveIndex = if (adjustment[0] > adjustment[1]) 0 else 1
-                val verticalMoveIndex = if (adjustment[2] > adjustment[3]) 2 else 3
-                if (adjustment[horizontalMoveIndex] >= adjustmentThreshold)
+                val modifiedAdjustment = adjustment.map {
+                    (1 / (1 + exp((-it).toDouble()))).toFloat()
+                }.toFloatArray()
+                val horizontalMoveIndex =
+                    if (modifiedAdjustment[0] > modifiedAdjustment[1]) 0 else 1
+                val verticalMoveIndex = if (modifiedAdjustment[2] > modifiedAdjustment[3]) 2 else 3
+                if (modifiedAdjustment[horizontalMoveIndex] >= adjustmentThreshold)
                     res =
                         res.copy(first = magnitude[horizontalMoveIndex] * (if (horizontalMoveIndex == 0) -1F else 1F))
-                if (adjustment[verticalMoveIndex] >= adjustmentThreshold)
+                if (modifiedAdjustment[verticalMoveIndex] >= adjustmentThreshold)
                     res =
                         res.copy(second = magnitude[verticalMoveIndex] * (if (verticalMoveIndex == 2) -1F else 1F))
             }
         }
-
-        Log.d("구도추천 결과:", res.toString())
 
         return res
     }

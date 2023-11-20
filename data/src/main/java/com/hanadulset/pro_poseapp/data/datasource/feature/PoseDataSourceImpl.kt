@@ -3,6 +3,7 @@ package com.hanadulset.pro_poseapp.data.datasource.feature
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import android.util.SizeF
 import androidx.core.net.toUri
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.PoseDataSource
@@ -12,7 +13,11 @@ import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
 import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReader
 import com.opencsv.CSVReaderBuilder
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.opencv.android.Utils
 import org.opencv.core.Core
@@ -28,6 +33,8 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.time.ExperimentalTime
+import kotlin.time.measureTimedValue
 
 class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
 
@@ -111,9 +118,16 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
     }
 
 
-    override suspend fun recommendPose(backgroundBitmap: Bitmap): PoseDataResult =
-        withContext(Dispatchers.IO) {
-            val angle = getAngleFromHog(getHistogramMap(backgroundBitmap))
+    override suspend fun recommendPose(backgroundBitmap: Bitmap): PoseDataResult {
+        val histogramMap = withContext(Dispatchers.Default) {
+            getHistogramMap(backgroundBitmap)
+        }
+
+        val angle = withContext(Dispatchers.Default) {
+            getAngleFromHog(histogramMap)
+        }
+
+        return CoroutineScope(Dispatchers.Default).async {
             var res = Pair(-1, java.lang.Double.POSITIVE_INFINITY)
             for (i in 0 until centroid.size - 2) {
                 val calculatedDistance = getDistance(angle, i)
@@ -127,19 +141,31 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 backgroundAngleList = angle
             )
             poseDataResult
-        }
+        }.await()
+    }
+
+    override fun preparePoseData() {
+        poseRanks
+        centroid
+    }
 
 
-    override fun preProcessing(image: Bitmap): Mat {
-
+    override suspend fun preProcessing(image: Bitmap): Mat = withContext(Dispatchers.Default) {
         val resizedImageMat = Mat(image.width, image.height, CvType.CV_8UC3)
         Utils.bitmapToMat(image, resizedImageMat)
-        Imgproc.cvtColor(resizedImageMat, resizedImageMat, Imgproc.COLOR_RGBA2RGB) //알파값을 빼고 저장
-//        Imgproc.cvtColor(resizedImageMat, resizedImageMat, HogConfig.imageConvert)
+        Imgproc.cvtColor(
+            resizedImageMat,
+            resizedImageMat,
+            Imgproc.COLOR_RGBA2RGB
+        ) //알파값을 빼고 저장
         Imgproc.resize(resizedImageMat, resizedImageMat, HogConfig.imageResize)
         //10.01 추가
-        Imgproc.medianBlur(resizedImageMat, resizedImageMat, HogConfig.blurSize.width.toInt())
-        return resizedImageMat
+        Imgproc.medianBlur(
+            resizedImageMat,
+            resizedImageMat,
+            HogConfig.blurSize.width.toInt()
+        )
+        resizedImageMat
     }
 
     override fun getDistance(angle: List<Double>, centroidIdx: Int): Double {
@@ -165,10 +191,12 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         val histCnt = (imageResizeConfig / cellSizeConfig).pow(2).toInt()
         val binCnt = 9
         val reshapedAHog =
-            reshapeList(aHog, listOf(histCnt, binCnt)).toMutableList().apply { addZDimension(this) }
-        val reshapedBHog = reshapeList(bHog, listOf(histCnt, binCnt)).toMutableList().apply {
-            addZDimension(this)
-        }
+            reshapeList(aHog, listOf(histCnt, binCnt)).toMutableList()
+                .apply { addZDimension(this) }
+        val reshapedBHog =
+            reshapeList(bHog, listOf(histCnt, binCnt)).toMutableList().apply {
+                addZDimension(this)
+            }
         return calculateDistance(reshapedAHog, reshapedBHog)
     }
 
@@ -211,7 +239,10 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         return sqrt(diffSquaredSum) / numElements
     }
 
-    override fun reshapeList(inputList: List<Double>, newShape: List<Int>): List<List<Double>> {
+    override fun reshapeList(
+        inputList: List<Double>,
+        newShape: List<Int>
+    ): List<List<Double>> {
         val totalElements = inputList.size
         val newTotalElements = newShape.reduce { acc, i -> acc * i }
 
@@ -228,14 +259,13 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         return result
     }
 
-    override fun getGradient(targetImage: Mat): Pair<Mat, Mat> {
+    override suspend fun getGradient(targetImage: Mat): Pair<Mat, Mat> {
         var gradientX = Mat(targetImage.size(), targetImage.type())
         var gradientY = Mat(targetImage.size(), targetImage.type())
 
         Imgproc.Sobel(targetImage, gradientX, CvType.CV_64F, 1, 0, 3)
         Imgproc.Sobel(targetImage, gradientY, CvType.CV_64F, 0, 1, 3)
 
-        //gradient_x = gradient_x / int(np.max(np.abs(gradient_x)) if np.max(np.abs(gradient_x)) != 0 else 1) * 255
         gradientX = gradientX.apply {
             val zeroMat = Mat.zeros(this.size(), this.type())
             val absMat = Mat(this.size(), this.type())
@@ -245,7 +275,6 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
             Core.divide(this, Scalar(dv), this)
             Core.multiply(this, Scalar(255.0), this)
         }
-//        gradient_y = gradient_y / int(np.max(np.abs(gradient_y)) if np.max(np.abs(gradient_y)) != 0 else 1) * 255
         gradientY = gradientY.apply {
             val zeroMat = Mat.zeros(this.size(), this.type())
             val absMat = Mat(this.size(), this.type())
@@ -274,43 +303,24 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         for (row in 0 until gradientOrientation.rows()) {
             for (col in 0 until gradientOrientation.cols()) {
                 var adjustedPhase = gradientOrientation[row, col][0]
-//                if (adjustedPhase >= 180.0) {
-//                    adjustedPhase -= 180.0
-//                }
                 adjustedPhase %= 180
                 gradientOrientation.put(row, col, adjustedPhase)
             }
         }
 
-
-//        for (x in 0 until gradientMagnitude.rows()) {
-//            for (y in 0 until gradientMagnitude.cols()) {
-//                if (gradientMagnitude.get(
-//                        x, y
-//                    )[0] < HogConfig.magnitudeThreshold
-//                ) {
-//                    gradientMagnitude.put(x, y, 0.0)
-//                }
-//            }
-//        }
         return Pair(gradientMagnitude, gradientOrientation)
     }
 
-    override fun getHistogram(magnitude: Mat, orientation: Mat): DoubleArray {
+    override suspend fun getHistogram(magnitude: Mat, orientation: Mat): DoubleArray {
         val maxDegree = 180.0
         val diff = maxDegree / HogConfig.nBins
-
         var histogram = DoubleArray(HogConfig.nBins)
-
         val cellSize = magnitude.size()
 
         for (x in 0 until cellSize.width.toInt()) {
             for (y in 0 until cellSize.height.toInt()) {
                 val magValue = magnitude[x, y][0]
                 val orientationValue = orientation[x, y][0]
-
-//                if (magValue < HogConfig.magnitudeThreshold) continue
-
                 val index = (orientationValue / diff).toInt()
                 val deg = index * diff
                 histogram[index] += magValue * (1 - (orientationValue - deg) / diff)
@@ -330,19 +340,31 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         return histogram
     }
 
-    override fun getHistogramMap(backgroundBitmap: Bitmap): Mat {
-        val resizedImage = preProcessing(backgroundBitmap) //이미지
 
+    @OptIn(ExperimentalTime::class)
+    override suspend fun getHistogramMap(backgroundBitmap: Bitmap): Mat {
+        //이미지
+        Log.d("ASDF1",System.currentTimeMillis().toString())
+        val resizedImage = preProcessing(backgroundBitmap)
+
+        Log.d("ASDF2",System.currentTimeMillis().toString())
         val resizedImageMats = arrayListOf(
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1),
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1),
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1)
         )
+
+        Log.d("ASDF3",System.currentTimeMillis().toString())
         Core.split(resizedImage, resizedImageMats)
         val resList = ArrayList<Pair<Mat, Mat>>()
-        resizedImageMats.forEach {
-            resList.add(getGradient(it)) //여기서 값이 들어감
+
+        Log.d("ASDF4",System.currentTimeMillis().toString())
+        for (mat in resizedImageMats) {
+            resList.add(measureTimedValue { getGradient(mat) }.apply {
+                Log.d("Elapse Time for Getting Gradient: ", this.duration.toString())
+            }.value)
         }
+        Log.d("ASDF5",System.currentTimeMillis().toString())
         val resListMagnitudeDump = mutableListOf<List<List<Double>>>()
         val resListOrientationDump = mutableListOf<List<List<Double>>>()
         val resDump = mutableListOf<List<List<List<Double>>>>()
@@ -350,35 +372,41 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
             resListMagnitudeDump.add(pair.first.to3dList()[0])
             resListOrientationDump.add(pair.second.to3dList()[0])
         }
+        Log.d("ASDF6",System.currentTimeMillis().toString())
+
+        //for 문 속도 개선
         for (i in resListMagnitudeDump.indices) {
             resDump.add(listOf(resListMagnitudeDump[i], resListOrientationDump[i]))
         }
 
-
+        Log.d("ASDF7",System.currentTimeMillis().toString())
         //변수 초기화 -> 모든 칸의 값을 0으로 초기화하여 진행한다.
-        val resMagnitude = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
-        val resOrientation = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
+        val resMagnitude =
+            Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
+        val resOrientation =
+            Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
         val cnt = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1)
 
 
-        resList.forEachIndexed { idx, it ->
+        Log.d("ASDF8",System.currentTimeMillis().toString())
+        //for 문 속도 개선
+        resList.forEach {
             val magnitude = it.first
             val orientation = it.second
             for (row in 0 until magnitude.rows()) {
                 for (col in 0 until magnitude.cols()) {
-                    resMagnitude.put(row, col, resMagnitude[row, col][0] + magnitude[row, col][0])
                     if (magnitude[row, col][0] != 0.0) {
-                        resOrientation.put(
-                            row, col, resOrientation[row, col][0] + orientation[row, col][0]
-                        )
-                        cnt.put(
-                            row, col, cnt[row, col][0] + 1
-                        )
+                        resMagnitude.put(row, col, resMagnitude.get(row, col)[0] + magnitude[row, col][0])
+                        resOrientation.put(row, col, resOrientation[row, col][0] + orientation[row, col][0])
+                        cnt.put(row, col, cnt[row, col][0] + 1)
                     }
                 }
             }
         }
+        Log.d("ASDF9",System.currentTimeMillis().toString())
 
+
+        //for 문 속도 개선
         for (row in 0 until cnt.rows()) {
             for (col in 0 until cnt.cols()) {
                 val currentCnt = cnt[row, col][0]
@@ -392,10 +420,11 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 }
             }
         }
-
+        Log.d("ASDF10",System.currentTimeMillis().toString())
 
         val ave =
             Core.sumElems(resMagnitude).`val`[0] / (resMagnitude.width() * resMagnitude.height())
+        Log.d("ASDF11",System.currentTimeMillis().toString())
         for (row in 0 until cnt.rows()) {
             for (col in 0 until cnt.cols()) {
                 resMagnitude.put(
@@ -406,14 +435,13 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 )
             }
         }
+        Log.d("ASDF12",System.currentTimeMillis().toString())
         val arrayList = ArrayList<Double>()
         for (row in 0 until cnt.rows()) {
-            for (col in 0 until cnt.cols()) {
+            for (col in 0 until cnt.cols())
                 arrayList.add(resMagnitude[row, col][0])
-                continue
-            }
         }
-
+        Log.d("ASDF13",System.currentTimeMillis().toString())
 
         val histogramMap = Mat.zeros(
             Size(
@@ -421,16 +449,11 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 resizedImage.height() / HogConfig.cellSize.height
             ), CvType.CV_64FC(HogConfig.nBins)
         )
-
-        Mat.zeros(
-            Size(
-                resizedImage.width() / HogConfig.cellSize.width,
-                resizedImage.height() / HogConfig.cellSize.height
-            ), CvType.CV_64FC(HogConfig.nBins)
-        )
+        Log.d("ASDF14",System.currentTimeMillis().toString())
 
         for (x in 0 until resizedImage.width() step HogConfig.cellSize.height.toInt()) {
             for (y in 0 until resizedImage.height() step HogConfig.cellSize.width.toInt()) {
+
                 val xEnd = x + HogConfig.cellSize.width.toInt()
                 val yEnd = y + HogConfig.cellSize.height.toInt()
                 val cellMagnitude = resMagnitude.submat(x, xEnd, y, yEnd)
@@ -440,45 +463,19 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                     cellMagnitude, cellOrientation
                 )
 
+
+
                 histogramMap.put(
                     x / HogConfig.cellSize.width.toInt(),
                     y / HogConfig.cellSize.height.toInt(),
                     *histogram
                 )
-
             }
         }
+        Log.d("ASDF15",System.currentTimeMillis().toString())
+
 
         return histogramMap
-    }
-
-    override fun getHOG(backgroundBitmap: Bitmap): List<Double> {
-        val histogramMap = getHistogramMap(backgroundBitmap)
-        val hog = mutableListOf<Double>()
-        val mapSize = histogramMap.size()
-        for (x in 0 until mapSize.width.toInt() - HogConfig.blockSize.width.toInt() + 1) {
-            for (y in 0 until mapSize.height.toInt() - HogConfig.blockSize.height.toInt() + 1) {
-                val histogramVector = mutableListOf<Double>()
-                for (bx in x until x + HogConfig.blockSize.width.toInt()) {
-                    for (by in y until y + HogConfig.blockSize.height.toInt()) {
-                        histogramVector.addAll(histogramMap[bx, by].toList()) //값을 추가
-                    }
-//                    //정규화 요소 구하는 공식 -> 각 값의 제곱을 더한 후 그것에 루트를 씌움 (Norm_2)
-//                    val norm = histogramVector.toDoubleArray().let { hist ->
-//                        var res = 0.0
-//                        hist.forEach {
-//                            res += it.pow(2)
-//                        }
-//                        if (sqrt(res) == 0.0) 1.0
-//                        else sqrt(res)
-//
-//                    } //정규화 요소
-//                    val normVector = histogramVector.map { it / norm } //정규화된 벡터값
-                    hog.addAll(histogramVector)
-                }
-            }
-        }
-        return hog
     }
 
     override fun getAngleFromHog(histogramMap: Mat): List<Double> {
@@ -491,7 +488,8 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                     val value = histogramMap[row, col][index]
                     if (value == 1.0) {
                         //angleMap에 데이터가 저장됨
-                        angleMap[row * histogramMap.rows() + col] = index * 180.0 / HogConfig.nBins
+                        angleMap[row * histogramMap.rows() + col] =
+                            index * 180.0 / HogConfig.nBins
                         break
                     }
                 }
@@ -499,6 +497,10 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         }
 
         return angleMap.toList()
+    }
+
+    private suspend fun <A, B> Iterable<A>.asyncMap(f: suspend (A) -> B): Unit = coroutineScope {
+        map { async { f(it) } }.awaitAll()
     }
 
     private fun loadPoseImages(): List<Uri> {
@@ -550,11 +552,9 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
             const val imageConvert: Int =
                 Imgproc.COLOR_BGR2GRAY  //cv2.COLOR_BGR2GRAY | cv2.COLOR_BGR2RGB | cv2.COLOR_BGR2HSV
             val cellSize: Size = Size(16.0, 16.0)
-            val blurSize = Size(31.0, 31.0)
-            val blockSize: Size = Size(1.0, 1.0)
-            const val magnitudeThreshold: Int = 25 //10.01 수정
-            const val nBins: Int = 18 //10.01 수정
-
+            val blurSize = Size(17.0, 17.0)
+            const val magnitudeThreshold: Int = 15 //11.18 수정
+            const val nBins: Int = 12 //11.18 수정
         }
 
         const val SILHOUETTE_IMAGE_ZIP = "silhouette_image.zip"

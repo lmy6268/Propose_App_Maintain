@@ -59,7 +59,6 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     override suspend fun takePhoto(eventLog: CaptureEventLog) =
         cameraDataSource.takePhoto()
             .let { data ->
-                val firebaseAnalytics = Firebase.analytics
                 val capturedImageBitmap = data.use {
                     ImageUtils.imageToBitmap(
                         it.image!!,
@@ -68,7 +67,7 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
                 }
                 val res = fileHandleDataSourceImpl.saveImageToGallery(capturedImageBitmap)
                 val poseEstimationResult = estimatePose(capturedImageBitmap).toString()
-                firebaseAnalytics.logEvent(eventLog.eventId) {
+                Firebase.analytics.logEvent(eventLog.eventId) {
                     val hog = eventLog.backgroundHog.toString()
                     val prev = eventLog.prevRecommendPoses.toString()
                     param(

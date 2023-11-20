@@ -1,6 +1,7 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
+import android.util.LayoutDirection
 import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +38,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -52,12 +57,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.text.layoutDirection
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -65,8 +73,41 @@ import coil.size.Dimension
 import coil.size.Scale
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 object CameraScreenPreviewArea {
+    private fun focusPointMovement(
+        motionEvent: MotionEvent,
+        updateValue: (Offset?) -> Unit,
+        localDensity: Density,
+        upperBarSize: () -> DpSize,
+        onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit,
+        previewView: PreviewView
+    ): Boolean {
+        return when (motionEvent.action) {
+            MotionEvent.ACTION_DOWN -> {
+                updateValue(null)
+                val untouchableArea = with(localDensity) { upperBarSize().height.toPx() }
+                if (motionEvent.y > untouchableArea) {
+                    val pointer = Offset(motionEvent.x, motionEvent.y)
+                    updateValue(pointer.copy())
+                    onFocusEvent(
+                        Pair(
+                            previewView.meteringPointFactory.createPoint(
+                                pointer.x, pointer.y
+                            ), 2000L
+                        )
+                    )
+                }
+                false
+            }
+
+            else -> {
+                false
+            }
+        }
+    }
+
 
     //미리보기 영역
     @OptIn(ExperimentalComposeUiApi::class)
@@ -77,7 +118,7 @@ object CameraScreenPreviewArea {
         poseOffsetState: () -> SizeF?,
         poseScaleState: () -> Float,
         capturedState: () -> Boolean,
-        preview: PreviewView,
+        preview: () -> PreviewView,
         edgeImageBitmap: () -> Bitmap?,
         isRecommendCompEnabled: () -> Boolean,
         isRecommendPoseEnabled: () -> Boolean,
@@ -95,7 +136,6 @@ object CameraScreenPreviewArea {
     ) {
         val localDensity = LocalDensity.current
 
-        val previewView by rememberUpdatedState(newValue = preview)
 
         val previewViewSize = rememberSaveable { mutableStateOf(SizeF(0F, 0F)) }
 
@@ -130,49 +170,41 @@ object CameraScreenPreviewArea {
                             SizeF(it.width.toDp().value, it.height.toDp().value)
                         }
                     }
-                    .background(Color.Cyan)
-                    .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
-                        when (motionEvent.action) {
-                            MotionEvent.ACTION_DOWN -> {
-                                focusRingState.value = null
-                                val untouchableArea =
-                                    with(localDensity) { upperBarSize().height.toPx() }
-                                if (motionEvent.y > untouchableArea) {
-                                    val pointer = Offset(motionEvent.x, motionEvent.y)
-                                    focusRingState.value = pointer.copy()
-                                    onFocusEvent(
-                                        Pair(
-                                            previewView.meteringPointFactory.createPoint(
-                                                pointer.x, pointer.y
-                                            ), 2000L
-                                        )
-                                    )
-                                }
-                                false
-                            }
-
-                            else -> {
-                                false
-                            }
-                        }
+                    .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent ->
+                        focusPointMovement(
+                            motionEvent = motionEvent,
+                            previewView = preview(),
+                            updateValue = {
+                                focusRingState.value = it
+                            },
+                            onFocusEvent = {
+                                onFocusEvent(it)
+                            },
+                            localDensity = localDensity,
+                            upperBarSize = { upperBarSize() }
+                        )
                     },
                 factory = {
                     loadLastImage()
                     initCamera()
-                    previewView
+                    preview()
                 },
             ) {
 
             }
+
             //플래시 화면
             Box(
                 modifier = modifier
                     .size(
                         DpSize(
-                            previewViewSize.value.width.dp, previewViewSize.value.height.dp
+                            previewViewSize.value.width.dp,
+                            previewViewSize.value.height.dp
                         )
                     )
-                    .background(color = flashColor)
+                    .drawBehind {
+                        drawRect(color = flashColor)
+                    }
             )
 
             //엣지 화면
@@ -181,8 +213,7 @@ object CameraScreenPreviewArea {
                     DpSize(
                         previewViewSize.value.width.dp, previewViewSize.value.height.dp
                     )
-                ),
-                capturedEdgesBitmap = edgeImageBitmap
+                ), capturedEdgesBitmap = edgeImageBitmap
             )
             //구도 추천
             if (isRecommendCompEnabled()) {
@@ -195,7 +226,9 @@ object CameraScreenPreviewArea {
             }
 
             //포즈 화면 구성 -> 포즈 값만 있어도 됨.
-            if (poseData() != null && isRecommendPoseEnabled()) {
+            if (poseData() != null
+//                && isRecommendPoseEnabled()
+            ) {
                 ShowingPoseScreen(modifier = modifier,
                     poseData = poseData()!!,
                     poseScale = poseScaleState,
@@ -276,6 +309,7 @@ object CameraScreenPreviewArea {
         //현재 포즈 아이템
         val currentItem by rememberUpdatedState(newValue = poseData)
         val scaleOfPose by rememberUpdatedState(newValue = poseScale())
+        val offsetOfPose by rememberUpdatedState(newValue = poseOffset())
         val boxSize by rememberUpdatedState(newValue = localDensity.run {
             previewViewSize().let {
                 SizeF(it.width.dp.toPx(), it.height.dp.toPx())
@@ -291,8 +325,8 @@ object CameraScreenPreviewArea {
                 targetState = currentItem,
                 transitionSpec = {
                     ContentTransform(
-                        initialContentExit = ExitTransition.None,
-                        targetContentEnter = EnterTransition.None
+                        initialContentExit = fadeOut(),
+                        targetContentEnter = fadeIn()
                     )
                 },
                 label = "포즈가 보이는 화면",
@@ -312,9 +346,9 @@ object CameraScreenPreviewArea {
                 val poseBottomRightOffset = remember {
                     localDensity.run {
                         mutableStateOf(
-                            if (poseOffset() != null) Offset(
-                                poseOffset()!!.width + poseItemSize.value.width,
-                                poseOffset()!!.height + poseItemSize.value.height
+                            if (offsetOfPose != null) Offset(
+                                offsetOfPose!!.width + poseItemSize.value.width,
+                                offsetOfPose!!.height + poseItemSize.value.height
                             )
                             else Offset(
                                 boxSize.width * poseItem.bottomCenterRate.width + poseItemSize.value.width / 2,
@@ -375,8 +409,10 @@ object CameraScreenPreviewArea {
                     val poseTopLeftOffset = remember {
                         localDensity.run {
                             mutableStateOf(
-                                if (poseOffset() != null)
-                                    Offset(poseOffset()!!.width, poseOffset()!!.height)
+                                if (offsetOfPose != null) Offset(
+                                    offsetOfPose!!.width,
+                                    offsetOfPose!!.height
+                                )
                                 else {
                                     Offset(
                                         boxSize.width * poseItem.bottomCenterRate.width - (poseItemSize.value.width / 2),
@@ -410,11 +446,9 @@ object CameraScreenPreviewArea {
                     val currentPoseSize by rememberUpdatedState(newValue = localDensity.run {
                         DpSize(poseItemSize.value.width.toDp(), poseItemSize.value.height.toDp())
                     })
-                    val nowPoseTopLeftOffset by rememberUpdatedState(newValue = poseTopLeftOffset.value.run {
-                        IntOffset(x.toInt(), y.toInt())
-                    })
 
                     PoseItem(modifier = Modifier
+
                         .size(
                             currentPoseSize
                         )
@@ -425,7 +459,9 @@ object CameraScreenPreviewArea {
                         }
                         .offset {
                             onLimitMaxScale(calculateMaxScale())
-                            nowPoseTopLeftOffset
+                            poseTopLeftOffset.value.run {
+                                IntOffset(x.toInt(), y.toInt())
+                            }
                         }
                         .graphicsLayer {
                             transformOrigin = TransformOrigin(0f, 0f)
@@ -455,7 +491,9 @@ object CameraScreenPreviewArea {
                                 }
                                 onChangeOffset(poseTopLeftOffset.value.run { SizeF(x, y) })
                             }
-                        }, painter = painter
+                        }
+//                        .mirror()
+                        , painter = painter
                     )
                 }
 
@@ -487,7 +525,14 @@ object CameraScreenPreviewArea {
                 contentDescription = ""
             )
         }
-        Log.d("done to draw : ", System.currentTimeMillis().toString())
+    }
+
+    @Stable
+    fun Modifier.mirror(): Modifier = composed {
+        if (LocalLayoutDirection.current.ordinal == LayoutDirection.LTR)
+            this.scale(scaleX = -1f, scaleY = 1f)
+        else
+            this
     }
 }
 

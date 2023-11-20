@@ -10,7 +10,7 @@ import android.util.SizeF
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
-import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerImpl
+import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerDataSourceDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.Flow
 
 class ImageRepositoryImpl(private val applicationContext: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
-        ModelRunnerImpl(applicationContext)
+        ModelRunnerDataSourceDataSourceImpl(applicationContext)
     }
 
     private val poseDataSourceImpl by lazy {
@@ -50,8 +50,7 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
 
     override suspend fun getRecommendPose(
         backgroundBitmap: Bitmap
-    ): PoseDataResult =
-        poseDataSourceImpl.recommendPose(backgroundBitmap)
+    ): PoseDataResult = poseDataSourceImpl.recommendPose(backgroundBitmap)
 
 
     override fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap =
@@ -75,6 +74,7 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
 
 
     override suspend fun preRunModel(): Boolean {
+        poseDataSourceImpl.preparePoseData()
         return modelRunnerImpl.preRun()
     }
 
@@ -90,8 +90,6 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
         } else {
             MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri);
         }
-
-
 
         val softwareBitmap = backgroundBitmap.copy(Bitmap.Config.ARGB_8888, false)
         getFixedScreen(softwareBitmap)

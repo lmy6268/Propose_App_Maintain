@@ -263,7 +263,6 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                 it[stringPreferencesKey(fileName)]
             }.first()
 
-            Log.d("버전 체크요:", "$fileName ,$versionID ,$localID")
             return@withContext localID == versionID
         }
 
@@ -313,12 +312,6 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
         withContext(Dispatchers.IO) {
             applicationContext.dataStore.edit { preferences ->
                 preferences[stringPreferencesKey(fileName)] = versionID
-            }
-            applicationContext.dataStore.data.map { preferences ->
-                Log.d(
-                    "now v of $fileName in preference : ",
-                    preferences[stringPreferencesKey(fileName)] ?: ""
-                )
             }
         }
 
