@@ -31,6 +31,7 @@ import androidx.compose.material.Divider
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -65,13 +66,6 @@ object SettingScreen {
         BackHandler(
             enabled = true
         ) {
-            setState.value.run {
-                onSaveUserSet(
-                    UserSet(
-                        isCompOn, isPoseOn
-                    )
-                )
-            }
             onBackPressed()
         }
         val ossLauncher = rememberLauncherForActivityResult(
@@ -81,6 +75,7 @@ object SettingScreen {
         val privacyLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
             onResult = {
+
             })
         val context = LocalContext.current
         val iconPainter = rememberAsyncImagePainter(
@@ -96,6 +91,18 @@ object SettingScreen {
         )?.versionName)
 
         val verticalScrollState = rememberScrollState()
+        LaunchedEffect(key1 = setState.value) {
+            setState.value.run {
+                onSaveUserSet(
+                    UserSet(
+                        isCompOn, isPoseOn
+                    )
+                )
+            }
+        }
+
+
+
         Surface(
             color = LocalColors.current.primaryGreen100,
             modifier = modifier.fillMaxSize()
@@ -156,10 +163,10 @@ object SettingScreen {
                 Card(
                     modifier = Modifier
                         .weight(2F)
-                        .fillMaxWidth().verticalScroll(
+                        .fillMaxWidth()
+                        .verticalScroll(
                             verticalScrollState
-                        )
-                        ,
+                        ),
                     shape = RoundedCornerShape(topStart = 25.dp, topEnd = 25.dp),
                     elevation = 10.dp
                 ) {
@@ -178,7 +185,7 @@ object SettingScreen {
                         UIComponents.SettingBoxItemWithToggle(
                             modifier = Modifier.fillMaxWidth(),
                             innerText = "구도 추천",
-                            isToggled = setState.value.isCompOn,
+                            isToggled = { setState.value.isCompOn },
                             onToggleEvent = {
                                 setState.value = setState.value.copy(isCompOn = it)
                             }
@@ -186,7 +193,8 @@ object SettingScreen {
                         UIComponents.SettingBoxItemWithToggle(
                             modifier = Modifier.fillMaxWidth(),
                             innerText = "포즈 추천",
-                            isToggled = setState.value.isPoseOn,
+                            isEnabled = { setState.value.isCompOn },
+                            isToggled = { setState.value.isPoseOn },
                             onToggleEvent = {
                                 setState.value = setState.value.copy(isPoseOn = it)
                             }
@@ -244,7 +252,7 @@ object SettingScreen {
         versionName: String?
     ) {
         val emailTitle = "프로_포즈 사용 관련 문의"
-        val emailReceiver = "lmy6268@gmail.com"
+        val emailReceiver = arrayOf("lmy6268@gmail.com")
         val emailContent =
             "App Version : $versionName \n" +
                     "Device : ${Build.MANUFACTURER} ${Build.PRODUCT} \n " +
@@ -264,10 +272,8 @@ object SettingScreen {
             }
         try {
             launcher.launch(emailIntent)
-        } catch (ex: ActivityNotFoundException) {
-
+        } catch (_: ActivityNotFoundException) {
         }
-
     }
 
 }

@@ -15,7 +15,6 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 
 import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.config.WriteUserLogUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.GetImagesFromPicturesUseCase
 import dagger.Module
@@ -98,10 +97,6 @@ object AppModule {
         fun provideRecommendPoseUseCase(imageRepository: ImageRepository): RecommendPoseUseCase =
             RecommendPoseUseCase(imageRepository)
 
-        @ViewModelScoped
-        @Provides
-        fun provideWriteUserLog(userRepository: UserRepository): WriteUserLogUseCase =
-            WriteUserLogUseCase(userRepository)
 
         @ViewModelScoped
         @Provides

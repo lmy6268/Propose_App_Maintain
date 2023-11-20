@@ -38,14 +38,13 @@ object CameraScreenUpperBar {
         viewRateList: List<ViewRate>,
         moveToInfo: () -> Unit,
         onSelectedViewRate: (Int) -> Unit,
-        needToCloseViewRateList: Boolean = false,
+        needToCloseViewRateList: () -> Boolean = { false },
     ) {
         //변수 선언
         //구도 추천 여부
         val isExpandedState = remember {
             mutableStateOf(false)
         }
-        val triggerCloseValue by rememberUpdatedState(newValue = needToCloseViewRateList)
         val buttonSize = 36.dp
 
         //컴포저블 세팅
@@ -64,22 +63,11 @@ object CameraScreenUpperBar {
                     isExpandedState.value = it
                 },
                 defaultButtonSize = buttonSize,
-                triggerClose = triggerCloseValue
+                triggerClose = needToCloseViewRateList
             )
 
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
-                //구도추천 On/OFF
-//                CameraScreenButtons.SwitchableButton(
-//                    innerText = "구도 추천",
-//                    init = recommendCompState.value,
-//                    positiveColor = LocalColors.current.primaryGreen100,
-//                    negativeColor = Color.Black,
-//                    onChangeState = {
-//                        changeCompState()
-//                    }
-//                )
-
 
                 //정보화면 이동
                 CameraScreenButtons.NormalButton(

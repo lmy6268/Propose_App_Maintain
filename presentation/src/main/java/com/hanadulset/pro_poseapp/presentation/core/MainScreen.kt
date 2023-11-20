@@ -4,9 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ContentResolver
-import android.content.Intent
 import android.net.Uri
-import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
@@ -19,15 +17,11 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,15 +32,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -58,9 +51,9 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.firebase.Firebase
+import com.google.firebase.analytics.ParametersBuilder
 import com.google.firebase.analytics.analytics
 import com.google.firebase.analytics.logEvent
-import com.hanadulset.pro_poseapp.domain.usecase.camera.UnbindCameraUseCase
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.presentation.core.permission.PermScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
@@ -86,7 +79,7 @@ object MainScreen {
         ModelDownloadProgress,//모델 다운로드 화면
         ModelDownloadRequest, //모델 다운로드 요청 화면
         Perm, //권한 화면
-        TermOfUse,//약관 동의 화면
+        AppUseAgreement,//약관 동의 화면
         Cam, //카메라 화면
         Setting,//설정화면
         Splash, //스플래시 화면
@@ -152,21 +145,20 @@ object MainScreen {
         val lifecycleOwner = LocalLifecycleOwner.current
         val isPermissionAllowed = multiplePermissionsState.allPermissionsGranted
         val context = LocalContext.current
-        val previewView = remember {
-            val preview = PreviewView(context)
-            preview.scaleType = PreviewView.ScaleType.FILL_CENTER
-            preview
-        }
+        val previewView = rememberUpdatedState(newValue = PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        })
         val previewState = cameraViewModel.previewState.collectAsState()
         val cameraInit = {
             cameraViewModel.bindCameraToLifeCycle(
                 lifecycleOwner = lifecycleOwner,
-                surfaceProvider = previewView.surfaceProvider,
-                previewRotation = previewView.rotation.toInt()
+                surfaceProvider = previewView.value.surfaceProvider,
+                previewRotation = previewView.value.rotation.toInt()
             )
         }
         navController.addOnDestinationChangedListener { _, destination, _ ->
             destination.route?.let { dest ->
+                //로그
                 Firebase.analytics.logEvent("EVENT_USER_DESTINATION") {
                     param("timeStamp", System.currentTimeMillis())
                     param("destination", dest)
@@ -207,7 +199,7 @@ object MainScreen {
                 routeName = Graph.UsingCamera.name,
                 navHostController = navController,
                 galleryViewModel = galleryViewModel,
-                previewView = previewView,
+                previewView = { previewView.value },
                 cameraInit = cameraInit,
                 cameraViewModel = cameraViewModel
             )
@@ -229,7 +221,7 @@ object MainScreen {
                 navHostController = navHostController,
                 moveToNext = {
                     if (it.not()) {
-                        navHostController.navigate(route = Page.TermOfUse.name) {
+                        navHostController.navigate(route = Page.AppUseAgreement.name) {
                             popUpTo(Page.Splash.name) { inclusive = true }
                         }
                     } else
@@ -243,8 +235,8 @@ object MainScreen {
             )
 
             //약관 동의화면 추가
-            composable(route = Page.TermOfUse.name) {
-                TermOfUseScreen.TermOfUseScreen {
+            composable(route = Page.AppUseAgreement.name) {
+                AppUseAgreementScreen.AppUseAgreementScreen {
                     prepareServiceViewModel.successToUse()
                     //권한 설정으로 넘어감.
                     navHostController.navigate(route = Page.Perm.name) {
@@ -315,7 +307,7 @@ object MainScreen {
     private fun NavGraphBuilder.usingCameraGraph(
         routeName: String,
         navHostController: NavHostController,
-        previewView: PreviewView,
+        previewView: () -> PreviewView,
         cameraViewModel: CameraViewModel,
         galleryViewModel: GalleryViewModel,
         cameraInit: () -> Unit,
@@ -327,12 +319,12 @@ object MainScreen {
                 exitTransition = { fadeOut() }) {
                 val isOnClose = remember { mutableStateOf(false) }
                 val localActivity = LocalContext.current as Activity
-                val userSet by cameraViewModel.userSetState.collectAsStateWithLifecycle()
-                LaunchedEffect(key1 = userSet) {
+                val userSet = cameraViewModel.userSetState.collectAsStateWithLifecycle()
+                LaunchedEffect(key1 = userSet.value) {
                     cameraViewModel.loadUserSet()
                 }
                 if (isOnClose.value.not()) {
-                    UIComponents.AnimatedSlideToRight(isVisible = userSet != null) {
+                    UIComponents.AnimatedSlideToRight(isVisible = userSet.value != null) {
                         Screen(
                             cameraViewModel,
                             previewView = previewView,
@@ -347,7 +339,7 @@ object MainScreen {
                                 isOnClose.value = true
                                 localActivity.finish()
                             },
-                            userSet = userSet!!
+                            userSet = { userSet.value!! }
                         )
                     }
 
@@ -390,8 +382,7 @@ object MainScreen {
 
                 if (imageList.value != null) {
                     GalleryScreen.GalleryScreen(imageList = imageList.value!!,
-                        onLoadImages = { galleryViewModel.loadImages() },
-                        onDeleteImage = { index, func ->
+                        onDeleteImage = { index ->
                             coroutineScope.launch {
                                 deleteTargetIndex.value = index
                                 deleteImage(
@@ -402,7 +393,9 @@ object MainScreen {
                                     uri = imageList.value!![index].dataUri!!,
                                 )
                                 galleryViewModel.deleteCompleteState.collectLatest {
-                                    it?.run { func() }
+                                    it?.run {
+                                        galleryViewModel.loadImages()
+                                    }
                                 }
                             }
                         },
@@ -468,10 +461,8 @@ object MainScreen {
             val prepareServiceViewModel =
                 it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
             val checkState = prepareServiceViewModel.checkUserSuccess.collectAsStateWithLifecycle()
-            LaunchedEffect(Unit) {
-                prepareServiceViewModel.checkToUse()
-            }
-            PrepareServiceScreens.SplashScreen()
+            PrepareServiceScreens.SplashScreen { prepareServiceViewModel.checkToUse() }
+
             LaunchedEffect(checkState.value) {
                 //1초 뒤에 앱 로딩 화면으로 넘어감.
                 if (checkState.value != null) {
@@ -513,7 +504,7 @@ object MainScreen {
             val afterDownload = it.arguments?.getBoolean("afterDownload")
             val prepareServiceViewModel =
                 it.sharedViewModel<PrepareServiceViewModel>(navHostController = navHostController)
-            val totalLoadedState by prepareServiceViewModel.totalLoadedState.collectAsState()
+            val totalLoadedState = prepareServiceViewModel.totalLoadedState.collectAsState()
             val checkNeedToDownloadState by prepareServiceViewModel.checkDownloadState.collectAsState()
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
             PrepareServiceScreens.AppLoadingScreen(
@@ -545,7 +536,7 @@ object MainScreen {
                     prepareServiceViewModel.requestForCheckDownload()
                 },
                 checkNeedToDownloadState = checkNeedToDownloadState,
-                totalLoadedState = totalLoadedState
+                totalLoadedState = { totalLoadedState.value }
             )
 
         }
@@ -683,18 +674,17 @@ private fun deleteImage(
     galleryViewModel: GalleryViewModel,
     index: Int,
     uri: Uri,
-): Boolean {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         MediaStore.createDeleteRequest(
             contentResolver,
             arrayListOf(uri)
         ).intentSender.run {
             launcher.launch(IntentSenderRequest.Builder(this).build())
         }
-        false
+
     } else {
         galleryViewModel.deleteImage(index, false)
-        true
     }
 }
 

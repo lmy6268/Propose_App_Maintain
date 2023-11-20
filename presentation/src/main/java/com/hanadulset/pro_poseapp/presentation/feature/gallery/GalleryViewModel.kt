@@ -39,11 +39,15 @@ class GalleryViewModel @Inject constructor(
     fun deleteImage(index: Int, isOnDialog: Boolean) {
         _deleteCompleteState.value = false
         viewModelScope.launch {
-            if (isOnDialog || deleteImageFromPicturesUseCase(uri = _capturedImageState.value!![index].dataUri!!)) {
+            val checkState =
+                if (isOnDialog.not()) deleteImageFromPicturesUseCase(uri = _capturedImageState.value!![index].dataUri!!)
+                else isOnDialog
+            if (checkState) {
                 _capturedImageState.update {
-                    it!!.toMutableList().apply {
+                    val updatedList = it!!.toMutableList().apply {
                         removeAt(index)
                     }.toList()
+                    updatedList
                 }
                 _deleteCompleteState.value = true
             }

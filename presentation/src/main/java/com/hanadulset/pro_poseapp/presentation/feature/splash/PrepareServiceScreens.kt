@@ -1,6 +1,16 @@
 package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -9,73 +19,121 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.Card
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import com.google.common.reflect.Reflection.getPackageName
+import com.google.firebase.Firebase
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
+import com.google.firebase.remoteconfig.get
+import com.google.firebase.remoteconfig.remoteConfig
+import com.google.firebase.remoteconfig.remoteConfigSettings
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
-import com.hanadulset.pro_poseapp.presentation.core.CustomDialog.InternetConnectionDialog
-import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens.SplashScreen
+import com.hanadulset.pro_poseapp.presentation.core.CustomDialog
 import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import org.json.JSONObject
+import org.json.JSONTokener
 
 object PrepareServiceScreens {
     private const val APP_NAME = "프로_포즈"
     private const val CATCH_PRAISE = "포즈, 이제 고민하지마."
 
     @Composable
-    fun SplashScreen() {
+    fun SplashScreen(
+        onCheckForMoveToNext: () -> Unit
+    ) {
 
+        val localContext = LocalContext.current
+        val showUpdateDialog = remember {
+            mutableStateOf<Map<String, String>?>(null)
+        }
         val appIconSize = 200.dp
         val boxSize = remember {
             mutableStateOf(DpSize.Zero)
         }
         val localDensity = LocalDensity.current
+        val activityResultLauncher =
+            rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
+            }
+
+        suspend fun checkForUpdate(
+            localContext: Context
+        ) {
+            val appVersion = "updated_app_version"
+            val currentVersionCode = localContext.packageManager.getPackageInfo(
+                localContext.packageName,
+                0
+            ).run {
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) versionCode.toLong()
+                else longVersionCode
+            }
+            val remoteConfig = Firebase.remoteConfig.apply {
+                setConfigSettingsAsync(
+                    remoteConfigSettings { minimumFetchIntervalInSeconds = 0 }
+                )
+                setDefaultsAsync(mapOf(appVersion to "0.0.0"))
+            }
+            try {
+                remoteConfig.fetchAndActivate().await()
+                val appInfo =
+                    JSONTokener(remoteConfig[appVersion].asString()).nextValue() as JSONObject
+                if ((appInfo["version_code"] as Int).toLong() > currentVersionCode) { // 업데이트가 필요한 경우
+                    showUpdateDialog.value =
+                        mapOf(
+                            Pair("mustToUpdate", (appInfo["mustToUpdate"] as Boolean).toString()),
+                            Pair("updateRequestText", appInfo["updateRequestText"] as String),
+                            Pair("version_name", appInfo["version_name"] as String)
+                        )
+                }
+            } catch (e: Exception) {
+                Log.e("Error: ", "Cannot load appInfo data. ${e.message}")
+            }
+        }
+
+        LaunchedEffect(key1 = Unit) {
+            checkForUpdate(
+                localContext = localContext
+            )
+            if (showUpdateDialog.value == null) onCheckForMoveToNext()
+        }
+
+
+
+
+
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -146,8 +204,44 @@ object PrepareServiceScreens {
                     }
                 )
             }
-
+            if (showUpdateDialog.value != null)
+                Box(
+                    modifier = Modifier
+                        .zIndex(2F)
+                        .background(LocalColors.current.secondaryWhite100.copy(alpha = 0.5F))
+                        .fillMaxSize()
+                )
+                {
+                    CustomDialog.AppUpdateDialog(
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .align(Alignment.BottomCenter),
+                        noticeText = showUpdateDialog.value!!["updateRequestText"]!!,
+                        mustUpdate = showUpdateDialog.value!!["mustToUpdate"]!!.toBoolean(),
+                        versionName = showUpdateDialog.value!!["version_name"]!!,
+                        onConfirmRequest = {
+                            try {
+                                activityResultLauncher.launch(Intent(Intent.ACTION_VIEW).apply {
+                                    data =
+                                        Uri.parse("market://details?id=" + localContext.packageName)
+                                })
+                            } catch (e: ActivityNotFoundException) {
+                                activityResultLauncher.launch(Intent(Intent.ACTION_VIEW).apply {
+                                    data =
+                                        Uri.parse("http://play.google.com/store/apps/details?id=" + localContext.packageName)
+                                })
+                            }
+                        },
+                        onDismissRequest = {
+                            if (showUpdateDialog.value!!["mustToUpdate"]!!.toBoolean()
+                                    .not()
+                            ) onCheckForMoveToNext()
+                            else (localContext as Activity).finishAffinity()
+                        })
+                }
         }
+
+
     }
 
     @Composable
@@ -159,22 +253,22 @@ object PrepareServiceScreens {
         onPrepareToLoadCamera: () -> Unit = {},
         onRequestCheckForDownload: () -> Unit,
         checkNeedToDownloadState: CheckResponse?,
-        totalLoadedState: Boolean
+        totalLoadedState: () -> Boolean
     ) {
+
 
         val isInitiated = remember {
             mutableStateOf(false)
         }
-        val afterLoaded by rememberUpdatedState(newValue = onAfterLoadedEvent)
         LaunchedEffect(Unit) {
             delay(1000)
+
+
             //만약 다운을 다 받은 상태라면 바로 카메라 로딩
             if (isAfterDownload) onPrepareToLoadCamera()
             //아니라면 다운로드 관련 체크로 넘어감
             else onRequestCheckForDownload()
         }
-
-
 
         LaunchedEffect(checkNeedToDownloadState) {
             //만약 다운로드 상태 파악이 완료된 경우
@@ -184,9 +278,10 @@ object PrepareServiceScreens {
             }
         }
 
+
         //여기는 카메라 로딩 준비
-        if (totalLoadedState && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
-            afterLoaded()//카메라 화면으로 이동하는 거임.
+        if (totalLoadedState() && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
+            onAfterLoadedEvent()//카메라 화면으로 이동하는 거임.
             isInitiated.value = true
         }
 
@@ -292,80 +387,6 @@ object PrepareServiceScreens {
 
     }
 
-
-    //약관 동의 화면
-    @Composable
-    fun AppUseAgreementScreen(
-        modifier: Modifier = Modifier,
-        agreementText: String, //약관 글이 전달됨.
-        onSuccess: () -> Unit
-    ) {
-        val localTypography = LocalTypography.current
-        val scrollState = rememberScrollState()
-
-
-        //전달된 약관 글을 보여주고, 만약 크기를 넘어가게된다면 , 스크롤을 지원한다.
-        Surface(
-            modifier = modifier
-                .fillMaxSize(),
-            color = LocalColors.current.primaryGreen100
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
-            ) {
-
-                Text(
-                    text = APP_AGREEMENT_TITLE,
-                    style = localTypography.heading01
-                )
-
-                Card(
-                    modifier = Modifier.wrapContentSize(),
-                    contentColor = LocalColors.current.secondaryWhite100
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .heightIn(512.dp)
-                            .widthIn(312.dp)
-                            .verticalScroll(scrollState),
-                        text = agreementText,
-                        style = localTypography.sub02
-                    )
-                }
-
-
-                Button(
-                    onClick = onSuccess,
-                    colors = ButtonDefaults.buttonColors(
-                        Color(0xFFFFFFFF)
-                    ), shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        text = "동의합니다",
-                        Modifier
-                            .padding(vertical = 10.dp, horizontal = 30.dp),
-                        style = localTypography.heading02
-                    )
-                }
-
-            }
-        }
-    }
-
-    //약관에 대한 정보를 기재한다.
-    @Composable
-    fun FullTextAgreementScreen(
-        agreementText: String
-    ) {
-        Box() {
-
-        }
-    }
-
-
-    private const val APP_AGREEMENT_TITLE = "Pro_Pose 서비스 이용 약관"
 
 }
 

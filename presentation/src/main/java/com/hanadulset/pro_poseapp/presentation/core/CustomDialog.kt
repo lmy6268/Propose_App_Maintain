@@ -188,6 +188,28 @@ object CustomDialog {
     }
 
 
+    @Composable
+    fun AppUpdateDialog(
+        modifier: Modifier,
+        noticeText: String,
+        mustUpdate: Boolean,
+        versionName:String,
+        onConfirmRequest: () -> Unit,
+        onDismissRequest: () -> Unit
+    ) {
+        CustomAlertDialog(
+            modifier = modifier,
+            dialogTitle = "앱 업데이트 안내",
+            subTitle = "새로운 버전 ($versionName) 이 출시되었습니다.",
+            subTitleAdd = noticeText,
+            dismissText = if (mustUpdate) "종료" else "나중에",
+            confirmText = "앱 업데이트",
+            onDismissRequest = onDismissRequest,
+            onConfirmRequest = onConfirmRequest
+        )
+    }
+
+
 }
 
 @Preview(showSystemUi = true)

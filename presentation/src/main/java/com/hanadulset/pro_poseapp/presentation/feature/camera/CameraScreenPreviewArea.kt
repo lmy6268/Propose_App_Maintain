@@ -1,6 +1,8 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
+import android.util.LayoutDirection
+import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
@@ -8,6 +10,8 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationState
@@ -21,14 +25,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +38,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -52,11 +57,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.text.layoutDirection
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -64,51 +73,77 @@ import coil.size.Dimension
 import coil.size.Scale
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 object CameraScreenPreviewArea {
+    private fun focusPointMovement(
+        motionEvent: MotionEvent,
+        updateValue: (Offset?) -> Unit,
+        localDensity: Density,
+        upperBarSize: () -> DpSize,
+        onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit,
+        previewView: PreviewView
+    ): Boolean {
+        return when (motionEvent.action) {
+            MotionEvent.ACTION_DOWN -> {
+                updateValue(null)
+                val untouchableArea = with(localDensity) { upperBarSize().height.toPx() }
+                if (motionEvent.y > untouchableArea) {
+                    val pointer = Offset(motionEvent.x, motionEvent.y)
+                    updateValue(pointer.copy())
+                    onFocusEvent(
+                        Pair(
+                            previewView.meteringPointFactory.createPoint(
+                                pointer.x, pointer.y
+                            ), 2000L
+                        )
+                    )
+                }
+                false
+            }
+
+            else -> {
+                false
+            }
+        }
+    }
+
 
     //미리보기 영역
     @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     fun PreviewArea(
         modifier: Modifier = Modifier,
-        poseData: PoseData? = null,
-        poseScale: Float,
-        isCaptured: Boolean,
-        preview: PreviewView,
-        edgeImageBitmap: Bitmap?,
-        poseOffset: SizeF?,
-        isRecommendCompEnabled: Boolean,
-        isRecommendPoseEnabled: Boolean,
+        poseData: () -> PoseData?,
+        poseOffsetState: () -> SizeF?,
+        poseScaleState: () -> Float,
+        capturedState: () -> Boolean,
+        preview: () -> PreviewView,
+        edgeImageBitmap: () -> Bitmap?,
+        isRecommendCompEnabled: () -> Boolean,
+        isRecommendPoseEnabled: () -> Boolean,
         loadLastImage: () -> Unit,
-        upperBarSize: DpSize,
-        pointerOffset: Offset?,
+        upperBarSize: () -> DpSize,
+        pointerOffsetState: () -> Offset?,
         initCamera: () -> Unit,
         onFocusEvent: (Pair<MeteringPoint, Long>) -> Unit,
         triggerNewPoint: (DpSize) -> Unit,
         onStopCaptureAnimation: () -> Unit,
         onStopTrackPoint: () -> Unit,
         onPoseChangeOffset: (SizeF) -> Unit,
-        onPointMatched: (Boolean) -> Unit,
+        onPointMatched: (() -> Boolean) -> Unit,
         onLimitMaxScale: (Float) -> Unit
     ) {
         val localDensity = LocalDensity.current
 
-        val previewView by rememberUpdatedState(newValue = preview)
-        val compSwitchValue by rememberUpdatedState(newValue = isRecommendCompEnabled)
-        val poseSwitchValue by rememberUpdatedState(newValue = isRecommendPoseEnabled)
-
-        //외부로 부터 받은 값이 더이상 변하지 않는 경우
-        val upBarSize by remember { mutableStateOf(upperBarSize) }
 
         val previewViewSize = rememberSaveable { mutableStateOf(SizeF(0F, 0F)) }
-        val pointOffset by rememberUpdatedState(newValue = pointerOffset)
 
         //카메라 촬영 시, 촬영 Effect
         val flashColor by animateColorAsState(
-            targetValue = if (isCaptured) Color.White else Color.Unspecified,
+            targetValue = if (capturedState()) Color.White else Color.Unspecified,
             animationSpec = tween(150, 0, easing = LinearEasing),
-            finishedListener = { if (isCaptured) onStopCaptureAnimation() },
+            finishedListener = { if (capturedState()) onStopCaptureAnimation() },
             label = ""
         )
 
@@ -135,85 +170,72 @@ object CameraScreenPreviewArea {
                             SizeF(it.width.toDp().value, it.height.toDp().value)
                         }
                     }
-                    .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent -> //여기서 포커스 링을 세팅하는데, 여기서 문제가 생긴 것 같다.
-                        when (motionEvent.action) {
-                            MotionEvent.ACTION_DOWN -> {
-                                focusRingState.value = null
-                                val untouchableArea = with(localDensity) { upBarSize.height.toPx() }
-                                if (motionEvent.y > untouchableArea) {
-                                    val pointer = Offset(motionEvent.x, motionEvent.y)
-                                    focusRingState.value = pointer.copy()
-                                    onFocusEvent(
-                                        Pair(
-                                            previewView.meteringPointFactory.createPoint(
-                                                pointer.x, pointer.y
-                                            ), 2000L
-                                        )
-                                    )
-                                }
-                                false
-                            }
-
-                            else -> {
-                                false
-                            }
-                        }
+                    .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent ->
+                        focusPointMovement(
+                            motionEvent = motionEvent,
+                            previewView = preview(),
+                            updateValue = {
+                                focusRingState.value = it
+                            },
+                            onFocusEvent = {
+                                onFocusEvent(it)
+                            },
+                            localDensity = localDensity,
+                            upperBarSize = { upperBarSize() }
+                        )
                     },
                 factory = {
                     loadLastImage()
                     initCamera()
-                    previewView
+                    preview()
                 },
             ) {
 
             }
+
             //플래시 화면
             Box(
                 modifier = modifier
-                    .size(DpSize(previewViewSize.value.width.dp, previewViewSize.value.height.dp))
-                    .background(color = flashColor)
+                    .size(
+                        DpSize(
+                            previewViewSize.value.width.dp,
+                            previewViewSize.value.height.dp
+                        )
+                    )
+                    .drawBehind {
+                        drawRect(color = flashColor)
+                    }
             )
 
             //엣지 화면
             ShowEdgeImage(
                 modifier = modifier.size(
                     DpSize(
-                        previewViewSize.value.width.dp,
-                        previewViewSize.value.height.dp
+                        previewViewSize.value.width.dp, previewViewSize.value.height.dp
                     )
-                ),
-                capturedEdgesBitmap = edgeImageBitmap
+                ), capturedEdgesBitmap = edgeImageBitmap
             )
             //구도 추천
-            if (compSwitchValue) CameraScreenCompScreen.CompScreen(
-                modifier = modifier.size(
-                    DpSize(
-                        previewViewSize.value.width.dp,
-                        previewViewSize.value.height.dp
-                    )
-                ),
-                pointOffSet = pointOffset,
-                triggerPoint = triggerNewPoint,
-                stopToTracking = onStopTrackPoint,
-                onPointMatched = onPointMatched
-            )
-
+            if (isRecommendCompEnabled()) {
+                CameraScreenCompScreen.CompScreen(modifier = modifier,
+                    pointOffSet = pointerOffsetState,
+                    triggerPoint = triggerNewPoint,
+                    stopToTracking = onStopTrackPoint,
+                    onPointMatched = onPointMatched,
+                    previewSize = { previewViewSize.value })
+            }
 
             //포즈 화면 구성 -> 포즈 값만 있어도 됨.
-            if (poseData != null && poseSwitchValue) {
-                ShowingPoseScreen(
-                    modifier = modifier.requiredSize(
-                        DpSize(
-                            previewViewSize.value.width.dp,
-                            previewViewSize.value.height.dp
-                        )
-                    ),
-                    poseData = poseData,
-                    poseScale = poseScale,
+            if (poseData() != null
+//                && isRecommendPoseEnabled()
+            ) {
+                ShowingPoseScreen(modifier = modifier,
+                    poseData = poseData()!!,
+                    poseScale = poseScaleState,
                     onChangeOffset = onPoseChangeOffset,
-                    inputPoseOffset = poseOffset,
-                    onLimitMaxScale = onLimitMaxScale
-                )
+                    poseOffset = poseOffsetState,
+                    onLimitMaxScale = onLimitMaxScale,
+                    previewViewSize = { previewViewSize.value })
             }
 
             //포커스 위치
@@ -261,131 +283,152 @@ object CameraScreenPreviewArea {
     //고정된 화면을 보여주는 컴포저블
     @Composable
     fun ShowEdgeImage(
-        capturedEdgesBitmap: Bitmap?, // 고정된 이미지
+        capturedEdgesBitmap: () -> Bitmap?, // 고정된 이미지
         modifier: Modifier = Modifier, //수정자
     ) {
-        if (capturedEdgesBitmap != null) {
+        capturedEdgesBitmap()?.run {
             Image(
-                modifier = modifier.alpha(0.5F),
-                bitmap = capturedEdgesBitmap.asImageBitmap(),
+                modifier = modifier.alpha(0.3F),
+                bitmap = this.asImageBitmap(),
                 contentDescription = "Edge Image"
             )
         }
-
     }
 
     @Composable
     fun ShowingPoseScreen(
         modifier: Modifier = Modifier,
+        previewViewSize: () -> SizeF,
         poseData: PoseData,
-        poseScale: Float,
-        inputPoseOffset: SizeF?,
+        poseScale: () -> Float,
+        poseOffset: () -> SizeF?,
         onLimitMaxScale: (Float) -> Unit,
         onChangeOffset: (SizeF) -> Unit //오프셋을 이동시키면, 이 메소드가 실행됨
     ) {
         val localDensity = LocalDensity.current
         //현재 포즈 아이템
         val currentItem by rememberUpdatedState(newValue = poseData)
-        //미리보기 사이즈
-        val boxSize = rememberSaveable {
-            mutableStateOf(SizeF(0F, 0F))
-        }
+        val scaleOfPose by rememberUpdatedState(newValue = poseScale())
+        val offsetOfPose by rememberUpdatedState(newValue = poseOffset())
+        val boxSize by rememberUpdatedState(newValue = localDensity.run {
+            previewViewSize().let {
+                SizeF(it.width.dp.toPx(), it.height.dp.toPx())
+            }
+        })
+
+
         //미리보기를 채우는 박스
         Box(
-            modifier =
-            modifier.onSizeChanged {
-                boxSize.value = SizeF(it.width.toFloat(), it.height.toFloat())
-            }
+            modifier = modifier
         ) {
-            AnimatedVisibility(
-                visible = boxSize.value.width > 0,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                //여기 내부에서 포즈아이템이 돌아다니게 됨.
-                AnimatedContent(
-                    targetState = currentItem,
-                    transitionSpec = {
-                        ContentTransform(
-                            initialContentExit = fadeOut(),
-                            targetContentEnter = fadeIn()
+            AnimatedContent(
+                targetState = currentItem,
+                transitionSpec = {
+                    ContentTransform(
+                        initialContentExit = fadeOut(),
+                        targetContentEnter = fadeIn()
+                    )
+                },
+                label = "포즈가 보이는 화면",
+            ) { poseItem ->
+                //이미지 기본크기
+                val poseItemSize = remember {
+                    localDensity.run {
+                        mutableStateOf(
+                            Size(
+                                (boxSize.width * poseItem.sizeRate.width),
+                                (boxSize.height * poseItem.sizeRate.height)
+                            )
                         )
-                    },
-                    label = "",
-                ) { poseItem ->
-                    //이미지 기본크기
-                    val poseItemSize = remember {
-                        localDensity.run {
-                            mutableStateOf(
-                                Size(
-                                    (boxSize.value.width * poseItem.sizeRate.width),
-                                    (boxSize.value.height * poseItem.sizeRate.height)
+                    }
+                }
+                //아직 어색함
+                val poseBottomRightOffset = remember {
+                    localDensity.run {
+                        mutableStateOf(
+                            if (offsetOfPose != null) Offset(
+                                offsetOfPose!!.width + poseItemSize.value.width,
+                                offsetOfPose!!.height + poseItemSize.value.height
+                            )
+                            else Offset(
+                                boxSize.width * poseItem.bottomCenterRate.width + poseItemSize.value.width / 2,
+                                boxSize.height * poseItem.bottomCenterRate.height + poseItemSize.value.height / 2
+                            )
+                        )
+                    }
+                }
+                //포즈 이미지 페인터
+                val painter by rememberUpdatedState(newValue = poseItem.imageUri?.run {
+                    rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(LocalContext.current).data(this).size(
+                            coil.size.Size(
+                                Dimension(
+                                    poseItemSize.value.width.toInt()
+                                ), Dimension(
+                                    poseItemSize.value.height.toInt()
                                 )
                             )
+                        ).scale(Scale.FIT).build()
+                    )
+                })
+
+
+                val isChecked = remember {
+                    mutableStateOf(false)
+                }
+                val poseItemInitScale = remember { mutableStateOf<Float?>(null) }
+
+
+                LaunchedEffect(key1 = painter?.state) {
+                    if (isChecked.value.not()) {
+                        localDensity.run {
+                            (painter?.state as? AsyncImagePainter.State.Success)?.painter?.intrinsicSize?.let { originImageSizeByDp ->
+                                val originImageSize = Size(
+                                    originImageSizeByDp.width.dp.toPx(),
+                                    originImageSizeByDp.height.dp.toPx(),
+                                )
+                                val scale =
+                                    if (originImageSize.width > originImageSize.height) poseItemSize.value.width / originImageSize.width
+                                    else poseItemSize.value.height / originImageSize.height
+                                poseItemSize.value = originImageSize.run {
+                                    Size(
+                                        width = width * scale, height = height * scale
+                                    )
+                                }
+                                poseItemInitScale.value = scale
+                                isChecked.value = true
+                            }
                         }
                     }
+                }
+
+
+                //포즈 아이템에 대한 설정을 진행한다.
+                // 필요한 설정 : 기본 이미지 사이즈, offset 이동 처리,
+                if (poseItemInitScale.value != null) {
                     val poseTopLeftOffset = remember {
                         localDensity.run {
                             mutableStateOf(
-                                if (inputPoseOffset != null) Offset(
-                                    inputPoseOffset.width,
-                                    inputPoseOffset.height
+                                if (offsetOfPose != null) Offset(
+                                    offsetOfPose!!.width,
+                                    offsetOfPose!!.height
                                 )
-                                else Offset(
-                                    boxSize.value.width * poseItem.centerRate.width - poseItemSize.value.width / 2,
-                                    boxSize.value.height * poseItem.centerRate.height - poseItemSize.value.height / 2
-                                )
-                            )
-                        }
-                    }
-                    //아직 어색함
-                    val poseBottomRightOffset = remember {
-                        localDensity.run {
-                            mutableStateOf(
-                                if (inputPoseOffset != null) Offset(
-                                    inputPoseOffset.width + poseItemSize.value.width,
-                                    inputPoseOffset.height + poseItemSize.value.height
-                                )
-                                else Offset(
-                                    boxSize.value.width * poseItem.centerRate.width + poseItemSize.value.width / 2,
-                                    boxSize.value.height * poseItem.centerRate.height + poseItemSize.value.height / 2
-                                )
-                            )
-                        }
-                    }
-
-
-                    LaunchedEffect(key1 = Unit) {
-                        poseTopLeftOffset.value = poseTopLeftOffset.value.run {
-                            Offset(
-                                x.coerceIn(0f, boxSize.value.width),
-                                y.coerceIn(0f, boxSize.value.height)
-                            )
-                        }
-                    }
-
-                    //포즈 이미지 페인터
-                    val painter by rememberUpdatedState(newValue = poseItem.imageUri?.run {
-                        rememberAsyncImagePainter(
-                            model = ImageRequest.Builder(LocalContext.current).data(this).size(
-                                coil.size.Size(
-                                    Dimension(
-                                        poseItemSize.value.width.toInt()
-                                    ), Dimension(
-                                        poseItemSize.value.height.toInt()
+                                else {
+                                    Offset(
+                                        boxSize.width * poseItem.bottomCenterRate.width - (poseItemSize.value.width / 2),
+                                        boxSize.height * poseItem.bottomCenterRate.height - poseItemSize.value.height
                                     )
-                                )
-                            ).scale(Scale.FIT).build()
-                        )
-                    })
-                    val scaleOfPose by rememberUpdatedState(newValue = poseScale)
+                                }
+                            )
+                        }
+                    }
 
                     val calculateMaxScale: () -> Float = {
                         val nowPoseTopLeftOffset = poseTopLeftOffset.value
                         val originPoseSize = poseItemSize.value
                         val maxSize = SizeF(
-                            boxSize.value.width - nowPoseTopLeftOffset.x,
-                            boxSize.value.height - nowPoseTopLeftOffset.y
+                            boxSize.width - nowPoseTopLeftOffset.x,
+                            boxSize.height - nowPoseTopLeftOffset.y
                         )
                         val resultValue = floatArrayOf(
                             maxSize.width / originPoseSize.width,
@@ -393,40 +436,40 @@ object CameraScreenPreviewArea {
                         ).min()
                         resultValue
                     }
-
-                    //포즈 아이템에 대한 설정을 진행한다.
-                    // 필요한 설정 : 기본 이미지 사이즈, offset 이동 처리,
-                    PoseItem(modifier = Modifier
-                        .size(localDensity.run {
-                            DpSize(
-                                poseItemSize.value.width.toDp(),
-                                poseItemSize.value.height.toDp()
+                    LaunchedEffect(key1 = Unit) {
+                        poseTopLeftOffset.value = poseTopLeftOffset.value.run {
+                            Offset(
+                                x.coerceIn(0f, boxSize.width), y.coerceIn(0f, boxSize.height)
                             )
-                        })
-                        .then(
-                            (painter?.state as? AsyncImagePainter.State.Success)
-                                ?.painter
-                                ?.intrinsicSize
-                                ?.let { intrinsicSize ->
-                                    Modifier.aspectRatio(intrinsicSize.width / intrinsicSize.height)
-                                } ?: Modifier
+                        }
+                    }
+                    val currentPoseSize by rememberUpdatedState(newValue = localDensity.run {
+                        DpSize(poseItemSize.value.width.toDp(), poseItemSize.value.height.toDp())
+                    })
+
+                    PoseItem(modifier = Modifier
+
+                        .size(
+                            currentPoseSize
                         )
                         .onSizeChanged {
                             poseItemSize.value = Size(
-                                it.width.toFloat(),
-                                it.height.toFloat()
+                                it.width.toFloat(), it.height.toFloat()
                             )
                         }
                         .offset {
                             onLimitMaxScale(calculateMaxScale())
-                            poseTopLeftOffset.value.run { IntOffset(x.toInt(), y.toInt()) }
+                            poseTopLeftOffset.value.run {
+                                IntOffset(x.toInt(), y.toInt())
+                            }
                         }
                         .graphicsLayer {
                             transformOrigin = TransformOrigin(0f, 0f)
                             localDensity.run {
                                 //Top_left 기준 픽셀 오프셋 -> 이걸 가지고 중심점 값과 잘 대비 및 분류해두자.
                                 //스케일 관련
-                                transformOrigin = TransformOrigin(0f, 0f) //top-left 기준으로 사이즈를 늘려나가자.
+                                transformOrigin =
+                                    TransformOrigin(0f, 0f) //top-left 기준으로 사이즈를 늘려나가자.
                                 scaleX = scaleOfPose
                                 scaleY = scaleOfPose
                             }
@@ -439,18 +482,22 @@ object CameraScreenPreviewArea {
                                     Offset(
                                         x.coerceIn(
                                             0f,
-                                            boxSize.value.width - (poseItemSize.value.width * scaleOfPose)
+                                            boxSize.width - (poseItemSize.value.width * scaleOfPose)
                                         ), y.coerceIn(
                                             0f,
-                                            boxSize.value.height - (poseItemSize.value.height * scaleOfPose)
+                                            boxSize.height - (poseItemSize.value.height * scaleOfPose)
                                         )
                                     )
                                 }
                                 onChangeOffset(poseTopLeftOffset.value.run { SizeF(x, y) })
                             }
-                        },
-                        painter = painter
+                        }
+//                        .mirror()
+                        , painter = painter
                     )
+                }
+
+//                }
 
 //                    Canvas(Modifier.fillMaxSize()) {
 //                        drawCircle(
@@ -459,12 +506,11 @@ object CameraScreenPreviewArea {
 //                            radius = 5F
 //                        )
 //                    }
-                }
             }
         }
 
-
     }
+
 
     @Composable
     fun PoseItem(
@@ -479,6 +525,14 @@ object CameraScreenPreviewArea {
                 contentDescription = ""
             )
         }
+    }
+
+    @Stable
+    fun Modifier.mirror(): Modifier = composed {
+        if (LocalLayoutDirection.current.ordinal == LayoutDirection.LTR)
+            this.scale(scaleX = -1f, scaleY = 1f)
+        else
+            this
     }
 }
 

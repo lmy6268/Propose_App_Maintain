@@ -70,4 +70,5 @@ dependencies {
 
     // To use Kotlin Symbol Processing (KSP)
     ksp "androidx.room:room-compiler:$room_version"
+    implementation 'com.google.mlkit:pose-detection-accurate:18.0.0-beta3'
 }
