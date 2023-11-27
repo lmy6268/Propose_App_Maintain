@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.os.SystemClock
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -41,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -118,6 +120,10 @@ object CameraScreenButtons {
         innerIconDrawableId: Int? = null,
         onClickEvent: () -> Unit
     ) {
+        val beforeTime = remember(onClickEvent) {
+            mutableLongStateOf(0L)
+        }
+        val INTERVAL  = 500L
         val buttonState by rememberUpdatedState(newValue = buttonStatus)
 
         CompositionLocalProvider(LocalRippleTheme provides LocalButtonRippleTheme.apply {
@@ -127,7 +133,14 @@ object CameraScreenButtons {
             )
         }) {
             IconButton(
-                modifier = modifier.size(buttonSize), onClick = onClickEvent
+                modifier = modifier.size(buttonSize),
+                onClick = {
+                    val clickedTime = SystemClock.elapsedRealtime()
+                    if((clickedTime - beforeTime.longValue)>=INTERVAL) {
+                        onClickEvent()
+                        beforeTime.longValue = clickedTime
+                    }
+                 }
             ) {
                 Icon(
                     modifier = modifier.size(buttonSize),
@@ -225,7 +238,7 @@ object CameraScreenButtons {
                     .size(buttonSize)
                     .scale(scale = scale)
                     .then(
-                        if(isEnabled()){
+                        if (isEnabled()) {
                             Modifier.pointerInput(Unit) {
                                 detectTapGestures(onTap = {
                                     // This is called when the user taps on the canvas
@@ -233,8 +246,7 @@ object CameraScreenButtons {
                                     onChangeState(switchON.value)
                                 })
                             }
-                        }
-                        else Modifier
+                        } else Modifier
                     )
             ) {
                 // Track
@@ -299,7 +311,9 @@ object CameraScreenButtons {
                             radius = buttonSize / 2
                         ), //Ripple 효과 제거
                         interactionSource = MutableInteractionSource(),
-                        onClick = onFixedButtonPressedEvent
+                        onClick = {
+                            onFixedButtonPressedEvent()
+                        }
                     ), shape = CircleShape
             ) {
                 Icon(
@@ -577,16 +591,3 @@ fun TestSwitch() {
 
         })
 }
-
-//@Composable
-//@Preview
-//fun TestToggleBtn() {
-//    ToggledButton(modifier = Modifier.sizeIn(10.dp, 10.dp),
-//        initState = true,
-//        activatedColor = Color(0xFF95FA99),
-//        inActivatedColor = Color(0x80999999),
-//        buttonText = "테스트용",
-//        onClickEvent = {
-//
-//        })
-//}

@@ -67,14 +67,14 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
                 }
                 val res = fileHandleDataSourceImpl.saveImageToGallery(capturedImageBitmap)
                 val poseEstimationResult = estimatePose(capturedImageBitmap).toString()
-                Firebase.analytics.logEvent(eventLog.eventId) {
+                val deviceID = Settings.Secure.getString(applicationContext.contentResolver, Settings.Secure.ANDROID_ID)
+                Firebase.analytics.apply {
+                    setUserId(deviceID)
+                }.logEvent(eventLog.eventId) {
                     val hog = eventLog.backgroundHog.toString()
                     val prev = eventLog.prevRecommendPoses.toString()
                     param(
-                        "deviceID", Settings.Secure.getString(
-                            applicationContext.contentResolver,
-                            Settings.Secure.ANDROID_ID
-                        )
+                        "deviceID", deviceID
                     )
                     param(
                         "poseID", eventLog.poseID.toDouble()

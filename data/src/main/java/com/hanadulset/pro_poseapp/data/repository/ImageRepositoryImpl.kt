@@ -6,6 +6,7 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Size
 import android.util.SizeF
 import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
@@ -91,8 +92,14 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
             MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri);
         }
 
-        val softwareBitmap = backgroundBitmap.copy(Bitmap.Config.ARGB_8888, false)
-        getFixedScreen(softwareBitmap)
+        backgroundBitmap.copy(Bitmap.Config.ARGB_8888,true).run {
+            val scaledSize =  if(width/height.toFloat() == 9/16F)  Size(720,1280) else Size(480,640)
+            Bitmap.createScaledBitmap(this,scaledSize.width,scaledSize.height,false).let{
+                getFixedScreen(it).apply {
+                    it.recycle()
+                }
+            }
+        }
     } else null
 
     override suspend fun loadAllCapturedImages(): List<ImageResult> =

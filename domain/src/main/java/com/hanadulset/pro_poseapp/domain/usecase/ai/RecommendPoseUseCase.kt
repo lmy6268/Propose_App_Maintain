@@ -9,11 +9,8 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
 class RecommendPoseUseCase @Inject constructor(private val repository: ImageRepository) {
-    @OptIn(ExperimentalTime::class)
-    suspend operator fun invoke(backgroundBitmap: Bitmap): PoseDataResult =
-        measureTimedValue { repository.getRecommendPose(backgroundBitmap) }.apply {
-            Log.d("Elapsed Time for Recommending Pose: ", duration.toString())
-        }.value
+    suspend operator fun invoke(backgroundBitmap: Bitmap): PoseDataResult = repository.getRecommendPose(backgroundBitmap)
+    
 
 
 }

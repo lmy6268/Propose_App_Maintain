@@ -201,7 +201,10 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                     } catch (ex: AmazonClientException) {
                         onErrorFlag = true
                         isOkayToSkip = isExistInData(fileName)
-                        Firebase.analytics.logEvent("EVENT_AWS_S3_ERROR") {
+                        val deviceID = Settings.Secure.getString(applicationContext.contentResolver, Settings.Secure.ANDROID_ID)
+                        Firebase.analytics.apply {
+                            setUserId(deviceID)
+                        }.logEvent("EVENT_AWS_S3_ERROR") {
                             param(
                                 "networkConnection",
                                 checkNetworkState(applicationContext).toString()
@@ -216,22 +219,19 @@ class DownloadResourcesDataSourceImpl(private val applicationContext: Context) :
                             }")
                             param(
                                 "deviceID",
-                                Settings.Secure.getString(
-                                    applicationContext.contentResolver,
-                                    Settings.Secure.ANDROID_ID
-                                )
+                                deviceID
                             )
                         }
-                        Log.e(
-                            "Amazon Error: ",
-                            "${
-                                ex.message?.replace(")", "")?.split(";")
-                                    ?.let {
-                                        if (it.size >= 4) it[1] + "," + it[3]
-                                        else it
-                                    }
-                            }"
-                        )
+//                        Log.e(
+//                            "Amazon Error: ",
+//                            "${
+//                                ex.message?.replace(")", "")?.split(";")
+//                                    ?.let {
+//                                        if (it.size >= 4) it[1] + "," + it[3]
+//                                        else it
+//                                    }
+//                            }"
+//                        )
                     }
                 }
 

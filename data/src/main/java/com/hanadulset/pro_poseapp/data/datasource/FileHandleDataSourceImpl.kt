@@ -117,23 +117,25 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
     }
 
     override suspend fun deleteCapturedImage(uri: Uri): Boolean {
-        val filePath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val proj = arrayOf(MediaStore.Images.Media.DATA)
-            val cursor = context.contentResolver.query(uri, proj, null, null, null)
-            cursor?.use {
-                it.moveToNext()
-                val index = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
-                it.getString(index)
-            }
-        } else uri.path?.run { File(this).path }
-        return if (filePath != null) {
-            try {
-                File(filePath).delete()
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val proj = arrayOf(MediaStore.Images.Media.DATA)
+                val cursor = context.contentResolver.query(uri, proj, null, null, null)
+                if (cursor != null) {
+                    File(cursor.use {
+                        val index = it.getColumnIndex(MediaStore.MediaColumns.DATA)
+                        it.getString(index)
+                    }).delete()
+
+                } else context.contentResolver.delete(uri, null, null)
                 true
-            } catch (e: Exception) {
-                false
+            } else {
+                uri.path?.run { File(this).delete() }
+                true
             }
-        } else false
+        } catch (ex: Exception) {
+            false
+        }
     }
 
     companion object {

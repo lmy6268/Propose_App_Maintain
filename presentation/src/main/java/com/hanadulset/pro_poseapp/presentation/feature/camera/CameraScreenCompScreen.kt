@@ -110,6 +110,7 @@ object CameraScreenCompScreen {
 
                 //수평계
                 HorizontalCheckModule(modifier = localModifier,
+                    isShowHorizontalCheck = { compSize.value != null },
                     centerRadius = horizontalCheckCircleRadius,
                     centroid = with(localDensity) {
                         compSize.value.let {
@@ -271,8 +272,7 @@ object CameraScreenCompScreen {
 
         var comboDT = 0F
 
-        val sensorListener = rememberUpdatedState {
-            object : SensorEventListener {
+        val sensorListener = remember{ object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
                     when (event.sensor.type) {
                         Sensor.TYPE_GYROSCOPE -> {
@@ -314,16 +314,16 @@ object CameraScreenCompScreen {
             if (shakeState.value.not()) onTracking()
         }
 
-        LaunchedEffect(Unit) {
+        LaunchedEffect(shakeState.value) {
             sensorManager.registerListener(
-                sensorListener.value(), gyroscopeSensor, SensorManager.SENSOR_DELAY_NORMAL
+                sensorListener, gyroscopeSensor, SensorManager.SENSOR_DELAY_NORMAL
             )
         }
 
         //리스너 등록
-        DisposableEffect(Unit) {
+        DisposableEffect(shakeState.value.not()) {
             onDispose {
-                sensorManager.unregisterListener(sensorListener.value(), gyroscopeSensor)
+                sensorManager.unregisterListener(sensorListener, gyroscopeSensor)
             }
         }
     }
@@ -332,6 +332,7 @@ object CameraScreenCompScreen {
     // 수평계 모듈
     @Composable
     fun HorizontalCheckModule(
+        isShowHorizontalCheck:()->Boolean = {false},
         modifier: Modifier = Modifier,
         centerRadius: Float,
         centroid: Offset,
@@ -344,13 +345,9 @@ object CameraScreenCompScreen {
         val rotationState = remember {
             mutableIntStateOf(0)
         }
-
-        val animation = remember {
-            Animatable(0F)
-        }
         val angleThreshold = 5
 
-        val rotationEventListener = rememberUpdatedState {
+        val rotationEventListener = remember{
             object : OrientationEventListener(context.applicationContext) {
                 override fun onOrientationChanged(orientation: Int) {
                     // -1이 나오면 측정을 중지한다.
@@ -384,16 +381,10 @@ object CameraScreenCompScreen {
         }
 
 
-        LaunchedEffect(Unit) {
-            animation.animateTo(
-                rotationState.intValue.toFloat(), animationSpec = tween(16, easing = LinearEasing)
-            )
-        }
-
-        DisposableEffect(Unit) {
-            rotationEventListener.value().enable() //시작
+        DisposableEffect(isShowHorizontalCheck()) {
+            rotationEventListener.enable() //시작
             onDispose {
-                rotationEventListener.value().disable()//종료
+                rotationEventListener.disable()//종료
             }
         }
 

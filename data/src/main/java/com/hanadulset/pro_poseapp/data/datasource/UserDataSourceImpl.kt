@@ -52,7 +52,9 @@ class UserDataSourceImpl constructor(private val applicationContext: Context) : 
 
     override suspend fun saveUserSuccessToTermOfUse() {
         //기록을 남김
-        Firebase.analytics.logEvent("EVENT_SUCCESS_TO_USE") {
+        Firebase.analytics.apply {
+            setUserId(deviceID)
+        }.logEvent("EVENT_SUCCESS_TO_USE") {
             param("userID", deviceID)
             param("userAnswer", true.toString())
         }

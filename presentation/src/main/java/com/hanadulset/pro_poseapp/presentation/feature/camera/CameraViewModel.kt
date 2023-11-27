@@ -12,6 +12,7 @@ import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.center
+import androidx.core.content.FileProvider
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,6 +29,7 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
 import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
@@ -58,7 +60,8 @@ class CameraViewModel @Inject constructor(
     private val updatePointOffsetUseCase: UpdatePointOffsetUseCase,
     private val stopPointOffsetUseCase: StopPointOffsetUseCase,
     private val loadUserSetUseCase: LoadUserSetUseCase,
-    private val saveUserSetUseCase: SaveUserSetUseCase
+    private val saveUserSetUseCase: SaveUserSetUseCase,
+    private val deleteImageFromPicturesUseCase: DeleteImageFromPicturesUseCase
 
 ) : ViewModel() {
 
@@ -113,11 +116,6 @@ class CameraViewModel @Inject constructor(
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer { imageProxy ->
-
-        _bitmapState.onSubscription {
-            Log.d("현재 인식됨: ", "네")
-        }
-
         imageProxy.use {
             _bitmapState.value = ImageUtils.imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
             trackToNewOffset()
@@ -274,12 +272,13 @@ class CameraViewModel @Inject constructor(
 
     }
 
-    fun getPoseFromImage(uri: Uri?) {
+    fun getPoseFromImage(uri: Uri) {
         _fixedScreenState.value = null
         val res = getPoseFromImageUseCase(uri)
         _fixedScreenState.value = res
         viewModelScope.launch {
             Log.d("따오기 이미지: ", uri.toString())
+            deleteImageFromPicturesUseCase(uri)
 //            File(uri.toString()).delete()
         }
 

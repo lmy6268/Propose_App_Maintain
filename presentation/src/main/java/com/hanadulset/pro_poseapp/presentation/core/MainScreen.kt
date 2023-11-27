@@ -159,15 +159,15 @@ object MainScreen {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             destination.route?.let { dest ->
                 //로그
-                Firebase.analytics.logEvent("EVENT_USER_DESTINATION") {
+                val deviceID = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                Firebase.analytics.apply {
+                    setUserId(deviceID)
+                }.logEvent("EVENT_USER_DESTINATION") {
                     param("timeStamp", System.currentTimeMillis())
                     param("destination", dest)
                     param(
                         "deviceID",
-                        Settings.Secure.getString(
-                            context.contentResolver,
-                            Settings.Secure.ANDROID_ID
-                        )
+                       deviceID
                     )
                 }
             }
@@ -342,7 +342,6 @@ object MainScreen {
                             userSet = { userSet.value!! }
                         )
                     }
-
                 }
 
 

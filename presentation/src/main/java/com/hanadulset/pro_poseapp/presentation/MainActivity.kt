@@ -1,9 +1,12 @@
 package com.hanadulset.pro_poseapp.presentation
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -20,6 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 import com.hanadulset.pro_poseapp.presentation.core.MainScreen
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.gallery.GalleryViewModel
@@ -86,5 +92,19 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
+
+    @SuppressLint("HardwareIds")
+    override fun onStop() {
+        super.onStop()
+        //앱 종료 이벤트 발생
+        val deviceID = Settings.Secure.getString(this.contentResolver, Settings.Secure.ANDROID_ID)
+        Firebase.analytics.apply {
+            setUserId(deviceID)
+        }.logEvent("EVENT_APP_CLOSE") {
+            param("timeStamp", System.currentTimeMillis())
+            param("deviceID", deviceID)
+        }
+    }
+
 
 }
