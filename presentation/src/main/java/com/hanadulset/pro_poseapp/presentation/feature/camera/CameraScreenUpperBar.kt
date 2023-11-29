@@ -1,5 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
+import android.os.SystemClock
 import android.util.Size
 import androidx.camera.core.AspectRatio
 import androidx.compose.foundation.BorderStroke
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -46,7 +48,9 @@ object CameraScreenUpperBar {
             mutableStateOf(false)
         }
         val buttonSize = 36.dp
-
+        val beforeTime = rememberSaveable(moveToInfo) {
+            mutableLongStateOf(0L)
+        }
         //컴포저블 세팅
         Row(
             modifier = modifier.padding(horizontal = buttonSize),
@@ -69,6 +73,7 @@ object CameraScreenUpperBar {
             //확장 가능한 버튼이 확장 되지 않은 경우
             if (!isExpandedState.value) {
 
+                val INTERVAL = 400L
                 //정보화면 이동
                 CameraScreenButtons.NormalButton(
                     modifier = Modifier.border(
@@ -79,7 +84,13 @@ object CameraScreenUpperBar {
                         shape = CircleShape
                     ),
                     buttonName = "정보",
-                    onClick = moveToInfo,
+                    onClick = {
+                        val clickedTime = SystemClock.elapsedRealtime()
+                        if ((clickedTime - beforeTime.longValue) >= INTERVAL) {
+                            moveToInfo()
+                            beforeTime.longValue = clickedTime
+                        }
+                    },
                     colorTint = LocalColors.current.secondaryWhite100,
                     buttonSize = buttonSize,
                     buttonText = "i",

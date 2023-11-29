@@ -28,16 +28,16 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.SetZoomLevelUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
 import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
-import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventLog
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -58,7 +58,8 @@ class CameraViewModel @Inject constructor(
     private val updatePointOffsetUseCase: UpdatePointOffsetUseCase,
     private val stopPointOffsetUseCase: StopPointOffsetUseCase,
     private val loadUserSetUseCase: LoadUserSetUseCase,
-    private val saveUserSetUseCase: SaveUserSetUseCase
+    private val saveUserSetUseCase: SaveUserSetUseCase,
+    private val deleteImageFromPicturesUseCase: DeleteImageFromPicturesUseCase
 
 ) : ViewModel() {
 
@@ -113,11 +114,6 @@ class CameraViewModel @Inject constructor(
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer { imageProxy ->
-
-        _bitmapState.onSubscription {
-            Log.d("현재 인식됨: ", "네")
-        }
-
         imageProxy.use {
             _bitmapState.value = ImageUtils.imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
             trackToNewOffset()
@@ -161,9 +157,9 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    fun getPhoto(captureEventLog: CaptureEventLog) {
+    fun getPhoto(captureEventData: CaptureEventData) {
         viewModelScope.launch {
-            _capturedBitmapState.value = captureImageUseCase(captureEventLog)
+            _capturedBitmapState.value = captureImageUseCase(captureEventData)
         }
     }
 
@@ -274,12 +270,13 @@ class CameraViewModel @Inject constructor(
 
     }
 
-    fun getPoseFromImage(uri: Uri?) {
+    fun getPoseFromImage(uri: Uri) {
         _fixedScreenState.value = null
         val res = getPoseFromImageUseCase(uri)
         _fixedScreenState.value = res
         viewModelScope.launch {
             Log.d("따오기 이미지: ", uri.toString())
+            deleteImageFromPicturesUseCase(uri)
 //            File(uri.toString()).delete()
         }
 

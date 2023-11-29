@@ -2,16 +2,12 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
 import android.util.LayoutDirection
-import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationState
@@ -22,11 +18,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,13 +53,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import androidx.core.text.layoutDirection
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -73,7 +65,6 @@ import coil.size.Dimension
 import coil.size.Scale
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import kotlinx.coroutines.delay
-import java.util.Locale
 
 object CameraScreenPreviewArea {
     private fun focusPointMovement(
@@ -121,7 +112,6 @@ object CameraScreenPreviewArea {
         preview: () -> PreviewView,
         edgeImageBitmap: () -> Bitmap?,
         isRecommendCompEnabled: () -> Boolean,
-        isRecommendPoseEnabled: () -> Boolean,
         loadLastImage: () -> Unit,
         upperBarSize: () -> DpSize,
         pointerOffsetState: () -> Offset?,

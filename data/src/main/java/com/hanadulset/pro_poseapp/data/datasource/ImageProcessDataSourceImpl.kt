@@ -13,6 +13,7 @@ import android.util.SizeF
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ImageProcessDataSource
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
+import org.opencv.core.CvException
 import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
@@ -68,51 +69,53 @@ class ImageProcessDataSourceImpl : ImageProcessDataSource {
     override suspend fun useOpticalFlow(bitmap: Bitmap, targetOffset: SizeF): SizeF? {
 
         //이전 프레임이 없는 경우, 트래킹을 하지 않는다.
+        try {
+            if (prevFrame == null) {
+                prevFrame =
+                    bitmapToMatWithOpenCV(bitmap)
+                prevPoint = targetOffset
 
-        if (prevFrame == null) {
+                prevCornerPoint = MatOfPoint().apply {
+                    Imgproc.goodFeaturesToTrack(prevFrame, this, 1000, 0.01, 10.0)
+                }.let { goodCorner -> MatOfPoint2f().apply { fromList(goodCorner.toList()) } }
 
-            prevFrame =
-                bitmapToMatWithOpenCV(bitmap)
-            prevPoint = targetOffset
+                return targetOffset
+            } //흑백이미지 Matrix
 
-            prevCornerPoint = MatOfPoint().apply {
-                Imgproc.goodFeaturesToTrack(prevFrame, this, 1000, 0.01, 10.0)
-            }.let { goodCorner -> MatOfPoint2f().apply { fromList(goodCorner.toList()) } }
+            else {
+                val outputFrame =
+                    bitmapToMatWithOpenCV(bitmap) //흑백이미지 Matrix
+                val outputState = MatOfByte()
+                val outputErr = MatOfFloat()
+                val outputCornerPoint = MatOfPoint().apply {
+                    Imgproc.goodFeaturesToTrack(outputFrame, this, 1000, 0.01, 10.0)
+                }.let { goodCorner -> MatOfPoint2f().apply { fromList(goodCorner.toList()) } }
 
-            return targetOffset
-        } //흑백이미지 Matrix
+                Video.calcOpticalFlowPyrLK(
+                    prevFrame,
+                    outputFrame,
+                    prevCornerPoint,
+                    outputCornerPoint,
+                    outputState,
+                    outputErr,
+                )
 
-        else {
-            val outputFrame =
-                bitmapToMatWithOpenCV(bitmap) //흑백이미지 Matrix
-
-            val outputState = MatOfByte()
-            val outputErr = MatOfFloat()
-            val outputCornerPoint = MatOfPoint().apply {
-                Imgproc.goodFeaturesToTrack(outputFrame, this, 1000, 0.01, 10.0)
-            }.let { goodCorner -> MatOfPoint2f().apply { fromList(goodCorner.toList()) } }
-
-            Video.calcOpticalFlowPyrLK(
-                prevFrame,
-                outputFrame,
-                prevCornerPoint,
-                outputCornerPoint,
-                outputState,
-                outputErr,
-            )
-
-            //트래킹에 실패하면, outputState.toList().map { it.toInt() }.toSet() <-  이 값이 [0]이 된다.
-            val isFailToTrack = (outputState.toList().map { it.toInt() }.toSet() == setOf(0))
+                //트래킹에 실패하면, outputState.toList().map { it.toInt() }.toSet() <-  이 값이 [0]이 된다.
+                val isFailToTrack = (outputState.toList().map { it.toInt() }.toSet() == setOf(0))
 
 
-            return if (isFailToTrack.not()) {
-                val outputPoint =
-                    calculateOffsetDiff(prevCornerPoint!!, outputCornerPoint, targetOffset)
-                prevFrame = outputFrame //업데이트
-                prevPoint = outputPoint
-                prevCornerPoint = outputCornerPoint
-                outputPoint
-            } else null
+                return if (isFailToTrack.not()) {
+                    val outputPoint =
+                        calculateOffsetDiff(prevCornerPoint!!, outputCornerPoint, targetOffset)
+                    prevFrame = outputFrame //업데이트
+                    prevPoint = outputPoint
+                    prevCornerPoint = outputCornerPoint
+                    outputPoint
+                } else null
+            }
+        } catch (ex: CvException) {
+            Log.e("Error:", ex.message ?: "CVException Occurred")
+            return null
         }
     }
 

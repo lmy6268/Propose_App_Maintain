@@ -344,27 +344,25 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
     @OptIn(ExperimentalTime::class)
     override suspend fun getHistogramMap(backgroundBitmap: Bitmap): Mat {
         //이미지
-        Log.d("ASDF1",System.currentTimeMillis().toString())
+//        Log.d("ASDF1",System.currentTimeMillis().toString())
         val resizedImage = preProcessing(backgroundBitmap)
 
-        Log.d("ASDF2",System.currentTimeMillis().toString())
+//        Log.d("ASDF2",System.currentTimeMillis().toString())
         val resizedImageMats = arrayListOf(
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1),
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1),
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1)
         )
 
-        Log.d("ASDF3",System.currentTimeMillis().toString())
+//        Log.d("ASDF3",System.currentTimeMillis().toString())
         Core.split(resizedImage, resizedImageMats)
         val resList = ArrayList<Pair<Mat, Mat>>()
 
-        Log.d("ASDF4",System.currentTimeMillis().toString())
+//        Log.d("ASDF4",System.currentTimeMillis().toString())
         for (mat in resizedImageMats) {
-            resList.add(measureTimedValue { getGradient(mat) }.apply {
-                Log.d("Elapse Time for Getting Gradient: ", this.duration.toString())
-            }.value)
+            resList.add(getGradient(mat))
         }
-        Log.d("ASDF5",System.currentTimeMillis().toString())
+//        Log.d("ASDF5",System.currentTimeMillis().toString())
         val resListMagnitudeDump = mutableListOf<List<List<Double>>>()
         val resListOrientationDump = mutableListOf<List<List<Double>>>()
         val resDump = mutableListOf<List<List<List<Double>>>>()
@@ -372,14 +370,14 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
             resListMagnitudeDump.add(pair.first.to3dList()[0])
             resListOrientationDump.add(pair.second.to3dList()[0])
         }
-        Log.d("ASDF6",System.currentTimeMillis().toString())
+//        Log.d("ASDF6",System.currentTimeMillis().toString())
 
         //for 문 속도 개선
         for (i in resListMagnitudeDump.indices) {
             resDump.add(listOf(resListMagnitudeDump[i], resListOrientationDump[i]))
         }
 
-        Log.d("ASDF7",System.currentTimeMillis().toString())
+//        Log.d("ASDF7",System.currentTimeMillis().toString())
         //변수 초기화 -> 모든 칸의 값을 0으로 초기화하여 진행한다.
         val resMagnitude =
             Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_64FC1)
@@ -388,7 +386,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
         val cnt = Mat.zeros(resizedImage.width(), resizedImage.height(), CvType.CV_8UC1)
 
 
-        Log.d("ASDF8",System.currentTimeMillis().toString())
+//        Log.d("ASDF8",System.currentTimeMillis().toString())
         //for 문 속도 개선
         resList.forEach {
             val magnitude = it.first
@@ -403,7 +401,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 }
             }
         }
-        Log.d("ASDF9",System.currentTimeMillis().toString())
+//        Log.d("ASDF9",System.currentTimeMillis().toString())
 
 
         //for 문 속도 개선
@@ -420,11 +418,11 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 }
             }
         }
-        Log.d("ASDF10",System.currentTimeMillis().toString())
+//        Log.d("ASDF10",System.currentTimeMillis().toString())
 
         val ave =
             Core.sumElems(resMagnitude).`val`[0] / (resMagnitude.width() * resMagnitude.height())
-        Log.d("ASDF11",System.currentTimeMillis().toString())
+//        Log.d("ASDF11",System.currentTimeMillis().toString())
         for (row in 0 until cnt.rows()) {
             for (col in 0 until cnt.cols()) {
                 resMagnitude.put(
@@ -435,13 +433,13 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 )
             }
         }
-        Log.d("ASDF12",System.currentTimeMillis().toString())
+//        Log.d("ASDF12",System.currentTimeMillis().toString())
         val arrayList = ArrayList<Double>()
         for (row in 0 until cnt.rows()) {
             for (col in 0 until cnt.cols())
                 arrayList.add(resMagnitude[row, col][0])
         }
-        Log.d("ASDF13",System.currentTimeMillis().toString())
+//        Log.d("ASDF13",System.currentTimeMillis().toString())
 
         val histogramMap = Mat.zeros(
             Size(
@@ -449,7 +447,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 resizedImage.height() / HogConfig.cellSize.height
             ), CvType.CV_64FC(HogConfig.nBins)
         )
-        Log.d("ASDF14",System.currentTimeMillis().toString())
+//        Log.d("ASDF14",System.currentTimeMillis().toString())
 
         for (x in 0 until resizedImage.width() step HogConfig.cellSize.height.toInt()) {
             for (y in 0 until resizedImage.height() step HogConfig.cellSize.width.toInt()) {
@@ -472,7 +470,7 @@ class PoseDataSourceImpl(private val context: Context) : PoseDataSource {
                 )
             }
         }
-        Log.d("ASDF15",System.currentTimeMillis().toString())
+//        Log.d("ASDF15",System.currentTimeMillis().toString())
 
 
         return histogramMap

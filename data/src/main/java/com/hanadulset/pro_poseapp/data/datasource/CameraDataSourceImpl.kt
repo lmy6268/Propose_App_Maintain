@@ -70,10 +70,10 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
                     cameraProvider = cameraProviderFuture!!.get()
                 } catch (e: InterruptedException) {
                     cont.resume(CameraState(CAMERA_INIT_ERROR, e, e.message))
-                    Log.e(this::class.java.name, "Error starting camera")
+//                    Log.e(this::class.java.name, "Error starting camera")
                 } catch (e: ExecutionException) {
                     cont.resume(CameraState(CAMERA_INIT_ERROR, e, e.message))
-                    Log.e(this::class.java.name, "Error starting camera")
+//                    Log.e(this::class.java.name, "Error starting camera")
                 }
                 if (bindCameraUseCases(
                         surfaceProvider = surfaceProvider,
@@ -188,7 +188,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             // Now you have the CameraControl instance if you need it
         } catch (exc: Exception) {
             // Handle camera initialization error
-            Log.e("Error on Init Camera", "에러입니다", exc)
+//            Log.e("Error on Init Camera", "에러입니다", exc)
             return false
 
         }
@@ -197,10 +197,10 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     fun unbindCameraResources(): Boolean {
         return try {
             cameraProvider!!.unbindAll()
-            Log.d(
-                "available cameras: ",
-                cameraProvider!!.availableCameraInfos.map { it.cameraState.value }.toString()
-            )
+//            Log.d(
+//                "available cameras: ",
+//                cameraProvider!!.availableCameraInfos.map { it.cameraState.value }.toString()
+//            )
             true
         } catch (exc: Exception) {
             false

@@ -29,7 +29,6 @@ class ModelRunnerDataSourceDataSourceImpl(private val context: Context) : ModelR
 
     //path를 알면 로드할 수 있음 .
     override fun loadModel(moduleAssetName: String): Module {
-
         val file = File(context.dataDir, moduleAssetName)
         val path = if (file.exists() && file.length() > 0) file.absolutePath
         else context.assets.open(moduleAssetName).use { `is` ->
@@ -110,21 +109,21 @@ class ModelRunnerDataSourceDataSourceImpl(private val context: Context) : ModelR
         return res
     }
 
-    fun convert1DTo3D(
-        inputArray: FloatArray, depth: Int, rows: Int, cols: Int
-    ): Array<Array<FloatArray>> {
-        val result = Array(depth) { Array(rows) { FloatArray(cols) } }
-
-        for (i in 0 until depth) {
-            for (j in 0 until rows) {
-                for (k in 0 until cols) {
-                    result[i][j][k] = inputArray[i * rows * cols + j * cols + k]
-                }
-            }
-        }
-
-        return result
-    }
+//    fun convert1DTo3D(
+//        inputArray: FloatArray, depth: Int, rows: Int, cols: Int
+//    ): Array<Array<FloatArray>> {
+//        val result = Array(depth) { Array(rows) { FloatArray(cols) } }
+//
+//        for (i in 0 until depth) {
+//            for (j in 0 until rows) {
+//                for (k in 0 until cols) {
+//                    result[i][j][k] = inputArray[i * rows * cols + j * cols + k]
+//                }
+//            }
+//        }
+//
+//        return result
+//    }
 
     companion object {
         private val RESNET_INPUT_SIZE = Size(224.0, 224.0)

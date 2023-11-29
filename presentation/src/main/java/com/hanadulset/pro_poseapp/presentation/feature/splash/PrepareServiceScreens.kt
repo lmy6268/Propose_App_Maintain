@@ -8,8 +8,6 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
@@ -44,9 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
-import com.google.common.reflect.Reflection.getPackageName
 import com.google.firebase.Firebase
-import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
 import com.google.firebase.remoteconfig.get
 import com.google.firebase.remoteconfig.remoteConfig
 import com.google.firebase.remoteconfig.remoteConfigSettings
@@ -59,10 +55,6 @@ import com.hanadulset.pro_poseapp.utils.CheckResponse
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import org.json.JSONObject
 import org.json.JSONTokener
 
@@ -88,7 +80,7 @@ object PrepareServiceScreens {
             rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
             }
 
-        suspend fun checkForUpdate(
+        suspend fun checkForAppUpdate(
             localContext: Context
         ) {
             val appVersion = "updated_app_version"
@@ -123,7 +115,7 @@ object PrepareServiceScreens {
         }
 
         LaunchedEffect(key1 = Unit) {
-            checkForUpdate(
+            checkForAppUpdate(
                 localContext = localContext
             )
             if (showUpdateDialog.value == null) onCheckForMoveToNext()
@@ -247,12 +239,11 @@ object PrepareServiceScreens {
     @Composable
     fun AppLoadingScreen(
         previewState: State<CameraState>,
-        isAfterDownload: Boolean,
         onAfterLoadedEvent: () -> Unit,
-        onMoveToDownload: () -> Unit,
+//        onMoveToDownload: () -> Unit,
         onPrepareToLoadCamera: () -> Unit = {},
-        onRequestCheckForDownload: () -> Unit,
-        checkNeedToDownloadState: CheckResponse?,
+//        onRequestCheckForDownload: () -> Unit,
+//        checkNeedToDownloadState: CheckResponse?,
         totalLoadedState: () -> Boolean
     ) {
 
@@ -262,25 +253,23 @@ object PrepareServiceScreens {
         }
         LaunchedEffect(Unit) {
             delay(1000)
-
-
-            //만약 다운을 다 받은 상태라면 바로 카메라 로딩
-            if (isAfterDownload) onPrepareToLoadCamera()
-            //아니라면 다운로드 관련 체크로 넘어감
-            else onRequestCheckForDownload()
+            onPrepareToLoadCamera()
+//            onRequestCheckForDownload()
         }
 
-        LaunchedEffect(checkNeedToDownloadState) {
-            //만약 다운로드 상태 파악이 완료된 경우
-            if (checkNeedToDownloadState != null && isAfterDownload.not()) {
-                if (checkNeedToDownloadState.needToDownload.not()) onPrepareToLoadCamera()
-                else onMoveToDownload()
-            }
-        }
+//        LaunchedEffect(checkNeedToDownloadState) {
+//            //만약 다운로드 상태 파악이 완료된 경우
+//            if (checkNeedToDownloadState != null) {
+//                if (checkNeedToDownloadState.needToDownload.not()) onPrepareToLoadCamera()
+//                else onMoveToDownload()
+//            }
+//        }
 
 
         //여기는 카메라 로딩 준비
-        if (totalLoadedState() && previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()) {
+        if (totalLoadedState() &&
+            previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()
+        ) {
             onAfterLoadedEvent()//카메라 화면으로 이동하는 거임.
             isInitiated.value = true
         }

@@ -6,7 +6,7 @@ import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
-import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventLog
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
 
 
 //카메라 기능을 담당하는 레포지토리
@@ -19,12 +19,12 @@ interface CameraRepository {
         analyzer: ImageAnalysis.Analyzer,
     ): CameraState
 
-    suspend fun takePhoto(eventLog: CaptureEventLog): Uri
+    suspend fun takePhoto(eventData: CaptureEventData): Uri
     fun setZoomRatio(zoomLevel: Float)
     fun sendCameraSound()
     fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long)
 
 
-    fun sendUserFeedBackData(eventLogs: ArrayList<CaptureEventLog>)
+    fun sendUserFeedBackData(eventLogs: ArrayList<CaptureEventData>)
     fun unbindCameraResource(): Boolean
 }

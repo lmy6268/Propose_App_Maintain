@@ -5,26 +5,20 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.media.MediaActionSound
-import android.provider.Settings
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
-import com.google.android.gms.tasks.Task
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
 import com.hanadulset.pro_poseapp.data.datasource.CameraDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
 import com.hanadulset.pro_poseapp.utils.ImageUtils
-import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventLog
+import com.hanadulset.pro_poseapp.utils.eventlog.AnalyticsManager
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,6 +36,9 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
     private val fileHandleDataSourceImpl by lazy {
         FileHandleDataSourceImpl(context = applicationContext)
     }
+    private val analyticsManager by lazy {
+        AnalyticsManager(applicationContext.contentResolver)
+    }
 
 
     override suspend fun bindCamera(
@@ -56,7 +53,7 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
 
     @SuppressLint("HardwareIds")
     @OptIn(androidx.camera.core.ExperimentalGetImage::class)
-    override suspend fun takePhoto(eventLog: CaptureEventLog) =
+    override suspend fun takePhoto(eventData: CaptureEventData) =
         cameraDataSource.takePhoto()
             .let { data ->
                 val capturedImageBitmap = data.use {
@@ -66,61 +63,11 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
                     )
                 }
                 val res = fileHandleDataSourceImpl.saveImageToGallery(capturedImageBitmap)
-                val poseEstimationResult = estimatePose(capturedImageBitmap).toString()
-                Firebase.analytics.logEvent(eventLog.eventId) {
-                    val hog = eventLog.backgroundHog.toString()
-                    val prev = eventLog.prevRecommendPoses.toString()
-                    param(
-                        "deviceID", Settings.Secure.getString(
-                            applicationContext.contentResolver,
-                            Settings.Secure.ANDROID_ID
-                        )
-                    )
-                    param(
-                        "poseID", eventLog.poseID.toDouble()
-                    )
-                    param(
-                        "timeStamp", eventLog.timestamp
-                    )
-                    param(
-                        "backgroundId", eventLog.backgroundId?.toDouble() ?: -1.0
-                    )
-                    if (prev.length > 99) {
-                        prev.chunked(99).forEachIndexed { index, s ->
-                            param(
-                                "prevRecommendPoses_$index", s
-                            )
-                        }
-                    } else {
-                        param(
-                            "prevRecommendPoses", prev
-                        )
-                    }
-                    if (hog.length > 99) {
-                        hog.chunked(99).forEachIndexed { index, s ->
-                            param(
-                                "backgroundHog_$index", s
-                            )
-                        }
-                    } else {
-                        param(
-                            "backgroundHog", hog
-                        )
-                    }
-                    if (poseEstimationResult.length > 99) {
-                        poseEstimationResult.chunked(99).forEachIndexed { index, s ->
-                            param(
-                                "human_pose_estimation_$index", s
-                            )
-                        }
-                    } else {
-                        param(
-                            "human_pose_estimation", poseEstimationResult
-                        )
-                    }
-
-
-                }
+                val poseEstimationResult = estimatePose(capturedImageBitmap)
+                analyticsManager.saveCapturedEvent(
+                    captureEventData = eventData,
+                    poseEstimationResult
+                )
                 res
             }
 
@@ -146,7 +93,7 @@ class CameraRepositoryImpl @Inject constructor(private val applicationContext: C
         cameraDataSource.setFocus(meteringPoint, durationMilliSeconds)
     }
 
-    override fun sendUserFeedBackData(eventLogs: ArrayList<CaptureEventLog>) {
+    override fun sendUserFeedBackData(eventLogs: ArrayList<CaptureEventData>) {
 
     }
 
