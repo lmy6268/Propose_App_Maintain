@@ -12,7 +12,6 @@ import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.center
-import androidx.core.content.FileProvider
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,12 +33,11 @@ import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
-import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventLog
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -159,9 +157,9 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    fun getPhoto(captureEventLog: CaptureEventLog) {
+    fun getPhoto(captureEventData: CaptureEventData) {
         viewModelScope.launch {
-            _capturedBitmapState.value = captureImageUseCase(captureEventLog)
+            _capturedBitmapState.value = captureImageUseCase(captureEventData)
         }
     }
 

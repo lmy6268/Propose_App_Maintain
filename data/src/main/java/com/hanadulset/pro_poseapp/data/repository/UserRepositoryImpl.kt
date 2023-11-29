@@ -5,6 +5,8 @@ import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImp
 import com.hanadulset.pro_poseapp.data.datasource.UserDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.UserRepository
 import com.hanadulset.pro_poseapp.utils.UserSet
+import com.hanadulset.pro_poseapp.utils.eventlog.AnalyticsManager
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -27,9 +29,12 @@ class UserRepositoryImpl @Inject constructor(private val applicationContext: Con
     override suspend fun saveUserSet(userSet: UserSet) = userDataSourceImpl.saveUserSet(userSet)
     override suspend fun saveUserSuccessToTermOfUse() {
         userDataSourceImpl.saveUserSuccessToTermOfUse()
+        AnalyticsManager(applicationContext.contentResolver).saveUserAgreeToUseEvent()
     }
 
     override suspend fun checkUserSuccessToTermOfUse() =
         userDataSourceImpl.checkUserSuccessToTermOfUse()
+
+
 
 }

@@ -1,8 +1,6 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
-import android.annotation.SuppressLint
 import android.net.Uri
-import android.provider.Settings
 import android.util.Range
 import android.util.SizeF
 import android.view.MotionEvent
@@ -45,7 +43,6 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -53,14 +50,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents.AnimatedSlideToLeft
 import com.hanadulset.pro_poseapp.utils.UserSet
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
-import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventLog
+import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -266,7 +260,7 @@ fun Screen(
     val shutterEvent = remember {
         {
             cameraViewModel.getPhoto(
-                CaptureEventLog(
+                CaptureEventData(
                     poseID = currentPoseItemDataList.value?.get(selectedPoseItemDataIndex.intValue)?.poseId
                         ?: -1,
                     prevRecommendPoses = currentPoseItemDataList.value?.let { it.map { poseData -> poseData.poseId } },
