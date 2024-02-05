@@ -8,17 +8,14 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
 import android.util.SizeF
-import com.hanadulset.pro_poseapp.data.datasource.DownloadResourcesDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerDataSourceDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
-import com.hanadulset.pro_poseapp.utils.DownloadState
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
-import kotlinx.coroutines.flow.Flow
 
 class ImageRepositoryImpl(private val applicationContext: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
@@ -39,9 +36,6 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
 
     private val compDataSource by lazy {
         CompDataSourceImpl(modelRunnerImpl)
-    }
-    private val downloadResourcesDataSource by lazy {
-        DownloadResourcesDataSourceImpl(applicationContext)
     }
 
 
@@ -65,13 +59,6 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
         else data[0].dataUri
     }
 
-    override suspend fun downloadResources(): Flow<DownloadState> {
-        return downloadResourcesDataSource.startToDownload()
-    }
-
-
-    override suspend fun checkForDownloadResources() =
-        downloadResourcesDataSource.checkForDownload()
 
 
     override suspend fun preRunModel(): Boolean {
