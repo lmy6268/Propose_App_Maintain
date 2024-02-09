@@ -188,10 +188,6 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
     fun unbindCameraResources(): Boolean {
         return try {
             cameraProvider!!.unbindAll()
-//            Log.d(
-//                "available cameras: ",
-//                cameraProvider!!.availableCameraInfos.map { it.cameraState.value }.toString()
-//            )
             true
         } catch (exc: Exception) {
             false
