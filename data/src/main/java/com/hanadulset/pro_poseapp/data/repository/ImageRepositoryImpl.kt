@@ -39,8 +39,7 @@ class ImageRepositoryImpl(private val applicationContext: Context) : ImageReposi
     }
 
 
-    override suspend fun getRecommendCompInfo(backgroundBitmap: Bitmap) =
-        compDataSource.recommendCompData(backgroundBitmap)
+    override suspend fun getRecommendCompInfo(backgroundBitmap: Bitmap) = compDataSource.recommendCompData(backgroundBitmap)
 
 
     override suspend fun getRecommendPose(

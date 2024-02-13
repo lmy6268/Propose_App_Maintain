@@ -106,14 +106,9 @@ object PrepareServiceScreens {
         }
 
         LaunchedEffect(key1 = Unit) {
-            checkForAppUpdate(
-                localContext = localContext
-            )
+            checkForAppUpdate(localContext = localContext)
             if (showUpdateDialog.value == null) onCheckForMoveToNext()
         }
-
-
-
 
 
 
@@ -141,11 +136,7 @@ object PrepareServiceScreens {
             )
             val style = LocalTypography.current
             val color = LocalColors.current
-            val positionOfTitle = remember {
-                mutableStateOf(Offset.Zero)
-            }
-
-
+            val positionOfTitle = remember { mutableStateOf(Offset.Zero) }
 
             Column(
                 modifier = Modifier
@@ -216,9 +207,7 @@ object PrepareServiceScreens {
                             }
                         },
                         onDismissRequest = {
-                            if (showUpdateDialog.value!!["mustToUpdate"]!!.toBoolean()
-                                    .not()
-                            ) onCheckForMoveToNext()
+                            if (showUpdateDialog.value!!["mustToUpdate"]!!.toBoolean().not()) onCheckForMoveToNext()
                             else (localContext as Activity).finishAffinity()
                         })
                 }

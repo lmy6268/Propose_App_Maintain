@@ -86,7 +86,6 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    @SuppressLint("HardwareIds")
     override fun onStop() {
         super.onStop()
         //앱 종료 이벤트 발생
