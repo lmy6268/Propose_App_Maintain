@@ -20,6 +20,7 @@ import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.eventlog.AnalyticsManager
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -32,7 +33,7 @@ import kotlin.coroutines.suspendCoroutine
  * the necessary functionality for the camera feature.
  */
 @Singleton
-class CameraRepositoryImpl @Inject constructor(private val applicationContext: Context) :
+class CameraRepositoryImpl @Inject constructor(@ApplicationContext private val applicationContext: Context) :
     CameraRepository {
 
     private val cameraDataSource by lazy {

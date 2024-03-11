@@ -16,8 +16,12 @@ import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import com.hanadulset.pro_poseapp.utils.camera.ImageResult
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class ImageRepositoryImpl(private val applicationContext: Context) : ImageRepository {
+@Singleton
+class ImageRepositoryImpl @Inject constructor(@ApplicationContext private val applicationContext: Context) : ImageRepository {
     private val modelRunnerImpl by lazy {
         ModelRunnerDataSourceDataSourceImpl(applicationContext)
     }

@@ -27,9 +27,6 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
-    private val cameraViewModel: CameraViewModel by viewModels()
-    private val prepareServiceViewModel: PrepareServiceViewModel by viewModels()
-    private val galleryViewModel: GalleryViewModel by viewModels()
     private val analyticsManager by lazy { AnalyticsManager(this.contentResolver) }
 
     //전체화면 적용
@@ -77,9 +74,6 @@ class MainActivity : AppCompatActivity() {
                         .fillMaxSize()
                         .navigationBarsPadding() //시스템의 네비게이션 높이에 맞게 패딩을 적용할 수 있게 함.
                     , navController,
-                    cameraViewModel = cameraViewModel,
-                    prepareServiceViewModel = prepareServiceViewModel,
-                    galleryViewModel = galleryViewModel
                 )
             }
         }

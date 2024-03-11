@@ -105,18 +105,12 @@ object MainScreen {
     fun MainScreen(
         modifier: Modifier = Modifier,
         navHostController: NavHostController,
-        cameraViewModel: CameraViewModel,
-        prepareServiceViewModel: PrepareServiceViewModel,
-        galleryViewModel: GalleryViewModel
     ) {
         Surface(
             modifier = modifier
         ) {
             ContainerView(
-                navController = navHostController,
-                cameraViewModel = cameraViewModel,
-                prepareServiceViewModel = prepareServiceViewModel,
-                galleryViewModel = galleryViewModel
+                navController = navHostController
             )
         }
     }
@@ -129,9 +123,9 @@ object MainScreen {
     @Composable
     private fun ContainerView(
         navController: NavHostController,
-        cameraViewModel: CameraViewModel,
-        prepareServiceViewModel: PrepareServiceViewModel,
-        galleryViewModel: GalleryViewModel
+        cameraViewModel: CameraViewModel = hiltViewModel(),
+        prepareServiceViewModel: PrepareServiceViewModel = hiltViewModel(),
+        galleryViewModel: GalleryViewModel = hiltViewModel()
     ) {
 
         val multiplePermissionsState =
