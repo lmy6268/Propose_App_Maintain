@@ -3,7 +3,7 @@ plugins {
     id 'org.jetbrains.kotlin.android'
     id "androidx.navigation.safeargs" //send args by Navigation
     id 'com.google.dagger.hilt.android'
-    id 'kotlin-kapt'
+    id 'com.google.devtools.ksp'
 //    // Add the Google services Gradle plugin
 //    id 'com.google.gms.google-services'
 }
@@ -39,8 +39,8 @@ dependencies {
 
 
     //hilt
-    implementation "com.google.dagger:hilt-android:2.44"
-    kapt "com.google.dagger:hilt-android-compiler:2.44"
+    implementation "com.google.dagger:hilt-android:2.48"
+    ksp "com.google.dagger:hilt-android-compiler:2.48"
     implementation 'androidx.hilt:hilt-navigation-compose:1.0.0'
 
     //base
