@@ -21,7 +21,7 @@
   * 사용자가 특정 사진을 따라하고 싶을 때, 해당 사진의 특징이 되는 부분을 외곽선으로 추출하여, 쉽게 따라해볼 수 있도록 도와준다.
 
 ## Architecture
-![](https://github.com/Hana-Dul-Set/Propose_App/assets/70847610/09fb066f-96c7-407e-8a56-19be6598f7f1)
+![](./project.dot.png)
 
 
 
