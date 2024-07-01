@@ -31,9 +31,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
-import androidx.compose.material.Slider
-import androidx.compose.material.SliderDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Card
 import androidx.compose.material3.ShapeDefaults
@@ -262,6 +262,9 @@ private fun GalleryImageButton(
         shape = CircleShape,
         modifier = Modifier.wrapContentSize(),
     ) {
+        val mutableInteractionSource = remember {
+            MutableInteractionSource()
+        }
         Image(
             painter = imagePainter,
             contentDescription = "갤러리 이미지",
@@ -272,7 +275,7 @@ private fun GalleryImageButton(
                     drawRect(color = defaultBackgroundColor)
                 }
                 .clickable(
-                    interactionSource = MutableInteractionSource(),
+                    interactionSource = mutableInteractionSource,
                     indication = CameraScreenButtons.CustomIndication,
                 ) {
                     onClickEvent()
@@ -586,7 +589,9 @@ fun PoseSelectionItem(
     onClickEvent: () -> Unit
 ) {
     val colorTheme = LocalColors.current
-
+    val mutableInteractionSource = remember {
+        MutableInteractionSource()
+    }
     val unSelectedColor = colorTheme.secondaryWhite100
     val selectedColor = colorTheme.primaryGreen100
     val stateColor = if (isSelected) selectedColor else unSelectedColor
@@ -594,7 +599,7 @@ fun PoseSelectionItem(
         .padding(2.dp)
         .wrapContentSize()
         .clickable(
-            interactionSource = MutableInteractionSource(), indication = rememberRipple(
+            interactionSource = mutableInteractionSource, indication = rememberRipple(
                 color = if (isSelected) selectedColor
                 else unSelectedColor, bounded = true, radius = poseSize / 2
             )

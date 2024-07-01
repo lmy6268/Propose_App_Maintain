@@ -27,9 +27,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -239,10 +239,13 @@ object GalleryScreen {
                 .size(with(LocalDensity.current) { imgSize.toPx().toInt() }) //뷰 사이즈의 크기 만큼 이미지 리사이징
                 .build()
         )
+        val mutableInteractionSource = remember {
+            MutableInteractionSource()
+        }
         Image(
             modifier = modifier.clickable(
                 indication = null,
-                interactionSource = MutableInteractionSource(),
+                interactionSource = mutableInteractionSource,
                 onClick = onClickEvent
             ),
             painter = imagePainter,

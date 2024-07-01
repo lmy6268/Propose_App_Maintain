@@ -28,9 +28,9 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.material.ripple.LocalRippleTheme
 import androidx.compose.material.ripple.RippleAlpha
 import androidx.compose.material.ripple.RippleTheme
@@ -123,7 +123,7 @@ object CameraScreenButtons {
         val beforeTime = remember(onClickEvent) {
             mutableLongStateOf(0L)
         }
-        val INTERVAL  = 500L
+        val INTERVAL = 500L
         val buttonState by rememberUpdatedState(newValue = buttonStatus)
 
         CompositionLocalProvider(LocalRippleTheme provides LocalButtonRippleTheme.apply {
@@ -136,11 +136,11 @@ object CameraScreenButtons {
                 modifier = modifier.size(buttonSize),
                 onClick = {
                     val clickedTime = SystemClock.elapsedRealtime()
-                    if((clickedTime - beforeTime.longValue)>=INTERVAL) {
+                    if ((clickedTime - beforeTime.longValue) >= INTERVAL) {
                         onClickEvent()
                         beforeTime.longValue = clickedTime
                     }
-                 }
+                }
             ) {
                 Icon(
                     modifier = modifier.size(buttonSize),
@@ -176,11 +176,13 @@ object CameraScreenButtons {
         unSelectedButtonColor: Color = LocalColors.current.secondaryWhite100,
         onClickEvent: () -> Unit
     ) {
-
+        val mutableInteractionSource = remember {
+            MutableInteractionSource()
+        }
         Box(
             modifier = Modifier
                 .clickable(
-                    interactionSource = MutableInteractionSource(),
+                    interactionSource = mutableInteractionSource,
                     indication = rememberRipple(
                         color = Color(0xFF999999), bounded = true, radius = defaultButtonSize / 2
                     ), //Ripple 효과 제거,
@@ -298,6 +300,9 @@ object CameraScreenButtons {
                 else inActivatedColor, alphaColor = Color.Black
             )
         }) {
+            val mutableInteractionSource = remember {
+                MutableInteractionSource()
+            }
 
             Surface(
                 modifier = modifier
@@ -310,7 +315,7 @@ object CameraScreenButtons {
                             bounded = true,
                             radius = buttonSize / 2
                         ), //Ripple 효과 제거
-                        interactionSource = MutableInteractionSource(),
+                        interactionSource = mutableInteractionSource,
                         onClick = {
                             onFixedButtonPressedEvent()
                         }
