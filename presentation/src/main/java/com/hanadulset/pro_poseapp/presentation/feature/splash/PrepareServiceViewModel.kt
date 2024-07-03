@@ -2,9 +2,9 @@ package com.hanadulset.pro_poseapp.presentation.feature.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hanadulset.pro_poseapp.domain.usecase.CheckUserSuccessToUseUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.PreLoadModelUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.SaveUserSuccessToUseUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.user.CheckUserSuccessToUseUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.ai.PreLoadModelUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.user.SaveUserSuccessToUseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

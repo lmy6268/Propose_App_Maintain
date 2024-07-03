@@ -2,7 +2,7 @@ package com.hanadulset.pro_poseapp.data.datasource.interfaces
 
 import android.graphics.Bitmap
 import android.net.Uri
-import com.hanadulset.pro_poseapp.utils.camera.ImageResult
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
 
 
 /**파일 생성 및 저장 등을 관리하는 데이터소스*/
@@ -12,7 +12,7 @@ interface FileHandleDataSource {
     suspend fun saveImageToGallery(bitmap: Bitmap): Uri
 
 
-    suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ImageResult>
+    suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ProPoseImageModel>
 
     suspend fun deleteCapturedImage(uri: Uri): Boolean
 

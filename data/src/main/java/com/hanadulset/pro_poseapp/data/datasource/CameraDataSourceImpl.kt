@@ -14,9 +14,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.google.common.util.concurrent.ListenableFuture
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.CameraDataSource
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,7 +48,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
         aspectRatio: Int,
         previewRotation: Int,
         analyzer: Analyzer
-    ): CameraState = suspendCoroutine { cont ->
+    ): ProPoseCameraState<PreviewResolutionData> = suspendCoroutine { cont ->
         if (!isOPENCVInit) isOPENCVInit = OpenCVLoader.initLocal()
 
         prepareCamera(
@@ -58,17 +58,8 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
             previewRotation,
             analyzer
         ).onSuccess {
-            cont.resume(
-                CameraState(
-                    CAMERA_INIT_COMPLETE,
-                    imageAnalyzerResolution = imageAnalysis.resolutionInfo?.resolution
-                )
-            )
-        }.onFailure {
-            cont.resume(
-                CameraState(CAMERA_INIT_ERROR, it.cause as? Exception, it.message)
-            )
-        }
+            cont.resume(ProPoseCameraState.success(PreviewResolutionData(imageAnalysis.resolutionInfo?.resolution)))
+        }.onFailure { cont.resume(ProPoseCameraState.error(it as? Exception)) }
 
     }
 

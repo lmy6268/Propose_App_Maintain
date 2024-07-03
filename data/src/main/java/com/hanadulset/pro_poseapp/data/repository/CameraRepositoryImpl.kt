@@ -17,9 +17,10 @@ import com.hanadulset.pro_poseapp.data.datasource.CameraDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
 import com.hanadulset.pro_poseapp.utils.ImageUtils
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.eventlog.AnalyticsManager
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
+import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,7 +61,7 @@ class CameraRepositoryImpl @Inject constructor(@ApplicationContext private val a
      * @param aspectRatio the aspect ratio of the camera preview
      * @param previewRotation the rotation of the camera preview
      * @param analyzer the [ImageAnalysis.Analyzer] that is used to analyze images captured by the camera
-     * @return the [CameraState] indicating the status of the camera binding
+     * @return the [Camera2State] indicating the status of the camera binding
      */
     override suspend fun bindCamera(
         lifecycleOwner: LifecycleOwner,
@@ -68,7 +69,7 @@ class CameraRepositoryImpl @Inject constructor(@ApplicationContext private val a
         aspectRatio: Int,
         previewRotation: Int,
         analyzer: ImageAnalysis.Analyzer,
-    ): CameraState {
+    ): ProPoseCameraState<PreviewResolutionData> {
         return cameraDataSource.initCamera(
             lifecycleOwner,
             surfaceProvider,
@@ -115,9 +116,7 @@ class CameraRepositoryImpl @Inject constructor(@ApplicationContext private val a
             1,
             AudioManager.FLAG_REMOVE_SOUND_AND_VIBRATE
         )
-        MediaActionSound().apply {
-            play(MediaActionSound.SHUTTER_CLICK)
-        }
+        MediaActionSound().play(MediaActionSound.SHUTTER_CLICK)
     }
 
     /**
@@ -126,6 +125,7 @@ class CameraRepositoryImpl @Inject constructor(@ApplicationContext private val a
      * @param meteringPoint the [MeteringPoint] to set the focus to
      * @param durationMilliSeconds the duration in milliseconds for which to keep the focus set
      */
+
     override fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
         cameraDataSource.setFocus(meteringPoint, durationMilliSeconds)
     }

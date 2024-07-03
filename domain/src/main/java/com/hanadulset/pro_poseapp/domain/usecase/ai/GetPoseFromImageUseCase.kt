@@ -1,6 +1,5 @@
-package com.hanadulset.pro_poseapp.domain.usecase
+package com.hanadulset.pro_poseapp.domain.usecase.ai
 
-import android.graphics.ImageDecoder
 import android.net.Uri
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import javax.inject.Inject

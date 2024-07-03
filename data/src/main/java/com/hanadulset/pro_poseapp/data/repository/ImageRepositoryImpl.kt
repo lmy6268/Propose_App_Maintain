@@ -14,7 +14,7 @@ import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerDataSourceDataSourc
 import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
-import com.hanadulset.pro_poseapp.utils.camera.ImageResult
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -92,7 +92,7 @@ class ImageRepositoryImpl @Inject constructor(@ApplicationContext private val ap
         }
     } else null
 
-    override suspend fun loadAllCapturedImages(): List<ImageResult> =
+    override suspend fun loadAllCapturedImages(): List<ProPoseImageModel> =
         fileHandleDataSource.loadCapturedImages(true)
 
 

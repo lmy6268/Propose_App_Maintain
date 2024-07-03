@@ -1,11 +1,10 @@
 package com.hanadulset.pro_poseapp.presentation.feature.gallery
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.GetImagesFromPicturesUseCase
-import com.hanadulset.pro_poseapp.utils.camera.ImageResult
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +20,7 @@ class GalleryViewModel @Inject constructor(
     private val deleteImageFromPicturesUseCase: DeleteImageFromPicturesUseCase
     //특정 이미지 삭제하는 유스케이스
 ) : ViewModel() {
-    private val _capturedImageState = MutableStateFlow<List<ImageResult>?>(null)
+    private val _capturedImageState = MutableStateFlow<List<ProPoseImageModel>?>(null)
     val capturedImageState = _capturedImageState.asStateFlow() //UI 단에서 사용할 때
     private val _deleteCompleteState = MutableStateFlow<Boolean?>(null)
     val deleteCompleteState = _deleteCompleteState.asStateFlow()

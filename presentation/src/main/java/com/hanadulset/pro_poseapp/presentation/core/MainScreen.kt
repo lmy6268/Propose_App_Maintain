@@ -23,7 +23,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,7 +54,8 @@ import com.hanadulset.pro_poseapp.presentation.feature.gallery.GalleryViewModel
 import com.hanadulset.pro_poseapp.presentation.feature.setting.SettingScreen
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceScreens
 import com.hanadulset.pro_poseapp.presentation.feature.splash.PrepareServiceViewModel
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -122,15 +122,15 @@ object MainScreen {
         val lifecycleOwner = LocalLifecycleOwner.current
         val isPermissionAllowed = multiplePermissionsState.allPermissionsGranted
         val context = LocalContext.current
-        val previewView = rememberUpdatedState(newValue = PreviewView(context).apply {
+        val previewView by rememberUpdatedState(newValue = PreviewView(context).apply {
             scaleType = PreviewView.ScaleType.FILL_CENTER
         })
-        val previewState = cameraViewModel.previewState.collectAsState()
+        val previewState by cameraViewModel.previewState.collectAsState()
         val cameraInit = {
             cameraViewModel.bindCameraToLifeCycle(
                 lifecycleOwner = lifecycleOwner,
-                surfaceProvider = previewView.value.surfaceProvider,
-                previewRotation = previewView.value.rotation.toInt()
+                surfaceProvider = { previewView.surfaceProvider },
+                previewRotation = { previewView.rotation.toInt() }
             )
         }
 
@@ -148,19 +148,19 @@ object MainScreen {
                 prepareServiceViewModel,
                 multiplePermissionsState,
                 cameraInit = cameraInit,
-                previewState = previewState,
+                previewState = { previewState },
             )
             permissionAllowedGraph(
                 routeName = Graph.PermissionAllowed.name,
                 navHostController = navController,
                 cameraInit = cameraInit,
-                previewState = previewState,
+                previewState = { previewState },
             )
             usingCameraGraph(
                 routeName = Graph.UsingCamera.name,
                 navHostController = navController,
                 galleryViewModel = galleryViewModel,
-                previewView = { previewView.value },
+                previewView = { previewView },
                 cameraInit = cameraInit,
                 cameraViewModel = cameraViewModel
             )
@@ -175,7 +175,7 @@ object MainScreen {
         prepareServiceViewModel: PrepareServiceViewModel,
         multiplePermissionsState: MultiplePermissionsState,
         cameraInit: () -> Unit,
-        previewState: State<CameraState>,
+        previewState: () -> ProPoseCameraState<PreviewResolutionData>,
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
             runSplashScreen(navHostController = navHostController, moveToNext = {
@@ -224,7 +224,7 @@ object MainScreen {
     private fun NavGraphBuilder.permissionAllowedGraph(
         routeName: String,
         navHostController: NavHostController,
-        previewState: State<CameraState>,
+        previewState: () -> ProPoseCameraState<PreviewResolutionData>,
         cameraInit: () -> Unit,
     ) {
         navigation(startDestination = Page.Splash.name, route = routeName) {
@@ -414,7 +414,7 @@ object MainScreen {
     private fun NavGraphBuilder.runAppLoadingScreen(
         navHostController: NavHostController,
         cameraInit: () -> Unit,
-        previewState: State<CameraState>,
+        previewState: () -> ProPoseCameraState<PreviewResolutionData>,
     ) {
         composable(route = Page.AppLoading.name, enterTransition = {
             fadeIn(
@@ -437,8 +437,8 @@ object MainScreen {
             val totalLoadedState = prepareServiceViewModel.totalLoadedState.collectAsState()
 
             //앱로딩이 끝나면, 카메라화면을 보여주도록 한다.
-            PrepareServiceScreens.AppLoadingScreen(previewState = previewState,
-
+            PrepareServiceScreens.AppLoadingScreen(
+                previewState = previewState,
                 onAfterLoadedEvent = {
                     navHostController.navigate(Graph.UsingCamera.name) {
                         //앱 로딩 페이지는 뒤로가기 해도 보여주지 않음 .

@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -46,7 +45,8 @@ import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.presentation.core.CustomDialog
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
 import kotlinx.coroutines.delay
 
 object PrepareServiceScreens {
@@ -207,7 +207,9 @@ object PrepareServiceScreens {
                             }
                         },
                         onDismissRequest = {
-                            if (showUpdateDialog.value!!["mustToUpdate"]!!.toBoolean().not()) onCheckForMoveToNext()
+                            if (showUpdateDialog.value!!["mustToUpdate"]!!.toBoolean()
+                                    .not()
+                            ) onCheckForMoveToNext()
                             else (localContext as Activity).finishAffinity()
                         })
                 }
@@ -218,7 +220,7 @@ object PrepareServiceScreens {
 
     @Composable
     fun AppLoadingScreen(
-        previewState: State<CameraState>,
+        previewState: () -> ProPoseCameraState<PreviewResolutionData>,
         onAfterLoadedEvent: () -> Unit,
 //        onMoveToDownload: () -> Unit,
         onPrepareToLoadCamera: () -> Unit = {},
@@ -247,9 +249,8 @@ object PrepareServiceScreens {
 
 
         //여기는 카메라 로딩 준비
-        if (totalLoadedState() &&
-            previewState.value.cameraStateId == CameraState.CAMERA_INIT_COMPLETE && isInitiated.value.not()
-        ) {
+
+        if (previewState() is ProPoseCameraState.Success && isInitiated.value.not() && totalLoadedState()) {
             onAfterLoadedEvent()//카메라 화면으로 이동하는 거임.
             isInitiated.value = true
         }

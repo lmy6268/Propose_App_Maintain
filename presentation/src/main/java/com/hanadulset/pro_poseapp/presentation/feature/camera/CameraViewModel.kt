@@ -15,9 +15,9 @@ import androidx.compose.ui.geometry.center
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hanadulset.pro_poseapp.domain.usecase.GetPoseFromImageUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.LoadUserSetUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.SaveUserSetUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.ai.GetPoseFromImageUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.user.LoadUserSetUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.user.SaveUserSetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
@@ -31,9 +31,10 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffs
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
 import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.UserSet
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
 import com.hanadulset.pro_poseapp.utils.pose.PoseData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,7 +84,8 @@ class CameraViewModel @Inject constructor(
     val aspectRatioState = _aspectRatioState.asStateFlow()
 
 
-    private val _previewState = MutableStateFlow(CameraState(CameraState.CAMERA_INIT_NOTHING))
+    private val _previewState =
+        MutableStateFlow<ProPoseCameraState<PreviewResolutionData>>(ProPoseCameraState.loading())
 
 
     private val _capturedBitmapState = MutableStateFlow<Uri?>( //캡쳐된 이미지 상태
@@ -141,18 +143,17 @@ class CameraViewModel @Inject constructor(
 
     fun bindCameraToLifeCycle(
         lifecycleOwner: LifecycleOwner,
-        surfaceProvider: Preview.SurfaceProvider,
-        previewRotation: Int
+        surfaceProvider: () -> Preview.SurfaceProvider,
+        previewRotation: () -> Int
     ) {
-        _previewState.value =
-            CameraState(cameraStateId = CameraState.CAMERA_INIT_ON_PROCESS) // OnProgress
+        _previewState.value = ProPoseCameraState.loading()
         viewModelScope.launch {
             val res = bindCameraUseCase(
                 lifecycleOwner,
-                surfaceProvider,
+                surfaceProvider(),
                 aspectRatio = aspectRatioState.value.aspectRatioType,
                 analyzer = imageAnalyzer,
-                previewRotation = previewRotation
+                previewRotation = previewRotation()
             )
             _previewState.value = res
         }

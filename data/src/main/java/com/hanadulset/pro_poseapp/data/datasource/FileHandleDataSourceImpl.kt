@@ -9,10 +9,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import androidx.core.net.toUri
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.FileHandleDataSource
-import com.hanadulset.pro_poseapp.utils.camera.ImageResult
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -60,9 +59,9 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
         }
 
 
-    override suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ImageResult> {
+    override suspend fun loadCapturedImages(isReadAllImage: Boolean): List<ProPoseImageModel> {
 
-        val resList = mutableListOf<ImageResult>()
+        val resList = mutableListOf<ProPoseImageModel>()
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -95,7 +94,7 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
                             }
                             val imageUri = ContentUris.withAppendedId(externalUri, imageId)
                             val imageResult =
-                                ImageResult(imageUri, takenDate = imageTakenDate)
+                                ProPoseImageModel(imageUri, takenDate = imageTakenDate)
                             resList.add(imageResult)
                             if (isReadAllImage.not()) break //한개의 이미지 데이터만 가져오는 경우
                         }
@@ -108,7 +107,7 @@ class FileHandleDataSourceImpl(private val context: Context) : FileHandleDataSou
             if (imagesDir.exists()) {
                 imagesDir.listFiles().apply { this?.sortByDescending { it.lastModified() } }
                     ?.forEach {
-                        resList.add(ImageResult(it.toUri(), it.lastModified().toString()))
+                        resList.add(ProPoseImageModel(it.toUri(), it.lastModified().toString()))
                         if (isReadAllImage.not()) return resList.toList() //한개의 이미지만 반환
                     }
             }

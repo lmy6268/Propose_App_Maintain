@@ -16,7 +16,6 @@ class BindCameraUseCase @Inject constructor(
         aspectRatio: Int,
         previewRotation: Int,
         analyzer: Analyzer,
-
         ) = repository.bindCamera(
         lifecycleOwner,
         surfaceProvider,

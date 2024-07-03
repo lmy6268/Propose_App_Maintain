@@ -3,11 +3,8 @@ package com.hanadulset.pro_poseapp.domain.repository
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.SizeF
-import com.hanadulset.pro_poseapp.utils.CheckResponse
-import com.hanadulset.pro_poseapp.utils.DownloadState
-import com.hanadulset.pro_poseapp.utils.camera.ImageResult
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
 import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
-import kotlinx.coroutines.flow.Flow
 
 //이미지 저장 및 분석을 담당하는 레포지토리
 interface ImageRepository {
@@ -20,7 +17,7 @@ interface ImageRepository {
     suspend fun getLatestImage(): Uri?
     suspend fun preRunModel(): Boolean
     fun getPoseFromImage(uri: Uri?): Bitmap?
-    suspend fun loadAllCapturedImages(): List<ImageResult>
+    suspend fun loadAllCapturedImages(): List<ProPoseImageModel>
     suspend fun deleteCapturedImage(uri: Uri): Boolean
 
     suspend fun updateOffsetPoint(backgroundBitmap: Bitmap, targetOffset: SizeF): SizeF?

@@ -1,4 +1,4 @@
-package com.hanadulset.pro_poseapp.domain.usecase
+package com.hanadulset.pro_poseapp.domain.usecase.user
 
 import com.hanadulset.pro_poseapp.domain.repository.UserRepository
 import javax.inject.Inject

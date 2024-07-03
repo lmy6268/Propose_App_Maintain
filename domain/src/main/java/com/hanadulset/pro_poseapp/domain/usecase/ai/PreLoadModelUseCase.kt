@@ -1,4 +1,4 @@
-package com.hanadulset.pro_poseapp.domain.usecase
+package com.hanadulset.pro_poseapp.domain.usecase.ai
 
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import javax.inject.Inject

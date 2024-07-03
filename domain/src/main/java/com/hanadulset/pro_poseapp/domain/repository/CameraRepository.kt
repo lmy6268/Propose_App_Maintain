@@ -5,8 +5,9 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.lifecycle.LifecycleOwner
-import com.hanadulset.pro_poseapp.utils.camera.CameraState
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
 
 
 //카메라 기능을 담당하는 레포지토리
@@ -17,7 +18,7 @@ interface CameraRepository {
         aspectRatio: Int,
         previewRotation: Int,
         analyzer: ImageAnalysis.Analyzer,
-    ): CameraState
+    ): ProPoseCameraState<PreviewResolutionData>
 
     suspend fun takePhoto(eventData: CaptureEventData): Uri
     fun setZoomRatio(zoomLevel: Float)
