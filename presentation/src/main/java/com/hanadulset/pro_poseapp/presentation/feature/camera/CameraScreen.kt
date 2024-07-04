@@ -2,7 +2,6 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.net.Uri
 import android.util.Range
-import android.util.SizeF
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -30,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -52,9 +52,11 @@ import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents.AnimatedSlideToLeft
-import com.hanadulset.pro_poseapp.utils.UserSet
+import com.hanadulset.pro_poseapp.utils.model.user.ProPoseAppSettings
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSize
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSizeF
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -74,6 +76,7 @@ class GetContentActivityResult(
     }
 }
 
+data class Holder(var value: ProPoseSizeF)
 
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -86,13 +89,13 @@ fun Screen(
     onClickSettingBtnEvent: () -> Unit,
     cameraInit: () -> Unit,
     onFinishEvent: () -> Unit,
-    userSet: () -> UserSet
+    proPoseAppSettings: () -> ProPoseAppSettings
 ) {
     val nowUserSet = remember {
-        mutableStateOf(userSet())
+        mutableStateOf(proPoseAppSettings())
     }
-    LaunchedEffect(key1 = userSet()) {
-        nowUserSet.value = userSet()
+    LaunchedEffect(key1 = proPoseAppSettings()) {
+        nowUserSet.value = proPoseAppSettings()
     }
     val userEdgeDetectionSwitch = remember { mutableStateOf(false) }
     val systemEdgeDetectionSwitch = remember { mutableStateOf(false) }
@@ -108,15 +111,19 @@ fun Screen(
             currentPoseItemDataList.value?.get(selectedPoseItemDataIndex.intValue)?.imageScale ?: 1F
         )
     }
+    val holderSaver = Saver<Holder, ProPoseSizeF>(
+        save = { it.value },
+        restore = { Holder(it) }
+    )
+
     val currentPoseItemOffset = rememberSaveable {
-        mutableStateOf<SizeF?>(null)
+        mutableStateOf<ProPoseSizeF?>(null)
     }
 
     fun afterGetNewPoseDataList() {
         currentPoseItemScale.floatValue = 1F //여기서 현재 포즈에 대한 스케일 값을 조정해주면 된다.
         currentPoseItemOffset.value = null
     }
-
 
 
     val closeEdgeScreen = {
@@ -148,18 +155,19 @@ fun Screen(
         aspectRatio: ViewRate,
         onGetPoseFromImage: (Uri) -> Unit,
     ): GetContentActivityResult {
-        val currentColor= LocalColors.current
+        val currentColor = LocalColors.current
         val cropImageLauncher =
             rememberLauncherForActivityResult(contract = CropImageContract()) { result ->
                 if (result.isSuccessful) {
                     val uriContent = result.uriContent
-                    uriContent?.run{
+                    uriContent?.run {
                         onGetPoseFromImage(this)
                         userEdgeDetectionSwitch.value = true
                         if (systemEdgeDetectionSwitch.value) {
                             systemEdgeDetectionSwitch.value = false
                         }
-                        nowUserSet.value = nowUserSet.value.copy(isCompOn = false)
+                        nowUserSet.value =
+                            nowUserSet.value.copy(isCompRecommendationEnabled = false)
                         selectedPoseItemDataIndex.intValue = 0
                     }
                 }
@@ -173,7 +181,7 @@ fun Screen(
                             aspectRatioX = aspectRatio.aspectRatioSize.width,
                             aspectRatioY = aspectRatio.aspectRatioSize.height,
                             fixAspectRatio = true,
-                          toolbarColor = currentColor.primaryGreen100.toArgb(),
+                            toolbarColor = currentColor.primaryGreen100.toArgb(),
                             toolbarBackButtonColor = currentColor.subPrimaryBlack100.toArgb(),
                             activityMenuIconColor = currentColor.subPrimaryBlack100.toArgb(),
                             activityMenuTextColor = currentColor.subPrimaryBlack100.toArgb(),
@@ -246,7 +254,7 @@ fun Screen(
         { triggerByComp ->
             //포즈 추천의 경우는 구도추천에 의한 것 ( 자동추천 켠경우) or 포즈버튼을 누른 경우
             when (triggerByComp) {
-                true -> if (nowUserSet.value.isPoseOn) doPoseRecommend()
+                true -> if (nowUserSet.value.isPoseRecommendationEnabled) doPoseRecommend()
                 false -> doPoseRecommend()
                 //자동추천에 고려하지 않아도 됨.
                 else -> if (currentPoseItemDataList.value == null) doPoseRecommend()
@@ -261,9 +269,9 @@ fun Screen(
         {
             cameraViewModel.getPhoto(
                 CaptureEventData(
-                    poseID = currentPoseItemDataList.value?.get(selectedPoseItemDataIndex.intValue)?.poseId
+                    poseID = currentPoseItemDataList.value?.get(selectedPoseItemDataIndex.intValue)?.id
                         ?: -1,
-                    prevRecommendPoses = currentPoseItemDataList.value?.let { it.map { poseData -> poseData.poseId } },
+                    prevRecommendPoses = currentPoseItemDataList.value?.let { it.map { poseData -> poseData.id } },
                     timestamp = System.currentTimeMillis().toString(),
                     backgroundId = backgroundAnalysisResult?.first,
                     backgroundHog = backgroundAnalysisResult?.second?.toString()
@@ -358,7 +366,7 @@ fun Screen(
                 capturedState = { captureBtnClickState.value },
                 preview = previewView,
                 edgeImageBitmap = { edgeImageState.value },
-                isRecommendCompEnabled = { nowUserSet.value.isCompOn },
+                isRecommendCompEnabled = { nowUserSet.value.isCompRecommendationEnabled },
                 loadLastImage = { cameraViewModel.getLastImage() },
                 upperBarSize = { upperBarSize.value },
                 pointerOffsetState = { compPointOffset.value },
@@ -368,7 +376,7 @@ fun Screen(
                 },
                 triggerNewPoint = {
                     cameraViewModel.startToTrack(with(localDensity) {
-                        Size(
+                        ProPoseSizeF(
                             it.width.toPx(), it.height.toPx()
                         )
                     })
@@ -428,14 +436,18 @@ fun Screen(
                     //어차피 한쪽 (포즈 추천 화면)은 읽기만 하면된다.
                     //고정 버튼 클릭시
                     onSystemEdgeDetectionClicked = {
-                        when(systemEdgeDetectionSwitch.value){
-                            true->{
+                        when (systemEdgeDetectionSwitch.value) {
+                            true -> {
                                 closeEdgeScreen()
-                                nowUserSet.value = nowUserSet.value.copy(isCompOn = true)
+                                nowUserSet.value =
+                                    nowUserSet.value.copy(isCompRecommendationEnabled = true)
                             }
-                            else->{
-                                if (userEdgeDetectionSwitch.value) userEdgeDetectionSwitch.value = false
-                                nowUserSet.value = nowUserSet.value.copy(isCompOn = false)
+
+                            else -> {
+                                if (userEdgeDetectionSwitch.value) userEdgeDetectionSwitch.value =
+                                    false
+                                nowUserSet.value =
+                                    nowUserSet.value.copy(isCompRecommendationEnabled = false)
                                 systemEdgeDetectionSwitch.value = true
                                 cameraViewModel.controlFixedScreen(true)
                             }
@@ -444,7 +456,8 @@ fun Screen(
                     onUserEdgeDetectionClicked = {
                         when (userEdgeDetectionSwitch.value) {
                             true -> {
-                                nowUserSet.value = nowUserSet.value.copy(isCompOn = true)
+                                nowUserSet.value =
+                                    nowUserSet.value.copy(isCompRecommendationEnabled = true)
                                 closeEdgeScreen()
                             }
 
@@ -464,7 +477,7 @@ fun Screen(
                     userEdgeDetectionValue = { userEdgeDetectionSwitch.value },
                     systemEdgeDetectionValue = { systemEdgeDetectionSwitch.value },
                     zoomLevelState = { cameraZoomLevelState.floatValue },
-                    isRecommendPoseEnabled = { nowUserSet.value.isPoseOn }
+                    isRecommendPoseEnabled = { nowUserSet.value.isPoseRecommendationEnabled }
                 )
             }
 

@@ -281,7 +281,7 @@ object MainScreen {
                                 isOnClose.value = true
                                 localActivity.finish()
                             },
-                            userSet = { userSet.value!! })
+                            proPoseAppSettings = { userSet.value!! })
                     }
                 }
 
@@ -363,7 +363,7 @@ object MainScreen {
                     cameraViewModel.loadUserSet()
                 }
                 UIComponents.AnimatedSlideToRight(isVisible = userSet != null) {
-                    SettingScreen.Screen(userSet = userSet!!, onSaveUserSet = { setting ->
+                    SettingScreen.Screen(proPoseAppSettings = userSet!!, onSaveUserSet = { setting ->
                         cameraViewModel.saveUserSet(setting)
                     }, onBackPressed = {
                         navHostController.navigateUp()

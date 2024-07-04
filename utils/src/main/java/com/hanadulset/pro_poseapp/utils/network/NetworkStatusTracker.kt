@@ -55,9 +55,7 @@ class NetworkStatusTracker(context: Context) {
         object Unavailable : NetworkStatus()
     }
 
-    companion object {
-
-    }
+    companion object
 }
 
 

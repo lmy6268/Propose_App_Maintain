@@ -3,21 +3,16 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
-import android.util.Size
-import android.util.SizeF
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.center
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hanadulset.pro_poseapp.domain.usecase.ai.GetPoseFromImageUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.user.LoadUserSetUseCase
-import com.hanadulset.pro_poseapp.domain.usecase.user.SaveUserSetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendCompInfoUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.ai.RecommendPoseUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.BindCameraUseCase
@@ -29,13 +24,17 @@ import com.hanadulset.pro_poseapp.domain.usecase.camera.ShowFixedScreenUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.StopPointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.camera.tracking.UpdatePointOffsetUseCase
 import com.hanadulset.pro_poseapp.domain.usecase.gallery.DeleteImageFromPicturesUseCase
-import com.hanadulset.pro_poseapp.utils.ImageUtils
-import com.hanadulset.pro_poseapp.utils.UserSet
+import com.hanadulset.pro_poseapp.domain.usecase.user.LoadUserSetUseCase
+import com.hanadulset.pro_poseapp.domain.usecase.user.SaveUserSetUseCase
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
-import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.image.imageToBitmap
 import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
-import com.hanadulset.pro_poseapp.utils.pose.PoseData
+import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSize
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSizeF
+import com.hanadulset.pro_poseapp.utils.model.pose.Pose
+import com.hanadulset.pro_poseapp.utils.model.user.ProPoseAppSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -68,13 +67,13 @@ class CameraViewModel @Inject constructor(
 
     private val viewRateList = listOf(
         ViewRate(
-            name = "4:3", aspectRatioType = AspectRatio.RATIO_4_3, aspectRatioSize = Size(3, 4)
+            name = "4:3", aspectRatioType = AspectRatio.RATIO_4_3, aspectRatioSize = ProPoseSize(3, 4)
         ), ViewRate(
-            "16:9", aspectRatioType = AspectRatio.RATIO_16_9, aspectRatioSize = Size(9, 16)
+            "16:9", aspectRatioType = AspectRatio.RATIO_16_9, aspectRatioSize = ProPoseSize(9, 16)
         )
     )
-    private val _userSetState = MutableStateFlow<UserSet?>(null)
-    val userSetState = _userSetState.asStateFlow()
+    private val _proPoseAppSettingsState = MutableStateFlow<ProPoseAppSettings?>(null)
+    val userSetState = _proPoseAppSettingsState.asStateFlow()
 
 
     private val _backgroundDataState = MutableStateFlow<Pair<Int, List<Double>>?>(null)
@@ -91,7 +90,7 @@ class CameraViewModel @Inject constructor(
     private val _capturedBitmapState = MutableStateFlow<Uri?>( //캡쳐된 이미지 상태
         null
     )
-    private val _poseResultState = MutableStateFlow<MutableList<PoseData>?>(null)
+    private val _poseResultState = MutableStateFlow<MutableList<Pose>?>(null)
     private val _fixedScreenState = MutableStateFlow<Bitmap?>(null)
     private val _modifiedPointState = MutableStateFlow<Offset?>(null)
 
@@ -110,30 +109,30 @@ class CameraViewModel @Inject constructor(
     private val _bitmapDemandNow = MutableStateFlow(false)
 
 
-    private var previewSizeState: androidx.compose.ui.geometry.Size? = null
+    private var previewSizeState:ProPoseSizeF? = null
     private val _poseOnRecommend = MutableStateFlow(false)
 
 
     //매 프레임의 image를 수신함.
     private val imageAnalyzer = ImageAnalysis.Analyzer { imageProxy ->
         imageProxy.use {
-            _bitmapState.value = ImageUtils.imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
+            _bitmapState.value = imageToBitmap(it.image!!, it.imageInfo.rotationDegrees)
             trackToNewOffset()
         }
     }
 
 
     private fun convertAnalyzedOffsetToPreviewOffset(
-        reversed: Boolean, offset: SizeF, analyzedImageSize: Size
-    ): SizeF {
+        reversed: Boolean, offset: ProPoseSizeF, analyzedImageSize: ProPoseSize
+    ): ProPoseSizeF {
         return if (reversed) //preview -> analyzed
             offset.let {
-                SizeF(
+                ProPoseSizeF(
                     (it.width / previewSizeState!!.width) * analyzedImageSize.width,
                     (it.height / previewSizeState!!.height) * analyzedImageSize.height
                 )
             } else offset.let {// analyzed -> preview
-            SizeF(
+            ProPoseSizeF(
                 (it.width / analyzedImageSize.width) * previewSizeState!!.width,
                 (it.height / analyzedImageSize.height) * previewSizeState!!.height
             )
@@ -176,12 +175,12 @@ class CameraViewModel @Inject constructor(
                 _bitmapState.value?.let { bitmap ->
                     val recommendedData = recommendPoseUseCase(bitmap)
                     _poseResultState.update {
-                        recommendedData.poseDataList.apply {
-                            add(0, PoseData(poseId = -1, -1))
+                        recommendedData.poseList.apply {
+                            add(0, Pose(id = -1, -1))
                         }.subList(
                             0,
-                            if (_userSetState.value != null) _userSetState.value!!.poseCnt + 1
-                            else recommendedData.poseDataList.size
+                            if (_proPoseAppSettingsState.value != null) _proPoseAppSettingsState.value!!.maxRecommendedPoseCnt + 1
+                            else recommendedData.poseList.size
                         )
                     }
                     _backgroundDataState.update {
@@ -201,11 +200,11 @@ class CameraViewModel @Inject constructor(
         if (_trackingSwitchON.value && _modifiedPointState.value != null) {
             val backgroundBitmap = _bitmapState.value!!
             //이미지 사용하기
-            val analyzedImageSize = Size(backgroundBitmap.width, backgroundBitmap.height)
+            val analyzedImageSize = ProPoseSize(backgroundBitmap.width, backgroundBitmap.height)
             viewModelScope.launch {
                 val res = updatePointOffsetUseCase(
                     targetOffset = convertAnalyzedOffsetToPreviewOffset(
-                        reversed = true, offset = SizeF(
+                        reversed = true, offset = ProPoseSizeF(
                             _modifiedPointState.value!!.x, _modifiedPointState.value!!.y
                         ), analyzedImageSize = analyzedImageSize
                     ), backgroundBitmap = backgroundBitmap
@@ -224,7 +223,7 @@ class CameraViewModel @Inject constructor(
     }
 
 
-    fun startToTrack(previewSize: androidx.compose.ui.geometry.Size) {
+    fun startToTrack(previewSize: ProPoseSizeF) {
         previewSizeState = previewSize
         _trackingSwitchON.value = true
         viewModelScope.launch {
@@ -297,13 +296,13 @@ class CameraViewModel @Inject constructor(
 
     fun loadUserSet() {
         viewModelScope.launch {
-            _userSetState.update { loadUserSetUseCase() }
+            _proPoseAppSettingsState.update { loadUserSetUseCase() }
         }
     }
 
-    fun saveUserSet(userSet: UserSet) {
+    fun saveUserSet(proPoseAppSettings: ProPoseAppSettings) {
         viewModelScope.launch {
-            saveUserSetUseCase(userSet = userSet)
+            saveUserSetUseCase(proPoseAppSettings = proPoseAppSettings)
         }
     }
 

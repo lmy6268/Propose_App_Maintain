@@ -1,9 +1,9 @@
 package com.hanadulset.pro_poseapp.utils.camera
 
-import android.util.Size
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSize
 
 data class ViewRate(
     val name: String,
-    val aspectRatioSize: Size,
+    val aspectRatioSize: ProPoseSize,
     val aspectRatioType: Int, 
 )

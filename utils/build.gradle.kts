@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.propose.android.hilt)
     alias(libs.plugins.propose.android.room)
     id("kotlinx-serialization")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -25,4 +26,5 @@ dependencies {
 //    implementation 'com.google.firebase:firebase-analytics'
 
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.lifecycle.runtimeCompose)
 }

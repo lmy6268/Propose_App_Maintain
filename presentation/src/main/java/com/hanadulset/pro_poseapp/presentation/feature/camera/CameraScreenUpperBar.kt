@@ -1,35 +1,28 @@
 package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.os.SystemClock
-import android.util.Size
 import androidx.camera.core.AspectRatio
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.ExpandableButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.component.CameraScreenButtons.ExpandableButton
 import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenUpperBar.UpperBar
+import com.hanadulset.pro_poseapp.presentation.feature.camera.component.CameraScreenButtons
 import com.hanadulset.pro_poseapp.utils.camera.ViewRate
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSize
 
 object CameraScreenUpperBar {
 
@@ -115,11 +108,11 @@ fun PreviewUpperBar() {
             ViewRate(
                 name = "3:4",
                 aspectRatioType = AspectRatio.RATIO_4_3,
-                aspectRatioSize = Size(3, 4)
+                aspectRatioSize = ProPoseSize(3, 4)
             ), ViewRate(
                 "9:16",
                 aspectRatioType = AspectRatio.RATIO_16_9,
-                aspectRatioSize = Size(9, 16)
+                aspectRatioSize = ProPoseSize(9, 16)
             )
         ),
         onSelectedViewRate = {

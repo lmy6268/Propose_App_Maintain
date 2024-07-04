@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons
+import com.hanadulset.pro_poseapp.presentation.feature.camera.component.CameraScreenButtons
 import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
 
 object GalleryScreen {

@@ -22,7 +22,6 @@ dependencies {
     implementation(libs.ossLicenses)
     implementation(libs.androidx.compose.navigation)
     api(libs.bundles.androidx.compose)
-    debugApi(libs.bundles.androidx.compose.preview)
     //Ar
 //    implementation 'com.google.ar:core:1.39.0'
 //    implementation 'io.github.sceneview:arsceneview:0.10.2'
@@ -44,6 +43,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtimeCompose)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.lifecycle.viewModelCompose)
+
 //    //업데이트 확인
 //    implementation 'com.google.android.play:app-update-ktx:2.1.0'
 //    implementation 'com.google.android.play:core:1.10.3'

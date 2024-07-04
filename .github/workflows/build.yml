@@ -1,0 +1,22 @@
+name: ProPose App Build
+on:
+  pull_request:
+    branches: [ main ]
+    tags:
+      - v*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.7 #Get From Marketplace
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4.2.1 #Get From Marketplace
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+
+      - name: Build with Gradle
+        run: ./gradlew build
+

@@ -2,18 +2,11 @@ package com.hanadulset.pro_poseapp.data.datasource
 
 //import org.opencv.core.Size
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageFormat
-import android.graphics.Matrix
-import android.graphics.Rect
-import android.graphics.YuvImage
-import android.media.Image
 import android.util.Log
-import android.util.SizeF
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.ImageProcessDataSource
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSizeF
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
-import org.opencv.core.Core
 import org.opencv.core.CvException
 import org.opencv.core.CvType
 import org.opencv.core.Mat
@@ -22,10 +15,8 @@ import org.opencv.core.MatOfFloat
 import org.opencv.core.MatOfPoint
 import org.opencv.core.MatOfPoint2f
 import org.opencv.core.Scalar
-import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.opencv.video.Video
-import java.io.ByteArrayOutputStream
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -34,7 +25,7 @@ import kotlin.math.sqrt
 class ImageProcessDataSourceImpl : ImageProcessDataSource {
 
     private var prevFrame: Mat? = null
-    private var prevPoint: SizeF? = null
+    private var prevPoint: ProPoseSizeF? = null
     private var prevCornerPoint: MatOfPoint2f? = null
 
     override fun getFixedImage(bitmap: Bitmap): Bitmap {
@@ -82,7 +73,7 @@ class ImageProcessDataSourceImpl : ImageProcessDataSource {
     }
 
 
-    override suspend fun useOpticalFlow(bitmap: Bitmap, targetOffset: SizeF): SizeF? {
+    override suspend fun useOpticalFlow(bitmap: Bitmap, targetOffset: ProPoseSizeF): ProPoseSizeF? {
 
         //이전 프레임이 없는 경우, 트래킹을 하지 않는다.
         try {
@@ -139,8 +130,8 @@ class ImageProcessDataSourceImpl : ImageProcessDataSource {
     private fun calculateOffsetDiff(
         prevCornerPoint: MatOfPoint2f,
         outputCornerPoint: MatOfPoint2f,
-        targetOffset: SizeF
-    ): SizeF {
+        targetOffset: ProPoseSizeF
+    ): ProPoseSizeF {
         val distanceArr = FloatArray(outputCornerPoint.toList().size)
 
         for (i in 0 until outputCornerPoint.toList().size) {
@@ -160,7 +151,7 @@ class ImageProcessDataSourceImpl : ImageProcessDataSource {
         val outPutY = outputCornerPoint.toList()[index].y
 
         return targetOffset.let {
-            SizeF(
+            ProPoseSizeF(
                 it.width + (outPutX - prevX).toFloat(),
                 it.height + (outPutY - prevY).toFloat()
             )

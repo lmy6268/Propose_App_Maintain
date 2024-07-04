@@ -149,7 +149,7 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 
     fun unbindCameraResources(): Boolean {
         return try {
-            cameraProvider!!.unbindAll()
+            cameraProvider.unbindAll()
             true
         } catch (exc: Exception) {
             false
@@ -161,12 +161,12 @@ class CameraDataSourceImpl(private val context: Context) : CameraDataSource {
 //        val minValue = camera.cameraInfo.zoomState.value!!.minZoomRatio
 //        val maxValue = camera.cameraInfo.zoomState.value!!.maxZoomRatio
 //        Log.d("MIN/MAX ZoomRatio: ","$minValue/$maxValue")
-        camera!!.cameraControl.setZoomRatio(zoomLevel)
+        camera.cameraControl.setZoomRatio(zoomLevel)
     }
 
     override fun setFocus(meteringPoint: MeteringPoint, durationMilliSeconds: Long) {
 //        camera!!.cameraControl.startFocusAndMetering()
-        camera!!.cameraControl.startFocusAndMetering(
+        camera.cameraControl.startFocusAndMetering(
             FocusMeteringAction.Builder(meteringPoint)
                 .setAutoCancelDuration(durationMilliSeconds, TimeUnit.MILLISECONDS)
                 .build()

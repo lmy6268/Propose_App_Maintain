@@ -3,20 +3,18 @@ package com.hanadulset.pro_poseapp.data.datasource.feature
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.SizeF
 import androidx.core.net.toUri
 import com.hanadulset.pro_poseapp.data.datasource.interfaces.PoseDataSource
-import com.hanadulset.pro_poseapp.utils.ImageUtils
-import com.hanadulset.pro_poseapp.utils.pose.PoseData
-import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
+import com.hanadulset.pro_poseapp.utils.common.unZip
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSizeF
+import com.hanadulset.pro_poseapp.utils.model.pose.Pose
+import com.hanadulset.pro_poseapp.utils.model.pose.RecommendPoseResult
 import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReader
 import com.opencsv.CSVReaderBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.opencv.android.Utils
 import org.opencv.core.Core
@@ -32,15 +30,14 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlin.time.ExperimentalTime
 
 class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSource {
 
     private lateinit var centroid: MutableList<List<Double>>
-    private lateinit var poseRanks:List<List<PoseData>>
+    private lateinit var poseRanks:List<List<Pose>>
 
-    private fun initPoseRankList(): List<List<PoseData>> {
-        val poseDataList = mutableListOf<List<PoseData>>()
+    private fun initPoseRankList(): List<List<Pose>> {
+        val poseDataList = mutableListOf<List<Pose>>()
         val rankList = applicationContext.assets.open("pose_ranks.csv").use { stream ->
             val resMutableList = mutableListOf<List<Double>>()
             CSVReader(InputStreamReader(stream)).forEach { strings ->
@@ -55,8 +52,8 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
         }
 
         //저장된 이미지와 데이터를 매핑시킨다.
-        val imageDataList: MutableList<PoseData> = applicationContext.assets.open("image_datas.csv").use { stream ->
-            val resultList = mutableListOf<PoseData>()
+        val imageDataList: MutableList<Pose> = applicationContext.assets.open("image_datas.csv").use { stream ->
+            val resultList = mutableListOf<Pose>()
             val imageRes = loadPoseImages()
             CSVReaderBuilder(InputStreamReader(stream)).withCSVParser(
                 CSVParserBuilder().withSeparator(',').build()
@@ -71,16 +68,16 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
                         .map { it.toFloat() }
 
                     resultList.add(
-                        PoseData(
-                            poseId = strings[0].toInt(),
-                            bottomCenterRate = SizeF(center[0], center[1]),
-                            sizeRate = SizeF(size[0], size[1])
+                        Pose(
+                            id = strings[0].toInt(),
+                            bottomCenterAspect = ProPoseSizeF(center[0], center[1]),
+                            aspect = ProPoseSizeF(size[0], size[1])
                         )
                     )
                 }
-                resultList.sortBy { it.poseId }
+                resultList.sortBy { it.id }
                 for (i in resultList.indices) {
-                    resultList[i] = resultList[i].copy(imageUri = imageRes[i])
+                    resultList[i] = resultList[i].copy(imageSrcUri = imageRes[i])
                 }
             }
             resultList
@@ -88,9 +85,9 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
 
 
         for (idx in rankList.indices) {
-            val tmp = mutableListOf<PoseData>()
+            val tmp = mutableListOf<Pose>()
             rankList[idx].forEach { poseId ->
-                tmp.add(imageDataList[poseId.toInt()].copy(poseCat = idx))
+                tmp.add(imageDataList[poseId.toInt()].copy(category = idx))
             }
             poseDataList.add(tmp)
         }
@@ -98,7 +95,7 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
     }
 
 
-    override suspend fun recommendPose(backgroundBitmap: Bitmap): PoseDataResult {
+    override suspend fun recommendPose(backgroundBitmap: Bitmap): RecommendPoseResult {
         val histogramMap = withContext(Dispatchers.Default) {
             getHistogramMap(backgroundBitmap)
         }
@@ -115,12 +112,12 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
                     res.copy(first = i, second = calculatedDistance)
             }
             val backgroundId = res.first //백그라운드 클러스터 ID
-            val poseDataResult = PoseDataResult(
-                poseDataList = poseRanks[backgroundId].toMutableList(),
+            val recommendPoseResult = RecommendPoseResult(
+                poseList = poseRanks[backgroundId].toMutableList(),
                 backgroundId = backgroundId,
                 backgroundAngleList = angle
             )
-            poseDataResult
+            recommendPoseResult
         }.await()
     }
 
@@ -339,7 +336,6 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
     }
 
 
-    @OptIn(ExperimentalTime::class)
     override suspend fun getHistogramMap(backgroundBitmap: Bitmap): Mat {
         //이미지
 //        Log.d("ASDF1",System.currentTimeMillis().toString())
@@ -541,7 +537,7 @@ class PoseDataSourceImpl(private val applicationContext: Context) : PoseDataSour
     private fun unzip(sourceZip: File, targetDir: String) {
         val dir = File(targetDir)
         if (dir.exists().not()) dir.mkdir()
-        ImageUtils.unZip(sourceZip, targetDir)
+        unZip(sourceZip, targetDir)
     }
 
 

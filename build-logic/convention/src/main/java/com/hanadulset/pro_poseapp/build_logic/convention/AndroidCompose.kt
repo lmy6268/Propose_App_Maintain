@@ -21,7 +21,12 @@ internal fun Project.configureAndroidCompose(
             kotlinCompilerExtensionVersion = libs.findVersion("compose.compiler").get().toString()
         }
         dependencies {
-            implementation(platform(libs.getLibrary(NameAlias.Library.COMPOSE.BOM)))
+            val bom = libs.getLibrary("androidx.compose.composeBom")
+            val uiTooling = libs.getLibrary("androidx-compose-uiTooling")
+            val uiToolingPreview = libs.getLibrary("androidx-compose-uiToolingPreview")
+            implementation(platform(bom))
+            implementation(uiToolingPreview)
+            debugImplementation(uiTooling)
         }
 
     }

@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Size
-import android.util.SizeF
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ImageProcessDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.ModelRunnerDataSourceDataSourceImpl
@@ -15,7 +14,8 @@ import com.hanadulset.pro_poseapp.data.datasource.feature.CompDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.feature.PoseDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.ImageRepository
 import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseImageModel
-import com.hanadulset.pro_poseapp.utils.pose.PoseDataResult
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSizeF
+import com.hanadulset.pro_poseapp.utils.model.pose.RecommendPoseResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,7 +48,7 @@ class ImageRepositoryImpl @Inject constructor(@ApplicationContext private val ap
 
     override suspend fun getRecommendPose(
         backgroundBitmap: Bitmap
-    ): PoseDataResult = poseDataSourceImpl.recommendPose(backgroundBitmap)
+    ): RecommendPoseResult = poseDataSourceImpl.recommendPose(backgroundBitmap)
 
 
     override fun getFixedScreen(backgroundBitmap: Bitmap): Bitmap =
@@ -79,7 +79,7 @@ class ImageRepositoryImpl @Inject constructor(@ApplicationContext private val ap
                 )
             )
         } else {
-            MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri);
+            MediaStore.Images.Media.getBitmap(applicationContext.contentResolver, uri)
         }
 
         backgroundBitmap.copy(Bitmap.Config.ARGB_8888,true).run {
@@ -101,8 +101,8 @@ class ImageRepositoryImpl @Inject constructor(@ApplicationContext private val ap
 
     override suspend fun updateOffsetPoint(
         backgroundBitmap: Bitmap,
-        targetOffset: SizeF
-    ): SizeF? =
+        targetOffset: ProPoseSizeF
+    ): ProPoseSizeF? =
         imageProcessDataSource.useOpticalFlow(
             targetOffset = targetOffset,
             bitmap = backgroundBitmap

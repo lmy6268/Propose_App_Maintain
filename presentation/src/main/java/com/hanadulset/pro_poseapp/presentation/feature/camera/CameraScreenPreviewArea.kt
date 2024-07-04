@@ -2,7 +2,6 @@ package com.hanadulset.pro_poseapp.presentation.feature.camera
 
 import android.graphics.Bitmap
 import android.util.LayoutDirection
-import android.util.SizeF
 import android.view.MotionEvent
 import androidx.camera.core.MeteringPoint
 import androidx.camera.view.PreviewView
@@ -29,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -63,10 +63,16 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Dimension
 import coil.size.Scale
-import com.hanadulset.pro_poseapp.utils.pose.PoseData
+import com.hanadulset.pro_poseapp.utils.model.common.ProPoseSizeF
+import com.hanadulset.pro_poseapp.utils.model.common.SavableHolder
+import com.hanadulset.pro_poseapp.utils.model.pose.Pose
 import kotlinx.coroutines.delay
 
 object CameraScreenPreviewArea {
+    val previewSaveHolder = Saver<SavableHolder<ProPoseSizeF?>, ProPoseSizeF>(
+        save = { it.value },
+        restore = { SavableHolder(it) }
+    )
     private fun focusPointMovement(
         motionEvent: MotionEvent,
         updateValue: (Offset?) -> Unit,
@@ -105,8 +111,8 @@ object CameraScreenPreviewArea {
     @Composable
     fun PreviewArea(
         modifier: Modifier = Modifier,
-        poseData: () -> PoseData?,
-        poseOffsetState: () -> SizeF?,
+        poseData: () -> Pose?,
+        poseOffsetState: () -> ProPoseSizeF?,
         poseScaleState: () -> Float,
         capturedState: () -> Boolean,
         preview: () -> PreviewView,
@@ -120,14 +126,14 @@ object CameraScreenPreviewArea {
         triggerNewPoint: (DpSize) -> Unit,
         onStopCaptureAnimation: () -> Unit,
         onStopTrackPoint: () -> Unit,
-        onPoseChangeOffset: (SizeF) -> Unit,
+        onPoseChangeOffset: (ProPoseSizeF) -> Unit,
         onPointMatched: (() -> Boolean) -> Unit,
         onLimitMaxScale: (Float) -> Unit
     ) {
         val localDensity = LocalDensity.current
 
 
-        val previewViewSize = rememberSaveable { mutableStateOf(SizeF(0F, 0F)) }
+        val previewViewSize = rememberSaveable { mutableStateOf(ProPoseSizeF(0F, 0F)) }
 
         //카메라 촬영 시, 촬영 Effect
         val flashColor by animateColorAsState(
@@ -157,7 +163,7 @@ object CameraScreenPreviewArea {
                     .animateContentSize { _, _ -> }
                     .onSizeChanged {
                         previewViewSize.value = localDensity.run {
-                            SizeF(it.width.toDp().value, it.height.toDp().value)
+                            ProPoseSizeF(it.width.toDp().value, it.height.toDp().value)
                         }
                     }
                     .pointerInteropFilter(RequestDisallowInterceptTouchEvent()) { motionEvent ->
@@ -248,7 +254,7 @@ object CameraScreenPreviewArea {
         val animationSize = remember {
             AnimationState(150F)
         }
-        val rectSize = Size(animationSize.value, animationSize.value)
+        val rectSize = ProPoseSizeF(animationSize.value, animationSize.value)
         LaunchedEffect(animationSize) {
             animationSize.animateTo(
                 targetValue = 100F, animationSpec = tween(durationMillis = 200)
@@ -260,7 +266,7 @@ object CameraScreenPreviewArea {
             drawRect(
                 color = color, topLeft = pointer.copy(
                     pointer.x - rectSize.width / 2, pointer.y - rectSize.height / 2
-                ), size = rectSize, style = Stroke(
+                ), size = Size(rectSize.width, rectSize.height), style = Stroke(
                     width = 3.dp.toPx()
                 )
             )
@@ -288,12 +294,12 @@ object CameraScreenPreviewArea {
     @Composable
     fun ShowingPoseScreen(
         modifier: Modifier = Modifier,
-        previewViewSize: () -> SizeF,
-        poseData: PoseData,
+        previewViewSize: () -> ProPoseSizeF,
+        poseData: Pose,
         poseScale: () -> Float,
-        poseOffset: () -> SizeF?,
+        poseOffset: () -> ProPoseSizeF?,
         onLimitMaxScale: (Float) -> Unit,
-        onChangeOffset: (SizeF) -> Unit //오프셋을 이동시키면, 이 메소드가 실행됨
+        onChangeOffset: (ProPoseSizeF) -> Unit //오프셋을 이동시키면, 이 메소드가 실행됨
     ) {
         val localDensity = LocalDensity.current
         //현재 포즈 아이템
@@ -302,7 +308,7 @@ object CameraScreenPreviewArea {
         val offsetOfPose by rememberUpdatedState(newValue = poseOffset())
         val boxSize by rememberUpdatedState(newValue = localDensity.run {
             previewViewSize().let {
-                SizeF(it.width.dp.toPx(), it.height.dp.toPx())
+                ProPoseSizeF(it.width.dp.toPx(), it.height.dp.toPx())
             }
         })
 
@@ -325,9 +331,9 @@ object CameraScreenPreviewArea {
                 val poseItemSize = remember {
                     localDensity.run {
                         mutableStateOf(
-                            Size(
-                                (boxSize.width * poseItem.sizeRate.width),
-                                (boxSize.height * poseItem.sizeRate.height)
+                            ProPoseSizeF(
+                                (boxSize.width * poseItem.aspect.width),
+                                (boxSize.height * poseItem.aspect.height)
                             )
                         )
                     }
@@ -341,14 +347,14 @@ object CameraScreenPreviewArea {
                                 offsetOfPose!!.height + poseItemSize.value.height
                             )
                             else Offset(
-                                boxSize.width * poseItem.bottomCenterRate.width + poseItemSize.value.width / 2,
-                                boxSize.height * poseItem.bottomCenterRate.height + poseItemSize.value.height / 2
+                                boxSize.width * poseItem.bottomCenterAspect.width + poseItemSize.value.width / 2,
+                                boxSize.height * poseItem.bottomCenterAspect.height + poseItemSize.value.height / 2
                             )
                         )
                     }
                 }
                 //포즈 이미지 페인터
-                val painter by rememberUpdatedState(newValue = poseItem.imageUri?.run {
+                val painter by rememberUpdatedState(newValue = poseItem.imageSrcUri?.run {
                     rememberAsyncImagePainter(
                         model = ImageRequest.Builder(LocalContext.current).data(this).size(
                             coil.size.Size(
@@ -381,7 +387,7 @@ object CameraScreenPreviewArea {
                                     if (originImageSize.width > originImageSize.height) poseItemSize.value.width / originImageSize.width
                                     else poseItemSize.value.height / originImageSize.height
                                 poseItemSize.value = originImageSize.run {
-                                    Size(
+                                    ProPoseSizeF(
                                         width = width * scale, height = height * scale
                                     )
                                 }
@@ -405,8 +411,8 @@ object CameraScreenPreviewArea {
                                 )
                                 else {
                                     Offset(
-                                        boxSize.width * poseItem.bottomCenterRate.width - (poseItemSize.value.width / 2),
-                                        boxSize.height * poseItem.bottomCenterRate.height - poseItemSize.value.height
+                                        boxSize.width * poseItem.bottomCenterAspect.width - (poseItemSize.value.width / 2),
+                                        boxSize.height * poseItem.bottomCenterAspect.height - poseItemSize.value.height
                                     )
                                 }
                             )
@@ -416,7 +422,7 @@ object CameraScreenPreviewArea {
                     val calculateMaxScale: () -> Float = {
                         val nowPoseTopLeftOffset = poseTopLeftOffset.value
                         val originPoseSize = poseItemSize.value
-                        val maxSize = SizeF(
+                        val maxSize = ProPoseSizeF(
                             boxSize.width - nowPoseTopLeftOffset.x,
                             boxSize.height - nowPoseTopLeftOffset.y
                         )
@@ -443,7 +449,7 @@ object CameraScreenPreviewArea {
                             currentPoseSize
                         )
                         .onSizeChanged {
-                            poseItemSize.value = Size(
+                            poseItemSize.value = ProPoseSizeF(
                                 it.width.toFloat(), it.height.toFloat()
                             )
                         }
@@ -479,7 +485,12 @@ object CameraScreenPreviewArea {
                                         )
                                     )
                                 }
-                                onChangeOffset(poseTopLeftOffset.value.run { SizeF(x, y) })
+                                onChangeOffset(poseTopLeftOffset.value.run {
+                                    ProPoseSizeF(
+                                        x,
+                                        y
+                                    )
+                                })
                             }
                         }
 //                        .mirror()

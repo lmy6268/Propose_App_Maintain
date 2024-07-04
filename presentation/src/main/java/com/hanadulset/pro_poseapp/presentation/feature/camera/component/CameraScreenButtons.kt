@@ -1,4 +1,4 @@
-package com.hanadulset.pro_poseapp.presentation.feature.camera
+package com.hanadulset.pro_poseapp.presentation.feature.camera.component
 
 import android.os.SystemClock
 import androidx.compose.animation.animateContentSize
@@ -75,7 +75,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.LocalColors
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.component.CameraScreenButtons.SwitchableButton
 
 object CameraScreenButtons {
     val pretendardFamily = FontFamily(
@@ -91,8 +91,8 @@ object CameraScreenButtons {
             defaultColor: Color = Color.Unspecified,
             alphaColor: Color = Color.Black
         ) {
-            this.defaultColor = defaultColor
-            this.alphaColor = alphaColor
+            LocalButtonRippleTheme.defaultColor = defaultColor
+            LocalButtonRippleTheme.alphaColor = alphaColor
         }
 
         @Composable

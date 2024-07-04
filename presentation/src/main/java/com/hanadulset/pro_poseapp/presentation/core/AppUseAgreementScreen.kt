@@ -17,7 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -86,7 +86,7 @@ object AppUseAgreementScreen {
                             lineHeight = LocalDensity.current.run { (buttonSize + 5.dp).toSp() }
                         )
                     )
-                    Divider()
+                    HorizontalDivider()
                     Row(
                         modifier = Modifier
                             .padding(horizontal = 5.dp)

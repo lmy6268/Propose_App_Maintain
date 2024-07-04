@@ -28,7 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,19 +50,19 @@ import com.hanadulset.pro_poseapp.presentation.component.LocalColors
 import com.hanadulset.pro_poseapp.presentation.component.LocalTypography
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents.SettingBoxItem
-import com.hanadulset.pro_poseapp.utils.UserSet
+import com.hanadulset.pro_poseapp.utils.model.user.ProPoseAppSettings
 
 
 object SettingScreen {
     @Composable
     fun Screen(
         modifier: Modifier = Modifier,
-        userSet: UserSet,
-        onSaveUserSet: (UserSet) -> Unit,
+        proPoseAppSettings: ProPoseAppSettings,
+        onSaveUserSet: (ProPoseAppSettings) -> Unit,
         onBackPressed: () -> Unit
     ) {
         val setState = remember {
-            mutableStateOf(userSet)
+            mutableStateOf(proPoseAppSettings)
         }
         BackHandler(
             enabled = true
@@ -95,8 +95,8 @@ object SettingScreen {
         LaunchedEffect(key1 = setState.value) {
             setState.value.run {
                 onSaveUserSet(
-                    UserSet(
-                        isCompOn, isPoseOn
+                    ProPoseAppSettings(
+                        isCompRecommendationEnabled, isPoseRecommendationEnabled
                     )
                 )
             }
@@ -183,29 +183,29 @@ object SettingScreen {
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(text = "앱 설정", style = LocalTypography.current.heading01)
-                            Divider()
+                            HorizontalDivider()
                         }
                         UIComponents.SettingBoxItemWithToggle(
                             modifier = Modifier.fillMaxWidth(),
                             innerText = "구도 추천",
-                            isToggled = { setState.value.isCompOn },
+                            isToggled = { setState.value.isCompRecommendationEnabled },
                             onToggleEvent = {
-                                setState.value = setState.value.copy(isCompOn = it)
+                                setState.value = setState.value.copy(isCompRecommendationEnabled = it)
                             }
                         )
                         UIComponents.SettingBoxItemWithToggle(
                             modifier = Modifier.fillMaxWidth(),
                             innerText = "포즈 추천",
-                            isEnabled = { setState.value.isCompOn },
-                            isToggled = { setState.value.isPoseOn },
+                            isEnabled = { setState.value.isCompRecommendationEnabled },
+                            isToggled = { setState.value.isPoseRecommendationEnabled },
                             onToggleEvent = {
-                                setState.value = setState.value.copy(isPoseOn = it)
+                                setState.value = setState.value.copy(isPoseRecommendationEnabled = it)
                             }
                         )
 
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(text = "앱 정보", style = LocalTypography.current.heading01)
-                            Divider()
+                            HorizontalDivider()
                         }
                         SettingBoxItem(
                             modifier = Modifier.fillMaxWidth(),
@@ -297,7 +297,7 @@ object SettingScreen {
 @Composable
 fun TestSettingScreen() {
     SettingScreen.Screen(
-        userSet = UserSet(true),
+        proPoseAppSettings = ProPoseAppSettings(true),
         onSaveUserSet = {
 
         },

@@ -16,9 +16,9 @@ import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
 import com.hanadulset.pro_poseapp.data.datasource.CameraDataSourceImpl
 import com.hanadulset.pro_poseapp.data.datasource.FileHandleDataSourceImpl
 import com.hanadulset.pro_poseapp.domain.repository.CameraRepository
-import com.hanadulset.pro_poseapp.utils.ImageUtils
 import com.hanadulset.pro_poseapp.utils.eventlog.AnalyticsManager
 import com.hanadulset.pro_poseapp.utils.eventlog.CaptureEventData
+import com.hanadulset.pro_poseapp.utils.image.imageToBitmap
 import com.hanadulset.pro_poseapp.utils.model.camera.PreviewResolutionData
 import com.hanadulset.pro_poseapp.utils.model.camera.ProPoseCameraState
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -84,7 +84,7 @@ class CameraRepositoryImpl @Inject constructor(@ApplicationContext private val a
         return cameraDataSource.takePhoto()
             .let { data ->
                 val capturedImageBitmap = data.use {
-                    ImageUtils.imageToBitmap(
+                    imageToBitmap(
                         it.image!!,
                         it.imageInfo.rotationDegrees
                     )

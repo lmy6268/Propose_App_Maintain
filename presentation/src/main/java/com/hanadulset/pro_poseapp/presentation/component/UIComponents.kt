@@ -36,7 +36,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.hanadulset.pro_poseapp.presentation.R
 import com.hanadulset.pro_poseapp.presentation.component.UIComponents.SettingBoxItem
-import com.hanadulset.pro_poseapp.presentation.feature.camera.CameraScreenButtons.SwitchableButton
+import com.hanadulset.pro_poseapp.presentation.feature.camera.component.CameraScreenButtons.SwitchableButton
 
 object UIComponents {
 
