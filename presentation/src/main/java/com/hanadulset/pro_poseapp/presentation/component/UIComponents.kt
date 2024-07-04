@@ -58,15 +58,6 @@ object UIComponents {
     }
 
 
-    //구도 버튼 아이콘
-    @Composable
-    fun CompIconButton(
-
-    ) {
-
-    }
-
-
     //슬라이드 되는 애니메이션 적용할 컴포넌트
     @Composable
     fun AnimatedSlideToLeft(
