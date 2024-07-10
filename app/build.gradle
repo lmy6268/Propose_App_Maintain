@@ -5,12 +5,29 @@ plugins {
     id 'com.google.android.gms.oss-licenses-plugin'
     id 'com.google.devtools.ksp'
 }
+Properties keyProperties = new Properties()
+keyProperties.load(project.rootProject.file('keystore.properties').newDataInputStream())
+
 
 android {
     namespace 'com.hanadulset.pro_poseapp'
     packagingOptions {
         jniLibs.pickFirsts += "**/libc++_shared.so"
     }
+    signingConfigs {
+        release {
+            storeFile = file(keyProperties["SIGNED_STORE_FILE"] as String)
+            storePassword = keyProperties["SIGNED_STORE_PASSWORD"] as String
+            keyAlias = keyProperties["SIGNED_KEY_ALIAS"] as String
+            keyPassword = keyProperties["SIGNED_KEY_PASSWORD"] as String
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.release
+        }
+    }
+
 
 }
 
