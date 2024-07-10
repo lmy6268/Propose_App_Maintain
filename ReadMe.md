@@ -19,7 +19,7 @@ Pro_Pose는 Pro와 Pose의 합성어로 "인물 사진 포즈의 프로"라는 �
   |---|---|
   | <img src="./readme_sources/pose_recommend.gif" width ="200"/>|<img src="./readme_sources/guide_point.gif" width ="200"/> |
   |AI가 화면에 비치는 카메라 화면을 분석하여, 적합한 포즈 이미지를 추천해줍니다. |AI가 화면에 비치는 카메라 화면을 분석하여, 안정적인 사진의 구도에 대한 가이드를 제공합니다.|
-  |
+
   
 
 | <b>잠금</b>| <b>포즈 따오기</b> |
